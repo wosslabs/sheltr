@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: sheltr-backend
+  datasource:
+    url: jdbc:postgresql://localhost:5432/sheltr
+    username: sheltr
+    password: sheltr
+  flyway:
+    enabled: true
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
