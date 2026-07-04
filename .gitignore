@@ -1,0 +1,23 @@
+# Java / Maven
+target/
+*.class
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# Flutter (placeholder for Phase 3)
+apps/mobile/.dart_tool/
+apps/mobile/build/
+
+# Node (placeholder for admin-web)
+node_modules/
+dist/
+
+# Env
+.env
+.env.local
