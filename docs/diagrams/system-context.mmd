@@ -1,0 +1,19 @@
+C4Context
+  title Sheltr — System Context
+
+  Person(citizen, "Citizen", "Disaster-affected mobile app user")
+  Person(admin, "Admin", "Curates and reviews ingested source documents")
+
+  System(sheltr, "Sheltr Disaster Response Assistant", "RAG platform answering disaster-response questions with cited, grounded answers")
+
+  System_Ext(gemini, "Google Gemini", "Embeddings, generation, query rewriting, HyDE")
+  System_Ext(sources, "FEMA / American Red Cross / WHO / UNOCHA", "Government and NGO guidance documents")
+  System_Ext(fcm, "Firebase Cloud Messaging", "Push notifications (future phase)")
+  System_Ext(maps, "Google Maps", "Shelter/hospital mapping (future phase)")
+
+  Rel(citizen, sheltr, "Asks disaster-response questions")
+  Rel(admin, sheltr, "Reviews and curates ingested content")
+  Rel(sheltr, gemini, "Embeddings + generation calls")
+  Rel(sheltr, sources, "Pulls source documents (ingestion)")
+  Rel(sheltr, fcm, "Sends push alerts", "future")
+  Rel(sheltr, maps, "Renders shelter/hospital locations", "future")
