@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Stand up the Sheltr monorepo's architectural foundation — repo scaffold, ADRs, C4 diagrams, domain model doc, OpenAPI contract, docker-compose Postgres+pgvector, and a Spring Boot Maven skeleton (empty hexagonal packages, Flyway migrations, Testcontainers migration test) — per `docs/superpowers/specs/2026-07-04-phase1-foundation-design.md`.
+**Goal:** Stand up the Sheltr monorepo's architectural foundation — repo scaffold, ADRs, C4 diagrams, domain model doc, OpenAPI contract, Podman Compose Postgres+pgvector, and a Spring Boot Maven skeleton (empty hexagonal packages, Flyway migrations, Testcontainers migration test) — per `docs/superpowers/specs/2026-07-04-phase1-foundation-design.md`.
 
 **Architecture:** Plain-folder monorepo (no Turborepo/Nx). Backend is one Spring Boot Maven module (`apps/backend`) with Java packages organized per bounded context (`knowledge`, `search`, `ingestion`, `ai`), each split into `domain/application/infrastructure/interfaces/config` sub-packages (hexagonal). No business logic yet — this phase only proves the skeleton compiles, migrations run, and schemas materialize correctly in Postgres+pgvector via a Testcontainers test.
 
-**Tech Stack:** Java 25, Spring Boot 3.5.x, Maven, PostgreSQL 16 + pgvector (`pgvector/pgvector:pg16` image), Flyway 10, jOOQ 3.19 (codegen configured, not yet consumed), Testcontainers 1.20, JUnit 5.
+**Tech Stack:** Java 25, Spring Boot 3.5.x, Maven, PostgreSQL 16 + pgvector (`pgvector/pgvector:pg16` image), Flyway 10, jOOQ 3.19 (codegen configured, not yet consumed), Testcontainers 1.20, JUnit 5, Podman / Podman Desktop (container runtime — no Docker CLI dependency, ADR-0010).
 
 ## Global Constraints
 
@@ -16,6 +16,7 @@
 - No cross-schema foreign key from `ingestion` into `knowledge` (ADR/spec Section 6) — the only cross-schema FK allowed is `ai.citations.chunk_id → knowledge.chunks.id`.
 - License: Apache 2.0 (ADR-0009).
 - Diagram format: Mermaid only (no PlantUML).
+- Container runtime: Podman only (ADR-0010) — no committed file may assume a `docker` CLI is present; use `podman compose` / `podman` throughout.
 
 ---
 
@@ -27,7 +28,7 @@
 - Create: `/Users/giyu/Development/aiprojects/sheltr/Makefile`
 
 **Interfaces:**
-- Produces: `make up` / `make down` (docker-compose lifecycle, wired to Task 6's compose file), `make build` / `make test` (delegates to `apps/backend`, wired in Task 7).
+- Produces: `make up` / `make down` (Podman Compose lifecycle, wired to Task 6's compose file), `make build` / `make test` (delegates to `apps/backend`, wired in Task 7), `make migrate` (applies Flyway migrations directly against a running `make up` Postgres, without booting the app).
 
 - [ ] **Step 1: Create `.gitignore`**
 
@@ -68,19 +69,22 @@ Copyright 2026 Sheltr Contributors
 - [ ] **Step 3: Create `Makefile`**
 
 ```makefile
-.PHONY: up down build test
+.PHONY: up down build test migrate
 
 up:
-	docker compose -f infra/docker/docker-compose.yml up -d
+	podman compose -f infra/podman/compose.yaml up -d
 
 down:
-	docker compose -f infra/docker/docker-compose.yml down
+	podman compose -f infra/podman/compose.yaml down
 
 build:
 	cd apps/backend && mvn -q -DskipTests package
 
 test:
 	cd apps/backend && mvn -q test
+
+migrate:
+	cd apps/backend && mvn -q flyway:migrate
 ```
 
 - [ ] **Step 4: Commit**
@@ -982,15 +986,18 @@ git commit -m "docs: add Phase 1 OpenAPI contract for core RAG endpoints"
 
 ---
 
-### Task 6: Docker Compose (Postgres + pgvector)
+### Task 6: Podman Compose (Postgres + pgvector)
 
 **Files:**
-- Create: `infra/docker/docker-compose.yml`
+- Create: `infra/podman/compose.yaml`
 
 **Interfaces:**
 - Produces: Postgres reachable at `localhost:5432`, database `sheltr`, user/password `sheltr`/`sheltr` (local dev only), extension `vector` installable. Consumed by Task 7's `application.yml` and Task 9's Testcontainers test (Testcontainers starts its own container, independent of this compose file, but uses the same image tag for parity).
 
-- [ ] **Step 1: Write `infra/docker/docker-compose.yml`**
+Requires Podman Desktop (or the Podman CLI with a running machine) — no `docker` CLI
+dependency anywhere in this project (ADR-0010).
+
+- [ ] **Step 1: Write `infra/podman/compose.yaml`**
 
 ```yaml
 services:
@@ -1019,19 +1026,19 @@ volumes:
 
 Run:
 ```bash
-docker compose -f infra/docker/docker-compose.yml up -d
-docker exec sheltr-postgres pg_isready -U sheltr -d sheltr
-docker exec sheltr-postgres psql -U sheltr -d sheltr -c "CREATE EXTENSION IF NOT EXISTS vector;"
-docker exec sheltr-postgres psql -U sheltr -d sheltr -c "SELECT extname FROM pg_extension WHERE extname = 'vector';"
-docker compose -f infra/docker/docker-compose.yml down
+podman compose -f infra/podman/compose.yaml up -d
+podman exec sheltr-postgres pg_isready -U sheltr -d sheltr
+podman exec sheltr-postgres psql -U sheltr -d sheltr -c "CREATE EXTENSION IF NOT EXISTS vector;"
+podman exec sheltr-postgres psql -U sheltr -d sheltr -c "SELECT extname FROM pg_extension WHERE extname = 'vector';"
+podman compose -f infra/podman/compose.yaml down
 ```
 Expected: `pg_isready` reports `accepting connections`; the `SELECT` returns one row `vector`.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add infra/docker/docker-compose.yml
-git commit -m "infra: add docker-compose for Postgres + pgvector"
+git add infra/podman/compose.yaml
+git commit -m "infra: add Podman Compose for Postgres + pgvector"
 ```
 
 ---
@@ -1382,7 +1389,7 @@ This test can't fail on "missing migrations" since Task 8 already added them —
 - [ ] **Step 3: Run the test to verify it passes**
 
 Run: `cd apps/backend && mvn -q test -Dtest=MigrationIntegrationTest`
-Expected: `BUILD SUCCESS`, test passes (requires Docker running locally for Testcontainers).
+Expected: `BUILD SUCCESS`, test passes (requires Podman running locally for Testcontainers — ADR-0010).
 
 - [ ] **Step 4: Add AssertJ dependency (used by the test) if not already transitively present**
 
@@ -1694,8 +1701,8 @@ becomes a real problem worth solving. Empty until then.
 # Kubernetes manifests (placeholder)
 
 Kubernetes deployment manifests for the backend and future services.
-Built in the Deployment phase per the product brief. `infra/docker`
-(docker-compose) is the only deployment target this phase. Empty until
+Built in the Deployment phase per the product brief. `infra/podman`
+(Podman Compose) is the only deployment target this phase. Empty until
 then.
 ```
 
@@ -1753,16 +1760,20 @@ Backend RAG implementation, mobile app, and deployment are future phases.
 - `docs/adr` — architecture decision records
 - `docs/architecture` — C4 diagrams and domain model
 - `docs/openapi` — API contract
-- `infra/docker` — local development environment (Postgres + pgvector)
+- `infra/podman` — local development environment (Postgres + pgvector)
 - `infra/k8s` — Kubernetes manifests (placeholder)
 
 ## Local development
 
+Requires [Podman Desktop](https://podman-desktop.io/) (or the Podman CLI with a running
+machine) — this project targets Podman only, not Docker Desktop.
+
 ```bash
-make up      # start Postgres + pgvector
-make build   # build the backend
-make test    # run backend tests (includes Testcontainers migration test — needs Docker)
-make down    # stop Postgres
+make up       # start Postgres + pgvector (podman compose)
+make migrate  # apply Flyway migrations directly, without booting the app
+make build    # build the backend
+make test     # run backend tests (includes Testcontainers migration test — needs Podman)
+make down     # stop Postgres
 ```
 
 ## License
@@ -1794,3 +1805,29 @@ Expected: `BUILD SUCCESS`.
 git log --oneline
 ```
 Expected: 12+ commits, one per task (Task 9's commit may follow Task 8's directly; that's fine — each task still got its own commit).
+
+---
+
+## Amendments (post-implementation)
+
+Applied after the 12 tasks above were implemented and individually reviewed, during the
+final whole-branch review pass:
+
+1. **Podman replaces Docker as the supported container runtime (ADR-0010).** Task 6's
+   `infra/docker/docker-compose.yml` was renamed to `infra/podman/compose.yaml`; the
+   Makefile's `up`/`down` targets (Task 1) and all verification commands throughout this
+   plan now use `podman compose` / `podman exec` rather than `docker compose` / `docker exec`.
+   Rationale: the project's reference development environment has no `docker` CLI installed
+   at all, only Podman — see ADR-0010 for full context. No functional behavior changed;
+   Podman is Docker-API-compatible for everything this project uses a container runtime for
+   (Compose, Testcontainers).
+
+2. **`make migrate` target and `flyway-maven-plugin` added.** The final whole-branch review
+   found that Task 10's documented jOOQ codegen workflow (`make up` → `mvn generate-sources
+   -Pjooq-codegen`) had no step to actually apply the Flyway migrations first — the
+   `knowledge` schema only materializes today via Flyway-on-startup when the Spring Boot app
+   boots, which codegen doesn't do. Added `flyway-maven-plugin` to `apps/backend/pom.xml`
+   (not bound to any lifecycle phase, invoked manually) and a `migrate` target to the root
+   `Makefile` (`cd apps/backend && mvn -q flyway:migrate`). Verified end-to-end: `make up` →
+   `make migrate` → `mvn generate-sources -Pjooq-codegen` now produces the expected generated
+   classes with no manual `psql` steps required.

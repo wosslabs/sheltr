@@ -25,16 +25,20 @@ Backend RAG implementation, mobile app, and deployment are future phases.
 - `docs/adr` — architecture decision records
 - `docs/architecture` — C4 diagrams and domain model
 - `docs/openapi` — API contract
-- `infra/docker` — local development environment (Postgres + pgvector)
+- `infra/podman` — local development environment (Postgres + pgvector)
 - `infra/k8s` — Kubernetes manifests (placeholder)
 
 ## Local development
 
+Requires [Podman Desktop](https://podman-desktop.io/) (or the Podman CLI with a running
+machine) — this project targets Podman only, not Docker Desktop.
+
 ```bash
-make up      # start Postgres + pgvector
-make build   # build the backend
-make test    # run backend tests (includes Testcontainers migration test — needs Docker)
-make down    # stop Postgres
+make up       # start Postgres + pgvector (podman compose)
+make migrate  # apply Flyway migrations directly, without booting the app
+make build    # build the backend
+make test     # run backend tests (includes Testcontainers migration test — needs Podman)
+make down     # stop Postgres
 ```
 
 ## License

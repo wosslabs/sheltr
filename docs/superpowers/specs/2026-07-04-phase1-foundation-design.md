@@ -41,12 +41,12 @@ sheltr/
 │   └── shared-test/         # placeholder
 ├── docs/
 │   ├── architecture/        # C4 diagrams doc, domain model doc (this phase)
-│   ├── adr/                 # ADR-0001..0009 (this phase)
+│   ├── adr/                 # ADR-0001..0010 (this phase)
 │   ├── diagrams/             # Mermaid diagram sources (this phase)
 │   ├── openapi/              # openapi.yaml (this phase)
 │   └── superpowers/specs/    # this spec and future specs
 ├── infra/
-│   ├── docker/               # docker-compose.yml (Postgres+pgvector), built this phase
+│   ├── podman/               # compose.yaml (Postgres+pgvector), built this phase
 │   └── k8s/                   # placeholder, later phase
 ├── .github/
 │   └── workflows/            # placeholder, CI built in a later phase
@@ -103,6 +103,10 @@ stored as `docs/adr/NNNN-title.md`:
   guarantee and shapes the AI context design in Section 4.
 - **ADR-0009** — Apache 2.0 license (patent grant clause, consistent with the
   Spring/Google-adjacent ecosystem this stack builds on).
+- **ADR-0010** — Podman (not Docker) is the project's supported container runtime for local
+  development. `infra/podman/compose.yaml` is invoked via `podman compose`; the Makefile,
+  README, and CI (when built) target Podman Desktop / the Podman CLI exclusively — no
+  `docker` CLI dependency anywhere in the committed tooling.
 
 ## 4. C4 Diagrams (Mermaid, Context + Container level only)
 
