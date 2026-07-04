@@ -1,0 +1,279 @@
+openapi: 3.0.3
+info:
+  title: Sheltr Disaster Response Knowledge Assistant API
+  version: "1.0"
+  description: >
+    Core RAG endpoints for Phase 1. Admin endpoints are unsecured in this
+    phase (no auth yet — see docs/adr, Security phase closes this gap);
+    they are already path-namespaced under /admin so authorization can
+    attach later without breaking clients.
+servers:
+  - url: /api/v1
+paths:
+  /conversations:
+    post:
+      summary: Start a new conversation
+      operationId: startConversation
+      responses:
+        "201":
+          description: Conversation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+  /conversations/{id}:
+    get:
+      summary: Get conversation history
+      operationId: getConversation
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+      responses:
+        "200":
+          description: Conversation with message history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+        "404":
+          description: Conversation not found
+  /conversations/{id}/ask:
+    post:
+      summary: Ask a question in this conversation (non-streaming)
+      operationId: askQuestion
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AskRequest"
+      responses:
+        "200":
+          description: Generated, citation-grounded answer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+  /conversations/{id}/ask/stream:
+    post:
+      summary: Ask a question in this conversation (streaming, SSE)
+      operationId: askQuestionStream
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AskRequest"
+      responses:
+        "200":
+          description: Server-sent event stream of answer tokens, terminated by a final Message event
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /documents/{id}:
+    get:
+      summary: Get document metadata
+      operationId: getDocument
+      parameters:
+        - $ref: "#/components/parameters/DocumentId"
+      responses:
+        "200":
+          description: Document metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentMetadata"
+        "404":
+          description: Document not found
+  /documents/{id}/citations:
+    get:
+      summary: Get chunks/pages cited from this document
+      operationId: getDocumentCitations
+      parameters:
+        - $ref: "#/components/parameters/DocumentId"
+      responses:
+        "200":
+          description: Citations referencing this document
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Citation"
+  /admin/ingestion/runs:
+    post:
+      summary: Trigger ingestion for a source
+      operationId: triggerIngestionRun
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TriggerIngestionRequest"
+      responses:
+        "202":
+          description: Ingestion run accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestionRun"
+  /admin/ingestion/runs/{id}:
+    get:
+      summary: Get ingestion run status
+      operationId: getIngestionRun
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Ingestion run status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestionRun"
+        "404":
+          description: Ingestion run not found
+components:
+  parameters:
+    ConversationId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    DocumentId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    AskRequest:
+      type: object
+      required: [question]
+      properties:
+        question:
+          type: string
+        disasterTypes:
+          type: array
+          items:
+            type: string
+            enum: [EARTHQUAKE, FLOOD, HURRICANE, TORNADO, TSUNAMI, WILDFIRE, EXTREME_HEAT, WINTER_STORM]
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        lastActiveAt:
+          type: string
+          format: date-time
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [USER, ASSISTANT]
+        content:
+          type: string
+        confidenceScore:
+          type: number
+          nullable: true
+        confidenceLevel:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+          nullable: true
+        citations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Citation"
+    Citation:
+      type: object
+      properties:
+        documentId:
+          type: string
+          format: uuid
+        chunkId:
+          type: string
+          format: uuid
+        sourceTitle:
+          type: string
+        sourceUrl:
+          type: string
+        pageNumber:
+          type: integer
+          nullable: true
+    DocumentMetadata:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        sourceAgency:
+          type: string
+        sourceUri:
+          type: string
+        disasterTypes:
+          type: array
+          items:
+            type: string
+        publishedDate:
+          type: string
+          format: date
+        version:
+          type: integer
+        status:
+          type: string
+          enum: [ACTIVE, SUPERSEDED, RETRACTED]
+    TriggerIngestionRequest:
+      type: object
+      required: [sourceUri, sourceType]
+      properties:
+        sourceUri:
+          type: string
+        sourceType:
+          type: string
+          enum: [PDF, HTML, MARKDOWN, TEXT, RSS_ITEM]
+    IngestionRun:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sourceDocumentId:
+          type: string
+          format: uuid
+        status:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
