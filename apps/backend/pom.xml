@@ -40,6 +40,10 @@
       <artifactId>flyway-database-postgresql</artifactId>
     </dependency>
     <dependency>
+      <!-- Pinned below the Spring Boot-managed version (42.7.5): pgjdbc 42.7.4+ changed
+           DatabaseMetaData.getImportedKeys()/getExportedKeys() column casing to lowercase,
+           which breaks jOOQ 3.19.11's PostgresDatabase.loadForeignKeys() codegen. Unpin once
+           jooq.version is upgraded past the 3.19.x line and codegen is re-verified. -->
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
       <version>42.7.3</version>
