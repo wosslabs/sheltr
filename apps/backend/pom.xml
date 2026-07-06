@@ -41,6 +41,14 @@
       <artifactId>spring-boot-starter-web</artifactId>
     </dependency>
     <dependency>
+      <!-- Provides the pooled javax.sql.DataSource bean (via HikariCP) that Spring Boot's
+           DataSourceAutoConfiguration wires up from the spring.datasource.* properties
+           already in application.yml. Needed so SeedEmbeddingsRunner can have a DataSource
+           autowired; nothing else in this app used a Spring-managed DataSource before. -->
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-jdbc</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>

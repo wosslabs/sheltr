@@ -1,4 +1,4 @@
-.PHONY: up down build test migrate
+.PHONY: up down build test migrate seed-embeddings
 
 up:
 	podman compose -f infra/podman/compose.yaml up -d
@@ -14,3 +14,6 @@ test:
 
 migrate:
 	cd apps/backend && mvn -q flyway:migrate
+
+seed-embeddings:
+	cd apps/backend && mvn -q spring-boot:run -Dspring-boot.run.arguments=seed-embeddings
