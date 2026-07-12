@@ -98,5 +98,8 @@ class AskQuestionServiceTest {
 
         @Override
         public void save(Conversation conversation) { this.saved = conversation; }
+
+        @Override
+        public List<Citation> findCitationsByDocumentId(DocumentId documentId) { return List.of(); }
     }
 }
