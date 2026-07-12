@@ -109,4 +109,23 @@ public class JooqConversationRepository implements ConversationRepository {
             });
         }
     }
+
+    @Override
+    public List<Citation> findCitationsByDocumentId(DocumentId documentId) {
+        var rows = dsl.fetch(
+                "SELECT c.chunk_id, ch.document_id, c.source_title, c.source_url, c.page_number "
+                        + "FROM ai.citations c JOIN knowledge.chunks ch ON ch.id = c.chunk_id "
+                        + "WHERE ch.document_id = ?",
+                documentId.value());
+        List<Citation> citations = new ArrayList<>();
+        for (Record row : rows) {
+            citations.add(new Citation(
+                    new DocumentId((UUID) row.get("document_id")),
+                    new ChunkId((UUID) row.get("chunk_id")),
+                    row.get("source_title", String.class),
+                    row.get("source_url", String.class),
+                    row.get("page_number", Integer.class)));
+        }
+        return citations;
+    }
 }
