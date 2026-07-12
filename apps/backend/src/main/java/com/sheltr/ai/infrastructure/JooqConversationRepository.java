@@ -81,23 +81,32 @@ public class JooqConversationRepository implements ConversationRepository {
                 Timestamp.from(conversation.createdAt()), Timestamp.from(conversation.lastActiveAt()));
 
         for (Message message : conversation.messages()) {
-            Double confidenceScore = message.confidence() == null ? null : message.confidence().score();
-            String confidenceLevel = message.confidence() == null ? null : message.confidence().level().name();
-            int inserted = dsl.execute(
-                    "INSERT INTO ai.messages (id, conversation_id, role, content, confidence_score, "
-                            + "confidence_level, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING",
-                    message.id().value(), conversation.id().value(), message.role().name(),
-                    message.content().value(), confidenceScore, confidenceLevel, Timestamp.from(Instant.now()));
+            // Each message's INSERT and its citations' INSERTs must commit atomically together:
+            // if a crash happens between the message insert and its citation inserts, the
+            // ON CONFLICT (id) DO NOTHING on retry would otherwise report 0 rows inserted and
+            // silently skip citations forever. Wrapping both in one jOOQ transaction ensures
+            // either both commit or both roll back, preserving the idempotency invariant.
+            dsl.transaction(configuration -> {
+                DSLContext txDsl = DSL.using(configuration);
 
-            if (inserted > 0) {
-                for (Citation citation : message.citations()) {
-                    dsl.execute(
-                            "INSERT INTO ai.citations (id, message_id, chunk_id, source_title, source_url, page_number) "
-                                    + "VALUES (?, ?, ?, ?, ?, ?)",
-                            UUID.randomUUID(), message.id().value(), citation.chunkId().value(),
-                            citation.sourceTitle(), citation.sourceUrl(), citation.pageNumber());
+                Double confidenceScore = message.confidence() == null ? null : message.confidence().score();
+                String confidenceLevel = message.confidence() == null ? null : message.confidence().level().name();
+                int inserted = txDsl.execute(
+                        "INSERT INTO ai.messages (id, conversation_id, role, content, confidence_score, "
+                                + "confidence_level, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING",
+                        message.id().value(), conversation.id().value(), message.role().name(),
+                        message.content().value(), confidenceScore, confidenceLevel, Timestamp.from(Instant.now()));
+
+                if (inserted > 0) {
+                    for (Citation citation : message.citations()) {
+                        txDsl.execute(
+                                "INSERT INTO ai.citations (id, message_id, chunk_id, source_title, source_url, page_number) "
+                                        + "VALUES (?, ?, ?, ?, ?, ?)",
+                                UUID.randomUUID(), message.id().value(), citation.chunkId().value(),
+                                citation.sourceTitle(), citation.sourceUrl(), citation.pageNumber());
+                    }
                 }
-            }
+            });
         }
     }
 }
