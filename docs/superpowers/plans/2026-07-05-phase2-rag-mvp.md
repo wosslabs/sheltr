@@ -3131,3 +3131,25 @@ Expected: a real, specific answer about insulin storage (referencing the seeded 
 ```bash
 git log --oneline
 ```
+
+---
+
+## Amendments (post-implementation)
+
+Applied during implementation and the final whole-branch review; this section documents where the shipped code diverges from this plan's original text, so the plan stays an accurate historical record.
+
+1. **Spring AI artifact/class/config corrections (Tasks 4, 8, 10, 14).** This plan's original code guessed at Spring AI's Google GenAI integration surface before it had ever been resolved against a real dependency tree. The guesses were wrong in several ways, discovered and fixed via genuine investigation (`mvn dependency:tree`, `javap`/`unzip -l` on the actual downloaded jars, decompiled `spring-configuration-metadata.json`, and — for the embedding model name specifically — a live 404 from Google's own API as negative evidence):
+   - `spring-ai.version`: `1.0.0` → `1.1.2` (Google GenAI integration didn't exist at 1.0.0).
+   - Embedding starter: `spring-ai-starter-model-google-genai` → `spring-ai-starter-model-google-genai-embedding`.
+   - Chat starter (a separate artifact this plan never named): `spring-ai-starter-model-google-genai`.
+   - Embedding classes: `GoogleGenAiEmbeddingModel`/`GoogleGenAiApi` (no such classes exist) → `GoogleGenAiTextEmbeddingModel`/`GoogleGenAiTextEmbeddingOptions`/`GoogleGenAiEmbeddingConnectionDetails`.
+   - Chat classes: the guessed `GoogleGenAiApi` + 2-arg `GoogleGenAiChatModel` constructor don't exist; real construction is
+     `com.google.genai.Client.builder().apiKey(...).build()` fed into `GoogleGenAiChatModel.builder().genAiClient(...).defaultOptions(...).build()`.
+   - Embedding model: `text-embedding-004` → `gemini-embedding-001` with `dimensions: 768` (the former is Vertex-AI-only, not available via the Google AI Studio API key path this project uses; the latter natively returns 3072 dimensions, truncated to 768 via Matryoshka representation learning through the `dimensions` option).
+   - Config property paths: `spring.ai.google.genai.embedding.options.model` → `spring.ai.google.genai.embedding.text.options.model`, plus a separate `spring.ai.google.genai.embedding.api-key` (the embedding properties don't fall back to the top-level `spring.ai.google.genai.api-key` in this Spring AI version).
+
+   Every one of these corrections was independently re-verified by the per-task reviewer against the real `.m2` artifacts (not just trusted from the implementer's report) before the task was approved.
+
+2. **Seed data produces 32 chunks, not "~34" (Task 5).** This plan's prose estimated ~34 seed chunks (4-5 per document × 8 disaster types); the SQL body it also specifies actually produces exactly 4 chunks per document × 8 documents = 32. The SQL is authoritative; the prose estimate was simply imprecise. No functional impact — Task 5's test threshold (`>= 30`) already accommodated this.
+
+3. **`JooqConversationRepository.save()` gained per-message transaction wrapping (Task 11, post-review fix).** The plan's original `save()` code executed the conversation upsert, each message insert, and each message's citation inserts as separate autocommit statements. The final whole-branch review's per-task pass found this left a partial-failure window: if the process crashed between a message's INSERT succeeding and its citations' INSERTs completing, the message would exist permanently without citations, and the idempotent `ON CONFLICT (id) DO NOTHING` retry logic would then skip re-inserting citations for that message forever. Fixed by wrapping each message's insert and that message's citation inserts in a single jOOQ transaction (`dsl.transaction(configuration -> {...})`), so they now commit or roll back atomically together. The conversation-row upsert and `findById()` were not changed — this fix is scoped narrowly to the per-message atomicity gap.
