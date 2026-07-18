@@ -39,14 +39,19 @@ public final class Chunker {
                     break;
                 }
                 int nextStart = Math.max(end - OVERLAP, start + 1);
-                if (text.charAt(nextStart) != ' ') {
+                boolean nextStartIsMidWord = nextStart > 0 && text.charAt(nextStart - 1) != ' ';
+                if (nextStartIsMidWord) {
                     // end - OVERLAP can land inside a word in non-periodic prose. Search
-                    // forward (bounded by the current chunk's end, not unbounded) for the
+                    // forward, unbounded (not limited to the current chunk's end), for the
                     // next space and snap to just past it so the next chunk starts on a
-                    // word boundary. If no space is found in that bounded range, fall back
-                    // to the unadjusted position rather than searching without bound.
+                    // word boundary. A long unbroken token (URL, DOI, identifier) near the
+                    // boundary could otherwise place the next space outside a bounded
+                    // window, silently reproducing a mid-word start. If no space exists
+                    // anywhere in the rest of the page's text, fall back to the unadjusted
+                    // position; this last-resort fallback mirrors the single-long-token
+                    // fallback on the `end` side above.
                     int forwardSpace = text.indexOf(' ', nextStart);
-                    if (forwardSpace >= 0 && forwardSpace < end) {
+                    if (forwardSpace >= 0) {
                         nextStart = forwardSpace + 1;
                     }
                 }
