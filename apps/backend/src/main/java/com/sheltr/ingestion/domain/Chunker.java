@@ -25,6 +25,11 @@ public final class Chunker {
                     if (lastSpace > start) {
                         end = lastSpace;
                     }
+                    // else: no space found in [start, end] (a single token longer than
+                    // CHUNK_SIZE). This is an intentional last-resort fallback that hard-cuts
+                    // mid-word rather than searching further backward without bound. Real
+                    // prose essentially never contains a token this long, so this branch is
+                    // accepted as-is rather than fixed.
                 }
                 String chunkText = text.substring(start, end).trim();
                 if (!chunkText.isBlank()) {
@@ -33,7 +38,19 @@ public final class Chunker {
                 if (end >= text.length()) {
                     break;
                 }
-                start = Math.max(end - OVERLAP, start + 1);
+                int nextStart = Math.max(end - OVERLAP, start + 1);
+                if (text.charAt(nextStart) != ' ') {
+                    // end - OVERLAP can land inside a word in non-periodic prose. Search
+                    // forward (bounded by the current chunk's end, not unbounded) for the
+                    // next space and snap to just past it so the next chunk starts on a
+                    // word boundary. If no space is found in that bounded range, fall back
+                    // to the unadjusted position rather than searching without bound.
+                    int forwardSpace = text.indexOf(' ', nextStart);
+                    if (forwardSpace >= 0 && forwardSpace < end) {
+                        nextStart = forwardSpace + 1;
+                    }
+                }
+                start = nextStart;
             }
         }
         return drafts;
