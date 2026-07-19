@@ -50,6 +50,18 @@ public class JooqChunkRepository implements ChunkRepository {
                 toVectorLiteral(embedding), chunk.id().value());
     }
 
+    @Override
+    public void insert(Chunk chunk) {
+        Embedding embedding = chunk.embedding().orElseThrow(
+                () -> new IllegalStateException("insert() requires the chunk to already have an embedding"));
+        dsl.execute(
+                "INSERT INTO knowledge.chunks (id, document_id, content, embedding, page_number, chunk_index, "
+                        + "section_heading, checksum) VALUES (?, ?, ?, ?::vector, ?, ?, ?, ?)",
+                chunk.id().value(), chunk.documentId().value(), chunk.content().value(),
+                toVectorLiteral(embedding), chunk.pageNumber().map(PageNumber::value).orElse(null),
+                chunk.chunkIndex(), chunk.metadata().sectionHeading(), chunk.checksum().hex());
+    }
+
     private static String toVectorLiteral(Embedding embedding) {
         float[] values = embedding.values();
         StringBuilder sb = new StringBuilder("[");

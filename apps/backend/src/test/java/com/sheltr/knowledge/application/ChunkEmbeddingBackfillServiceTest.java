@@ -44,6 +44,9 @@ class ChunkEmbeddingBackfillServiceTest {
 
         @Override
         public void save(Chunk chunk) { saved.add(chunk); }
+
+        @Override
+        public void insert(Chunk chunk) { throw new UnsupportedOperationException("not needed by this test"); }
     }
 
     private static class FakeEmbeddingGenerator implements EmbeddingGenerator {

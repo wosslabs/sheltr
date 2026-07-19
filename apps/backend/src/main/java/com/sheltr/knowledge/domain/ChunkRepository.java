@@ -7,4 +7,5 @@ public interface ChunkRepository {
     Optional<Chunk> findById(ChunkId id);
     List<Chunk> findPendingEmbeddings();
     void save(Chunk chunk);
+    void insert(Chunk chunk);
 }
