@@ -36,8 +36,17 @@ class GeminiAnswerGeneratorAdapterTest {
                 "https://www.redcross.org/floods", Set.of(DisasterType.FLOOD),
                 LocalDate.of(2023, 1, 1), new DocumentVersion(1), new Checksum("seed-fl-1"),
                 null, DocumentStatus.ACTIVE);
-        KnowledgeDocumentRepository documentRepository = id -> id.equals(documentId)
-                ? Optional.of(document) : Optional.empty();
+        KnowledgeDocumentRepository documentRepository = new KnowledgeDocumentRepository() {
+            @Override
+            public Optional<KnowledgeDocument> findById(DocumentId id) {
+                return id.equals(documentId) ? Optional.of(document) : Optional.empty();
+            }
+
+            @Override
+            public void save(KnowledgeDocument document) {
+                throw new UnsupportedOperationException("not needed by this test");
+            }
+        };
 
         GeminiAnswerGeneratorAdapter adapter = new GeminiAnswerGeneratorAdapter(chatModel, documentRepository);
 

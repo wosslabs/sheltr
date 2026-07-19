@@ -31,6 +31,21 @@ public class JooqKnowledgeDocumentRepository implements KnowledgeDocumentReposit
         return Optional.ofNullable(record).map(JooqKnowledgeDocumentRepository::mapRow);
     }
 
+    @Override
+    public void save(KnowledgeDocument document) {
+        String disasterTypesLiteral = "{" + document.disasterTypes().stream()
+                .map(Enum::name)
+                .collect(java.util.stream.Collectors.joining(",")) + "}";
+        dsl.execute(
+                "INSERT INTO knowledge.documents (id, title, source_agency, source_uri, source_type, "
+                        + "disaster_types, published_date, version, supersedes_id, status, checksum) "
+                        + "VALUES (?, ?, ?, ?, ?, ?::text[], ?, ?, ?, ?, ?)",
+                document.id().value(), document.title(), document.sourceAgency(), document.sourceUri(),
+                "PDF", disasterTypesLiteral, document.publishedDate(), document.version().value(),
+                document.supersedes().map(DocumentId::value).orElse(null),
+                document.status().name(), document.checksum().hex());
+    }
+
     private static KnowledgeDocument mapRow(Record record) {
         String[] disasterTypeNames = record.get("disaster_types", String[].class);
         Set<DisasterType> disasterTypes = Arrays.stream(disasterTypeNames)

@@ -4,4 +4,5 @@ import java.util.Optional;
 
 public interface KnowledgeDocumentRepository {
     Optional<KnowledgeDocument> findById(DocumentId id);
+    void save(KnowledgeDocument document);
 }
