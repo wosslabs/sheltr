@@ -31,29 +31,38 @@ public final class Chunker {
                     // prose essentially never contains a token this long, so this branch is
                     // accepted as-is rather than fixed.
                 }
+
+                int nextStart = end >= text.length() ? text.length() : Math.max(end - OVERLAP, start + 1);
+                if (end < text.length() && nextStart > 0 && text.charAt(nextStart - 1) != ' ') {
+                    // end - OVERLAP can land inside a word in non-periodic prose. Search
+                    // forward, unbounded (not limited to the current chunk's end), for the
+                    // next space and snap to just past it so the next chunk starts on a
+                    // word boundary.
+                    int forwardSpace = text.indexOf(' ', nextStart);
+                    if (forwardSpace >= 0) {
+                        if (forwardSpace >= end) {
+                            // The next safe word boundary sits beyond this chunk's current
+                            // end (e.g. a long unbroken token - URL, DOI, identifier - spans
+                            // the overlap window). Extend this chunk's end to cover that span
+                            // instead of just jumping the next chunk's start past it, which
+                            // would silently drop every character in between. Only the space
+                            // character itself (already trimmed/normalized elsewhere) is
+                            // excluded from both chunks - no real content is lost.
+                            end = forwardSpace;
+                        }
+                        nextStart = forwardSpace + 1;
+                    }
+                    // else: no space exists anywhere in the rest of the page's text. Fall
+                    // back to the unadjusted position; this last-resort fallback mirrors the
+                    // single-long-token fallback above.
+                }
+
                 String chunkText = text.substring(start, end).trim();
                 if (!chunkText.isBlank()) {
                     drafts.add(new ChunkDraft(chunkText, new PageNumber(page.pageNumber())));
                 }
                 if (end >= text.length()) {
                     break;
-                }
-                int nextStart = Math.max(end - OVERLAP, start + 1);
-                boolean nextStartIsMidWord = nextStart > 0 && text.charAt(nextStart - 1) != ' ';
-                if (nextStartIsMidWord) {
-                    // end - OVERLAP can land inside a word in non-periodic prose. Search
-                    // forward, unbounded (not limited to the current chunk's end), for the
-                    // next space and snap to just past it so the next chunk starts on a
-                    // word boundary. A long unbroken token (URL, DOI, identifier) near the
-                    // boundary could otherwise place the next space outside a bounded
-                    // window, silently reproducing a mid-word start. If no space exists
-                    // anywhere in the rest of the page's text, fall back to the unadjusted
-                    // position; this last-resort fallback mirrors the single-long-token
-                    // fallback on the `end` side above.
-                    int forwardSpace = text.indexOf(' ', nextStart);
-                    if (forwardSpace >= 0) {
-                        nextStart = forwardSpace + 1;
-                    }
                 }
                 start = nextStart;
             }
