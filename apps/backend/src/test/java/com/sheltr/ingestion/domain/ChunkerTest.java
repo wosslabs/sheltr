@@ -212,6 +212,30 @@ class ChunkerTest {
     }
 
     @Test
+    void unbrokenRunLongerThanChunkSizeIsNeverSilentlyDroppedFromAnyChunk() {
+        // A degenerate but real-world-possible case: an unbroken token (URL, base64 blob,
+        // malformed-extraction run) far longer than CHUNK_SIZE. The very first chunk's `end`
+        // is hard-cut mid-token (the already-accepted single-long-token fallback), which
+        // means the subsequent forward search for a safe next-start boundary must search
+        // past `end` to find the token's actual terminating space, far beyond the current
+        // chunk. The fix must extend the CURRENT chunk to swallow the full run rather than
+        // silently skipping the span between the old `end` and the new `nextStart` -
+        // otherwise that entire span (thousands of characters) would vanish from every chunk.
+        String longRun = "x".repeat(6000);
+        String suffix = "normal prose continues after the long run to prove no content was lost here today.";
+        String longText = longRun + " " + suffix;
+
+        List<ChunkDraft> drafts = Chunker.chunk(List.of(new PageText(1, longText)));
+
+        assertThat(drafts).isNotEmpty();
+        // The entire 6000-character unbroken run must survive intact in the first chunk -
+        // not truncated at CHUNK_SIZE (1000) and not missing any span in the middle.
+        assertThat(drafts.get(0).content()).isEqualTo(longRun);
+        assertThat(drafts.size()).isGreaterThanOrEqualTo(2);
+        assertThat(drafts.get(1).content()).startsWith("normal");
+    }
+
+    @Test
     void blankPageProducesNoChunks() {
         List<ChunkDraft> drafts = Chunker.chunk(List.of(new PageText(1, "   \n\n  ")));
 
