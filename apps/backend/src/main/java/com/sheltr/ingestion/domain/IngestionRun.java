@@ -20,6 +20,16 @@ public final class IngestionRun {
         this.status = RunStatus.RUNNING;
     }
 
+    public IngestionRun(IngestionRunId id, DocumentId sourceDocumentId, Instant startedAt,
+                         RunStatus status, Instant finishedAt, String errorMessage) {
+        this.id = id;
+        this.sourceDocumentId = sourceDocumentId;
+        this.startedAt = startedAt;
+        this.status = status;
+        this.finishedAt = finishedAt;
+        this.errorMessage = errorMessage;
+    }
+
     public void markSucceeded() {
         this.status = RunStatus.SUCCEEDED;
         this.finishedAt = Instant.now();

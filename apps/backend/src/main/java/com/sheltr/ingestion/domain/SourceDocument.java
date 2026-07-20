@@ -19,6 +19,14 @@ public final class SourceDocument {
         this.status = IngestionStatus.DISCOVERED;
     }
 
+    public SourceDocument(DocumentId id, String sourceUri, SourceType sourceType, Checksum checksum, IngestionStatus status) {
+        this.id = id;
+        this.sourceUri = sourceUri;
+        this.sourceType = sourceType;
+        this.checksum = checksum;
+        this.status = status;
+    }
+
     public void markDownloaded(Checksum checksum) {
         this.checksum = checksum;
         this.status = IngestionStatus.DOWNLOADED;
