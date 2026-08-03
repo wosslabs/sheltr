@@ -60,7 +60,7 @@ class IngestDocumentServiceTest {
 
         assertThat(run.status()).isEqualTo(RunStatus.FAILED);
         assertThat(run.errorMessage()).isPresent();
-        assertThat(sourceDocumentRepository.saved).isEmpty();
+        assertThat(sourceDocumentRepository.lastSaved().status()).isEqualTo(IngestionStatus.FAILED);
         assertThat(knowledgeDocumentRepository.saved).isEmpty();
     }
 

@@ -25,14 +25,13 @@ public class JooqSourceDocumentRepository implements SourceDocumentRepository {
 
     @Override
     public void save(SourceDocument document) {
-        Checksum checksum = document.checksum().orElseThrow(() -> new IllegalStateException(
-                "SourceDocument must have a checksum (status DOWNLOADED or later) before it can be saved"));
+        String checksumHex = document.checksum().map(Checksum::hex).orElse(null);
         dsl.execute(
                 "INSERT INTO ingestion.source_documents (id, source_uri, source_type, checksum, status) "
                         + "VALUES (?, ?, ?, ?, ?) "
                         + "ON CONFLICT (id) DO UPDATE SET checksum = EXCLUDED.checksum, status = EXCLUDED.status",
                 document.id().value(), document.sourceUri(), document.sourceType().name(),
-                checksum.hex(), document.status().name());
+                checksumHex, document.status().name());
     }
 
     @Override
@@ -44,11 +43,12 @@ public class JooqSourceDocumentRepository implements SourceDocumentRepository {
     }
 
     private static SourceDocument mapRow(Record record) {
+        String checksumHex = record.get("checksum", String.class);
         return new SourceDocument(
                 new DocumentId((UUID) record.get("id")),
                 record.get("source_uri", String.class),
                 SourceType.valueOf(record.get("source_type", String.class)),
-                new Checksum(record.get("checksum", String.class)),
+                checksumHex == null ? null : new Checksum(checksumHex),
                 IngestionStatus.valueOf(record.get("status", String.class)));
     }
 }
