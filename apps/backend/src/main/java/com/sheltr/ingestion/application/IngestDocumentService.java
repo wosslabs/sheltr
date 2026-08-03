@@ -36,6 +36,8 @@ public class IngestDocumentService {
     public IngestionRun ingest(String sourceUri, SourceType sourceType) {
         DocumentId documentId = new DocumentId(UUID.randomUUID());
         SourceDocument sourceDocument = new SourceDocument(documentId, sourceUri, sourceType);
+        // Persist DISCOVERED source document first so ingestion_runs FK is satisfiable.
+        sourceDocumentRepository.save(sourceDocument);
 
         IngestionRun run = new IngestionRun(new IngestionRunId(UUID.randomUUID()), documentId);
         ingestionRunRepository.save(run);
@@ -86,10 +88,8 @@ public class IngestDocumentService {
             run.markSucceeded();
             ingestionRunRepository.save(run);
         } catch (Exception e) {
-            if (sourceDocument.checksum().isPresent()) {
-                sourceDocument.markFailed();
-                sourceDocumentRepository.save(sourceDocument);
-            }
+            sourceDocument.markFailed();
+            sourceDocumentRepository.save(sourceDocument);
             run.markFailed(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
             ingestionRunRepository.save(run);
         }
