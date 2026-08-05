@@ -16,5 +16,19 @@ services:
       timeout: 5s
       retries: 10
 
+  ollama:
+    image: docker.io/ollama/ollama:latest
+    container_name: sheltr-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - sheltr-ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
 volumes:
   sheltr-postgres-data:
+  sheltr-ollama-data:
