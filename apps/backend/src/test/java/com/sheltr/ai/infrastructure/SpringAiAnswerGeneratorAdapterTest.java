@@ -20,7 +20,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @EnabledIfEnvironmentVariable(named = "GEMINI_API_KEY", matches = ".+")
-class GeminiAnswerGeneratorAdapterTest {
+class SpringAiAnswerGeneratorAdapterTest {
 
     @Test
     void generatesCitationBackedAnswerFromRetrievedChunks() {
@@ -48,7 +48,7 @@ class GeminiAnswerGeneratorAdapterTest {
             }
         };
 
-        GeminiAnswerGeneratorAdapter adapter = new GeminiAnswerGeneratorAdapter(chatModel, documentRepository);
+        SpringAiAnswerGeneratorAdapter adapter = new SpringAiAnswerGeneratorAdapter(chatModel, documentRepository);
 
         ChunkId chunkId = new ChunkId(UUID.randomUUID());
         RankedResult result = new RankedResult(chunkId, documentId,

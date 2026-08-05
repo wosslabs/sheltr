@@ -11,12 +11,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class GeminiAnswerGeneratorAdapter implements AnswerGenerator {
+public class SpringAiAnswerGeneratorAdapter implements AnswerGenerator {
 
     private final ChatModel chatModel;
     private final KnowledgeDocumentRepository documentRepository;
 
-    public GeminiAnswerGeneratorAdapter(ChatModel chatModel, KnowledgeDocumentRepository documentRepository) {
+    public SpringAiAnswerGeneratorAdapter(ChatModel chatModel, KnowledgeDocumentRepository documentRepository) {
         this.chatModel = chatModel;
         this.documentRepository = documentRepository;
     }
@@ -28,7 +28,7 @@ public class GeminiAnswerGeneratorAdapter implements AnswerGenerator {
         try {
             answerText = chatModel.call(prompt);
         } catch (Exception e) {
-            return new AnswerGenerationFailed("Gemini call failed: " + e.getMessage());
+            return new AnswerGenerationFailed("Answer generation failed: " + e.getMessage());
         }
 
         List<Citation> citations = new ArrayList<>();

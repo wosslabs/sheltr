@@ -11,7 +11,7 @@ import org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingOptions;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @EnabledIfEnvironmentVariable(named = "GEMINI_API_KEY", matches = ".+")
-class GeminiEmbeddingGeneratorAdapterTest {
+class SpringAiEmbeddingGeneratorAdapterTest {
 
     @Test
     void embedsRealTextViaGemini() {
@@ -20,7 +20,7 @@ class GeminiEmbeddingGeneratorAdapterTest {
                 .build();
         EmbeddingModel embeddingModel = new GoogleGenAiTextEmbeddingModel(connectionDetails,
                 GoogleGenAiTextEmbeddingOptions.builder().model("gemini-embedding-001").dimensions(768).build());
-        GeminiEmbeddingGeneratorAdapter adapter = new GeminiEmbeddingGeneratorAdapter(embeddingModel);
+        SpringAiEmbeddingGeneratorAdapter adapter = new SpringAiEmbeddingGeneratorAdapter(embeddingModel);
 
         Embedding embedding = adapter.embed("Boil water for one minute to make it safe to drink.");
 
