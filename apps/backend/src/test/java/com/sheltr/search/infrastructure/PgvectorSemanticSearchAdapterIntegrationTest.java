@@ -2,7 +2,7 @@ package com.sheltr.search.infrastructure;
 
 import com.sheltr.knowledge.domain.Embedding;
 import com.sheltr.knowledge.domain.EmbeddingGenerator;
-import com.sheltr.knowledge.infrastructure.GeminiEmbeddingGeneratorAdapter;
+import com.sheltr.knowledge.infrastructure.SpringAiEmbeddingGeneratorAdapter;
 import com.sheltr.search.domain.RankedResult;
 import com.sheltr.search.domain.SearchQuery;
 import org.flywaydb.core.Flyway;
@@ -48,7 +48,7 @@ class PgvectorSemanticSearchAdapterIntegrationTest {
                 .build();
         EmbeddingModel embeddingModel = new GoogleGenAiTextEmbeddingModel(connectionDetails,
                 GoogleGenAiTextEmbeddingOptions.builder().model("gemini-embedding-001").dimensions(768).build());
-        EmbeddingGenerator embeddingGenerator = new GeminiEmbeddingGeneratorAdapter(embeddingModel);
+        EmbeddingGenerator embeddingGenerator = new SpringAiEmbeddingGeneratorAdapter(embeddingModel);
 
         // Manually embed and store the two seeded chunks this test cares about.
         embedAndStore(dataSource, embeddingGenerator, "b0000000-0000-0000-0000-000000000006");

@@ -4,11 +4,11 @@ import com.sheltr.knowledge.domain.Embedding;
 import com.sheltr.knowledge.domain.EmbeddingGenerator;
 import org.springframework.ai.embedding.EmbeddingModel;
 
-public class GeminiEmbeddingGeneratorAdapter implements EmbeddingGenerator {
+public class SpringAiEmbeddingGeneratorAdapter implements EmbeddingGenerator {
 
     private final EmbeddingModel embeddingModel;
 
-    public GeminiEmbeddingGeneratorAdapter(EmbeddingModel embeddingModel) {
+    public SpringAiEmbeddingGeneratorAdapter(EmbeddingModel embeddingModel) {
         this.embeddingModel = embeddingModel;
     }
 
