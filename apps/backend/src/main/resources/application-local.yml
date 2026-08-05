@@ -14,4 +14,4 @@ spring:
 
 sheltr:
   search:
-    relevance-threshold: 0.5
+    relevance-threshold: 0.65
