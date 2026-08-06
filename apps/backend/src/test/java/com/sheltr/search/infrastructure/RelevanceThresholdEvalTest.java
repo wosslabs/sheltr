@@ -11,6 +11,7 @@ import com.sheltr.search.domain.SearchQuery;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -111,6 +112,9 @@ class RelevanceThresholdEvalTest {
     @Autowired
     Retriever retriever;
 
+    @Value("${sheltr.search.relevance-threshold}")
+    double configuredThreshold;
+
     @Test
     void sweepThresholdsAndReportTheSafestOne() {
         ChunkRepository chunkRepository = new JooqChunkRepository(dataSource);
@@ -147,5 +151,18 @@ class RelevanceThresholdEvalTest {
         System.out.printf("CHOSEN threshold=%.2f falseAccepts=%d falseRejects=%d%n",
                 chosenThreshold, chosenFalseAccepts, chosenFalseRejects);
         assertThat(chosenFalseAccepts).isZero();
+
+        // Guard the deployed value, not just the sweep: if the embedding model or corpus
+        // changes and the safe threshold drifts upward, application-local.yml's configured
+        // sheltr.search.relevance-threshold must be at least as strict as what the sweep says
+        // is required for zero false-accepts, or this must fail loudly rather than silently
+        // pass while production keeps running a stale, possibly-unsafe threshold.
+        assertThat(configuredThreshold)
+                .withFailMessage(
+                        "Configured relevance-threshold (%.2f) is lower than the empirically-required "
+                                + "safe threshold (%.2f) — update sheltr.search.relevance-threshold in "
+                                + "application-local.yml to at least %.2f.",
+                        configuredThreshold, chosenThreshold, chosenThreshold)
+                .isGreaterThanOrEqualTo(chosenThreshold);
     }
 }

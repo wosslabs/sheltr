@@ -5,7 +5,7 @@ spring:
       chat:
         model: qwen2.5:3b-instruct
       embedding:
-        model: nomic-embed-text
+        model: nomic-embed-text:v1.5
   autoconfigure:
     exclude:
       - org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration
@@ -14,4 +14,9 @@ spring:
 
 sheltr:
   search:
+    # Derived by RelevanceThresholdEvalTest against nomic-embed-text: threshold=0.65 was the
+    # lowest candidate with falseAccepts=0 (falseRejects=1), swept 0.30-0.90 in 0.05 steps
+    # over a 40-case labeled fixture spanning all 8 disaster types. See ADR-0008, ADR-0011.
+    # Calibrated against the pinned nomic-embed-text:v1.5 tag (see infra/podman/compose.yaml
+    # and Makefile) — re-run RelevanceThresholdEvalTest before changing the pinned tag.
     relevance-threshold: 0.65

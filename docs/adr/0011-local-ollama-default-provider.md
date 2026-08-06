@@ -18,14 +18,18 @@ library, which mirrors the same weights published on Hugging Face). Make it the 
 Spring profile (`local`). Gemini remains fully supported behind an explicit
 `SPRING_PROFILES_ACTIVE=gemini` opt-in for users who want cloud-hosted quality/speed instead.
 
-The relevance threshold gating citation-grounded generation (ADR-0008) is profile-scoped and
-independently, empirically calibrated per provider — `gemini`'s embedding space and `local`'s
-embedding space produce different similarity-score distributions, so a single shared
-threshold would be wrong for at least one of them.
+The relevance threshold gating citation-grounded generation (ADR-0008) is profile-scoped.
+`local`'s threshold (0.65) was empirically derived via `RelevanceThresholdEvalTest`; `gemini`'s
+threshold (0.75) is the unchanged value inherited from the Phase 2 RAG MVP and has not been run
+through this eval harness. `local`'s threshold is calibrated against the pinned
+`nomic-embed-text:v1.5` tag (see `infra/podman/compose.yaml` and `Makefile`) — re-run
+`RelevanceThresholdEvalTest` before changing that pinned tag.
 
 ## Consequences
-- A stranger cloning the repo gets a fully working, offline, zero-signup experience with
-  `make up` — no API key, no signup, no outbound network call at answer-generation time.
+- A stranger cloning the repo gets a working, zero-signup experience with `make up` — no API
+  key, no signup, and no outbound network call at answer-generation time after initial setup
+  (first-run setup itself requires network access to pull the Ollama container image and
+  ~2.5GB of model weights).
 - Self-hosters who want better answer quality or lower latency than a 3B CPU model provides
   can still opt into Gemini with one environment variable.
 - Two providers means two paths to keep passing in CI going forward (tracked as an open-source
@@ -34,6 +38,16 @@ threshold would be wrong for at least one of them.
   since ADR-0008's citation-grounding gate and empirically-tuned relevance threshold are the
   actual safety backstop, not raw model quality; a smaller model that says "I don't know" more
   often is safer than requiring a cloud dependency to say anything at all.
+- `AnswerConfidence`'s HIGH/MEDIUM/LOW bands (0.90/0.75) are hardcoded and were tuned against
+  Gemini's embedding-score distribution, not `local`'s. Since `local`'s relevance threshold
+  (0.65) sits below the MEDIUM band, most `local`-profile answers will report LOW confidence
+  even when they're the best available match. This is a known limitation, not yet fixed —
+  profile-scoping the confidence bands the way the relevance threshold was profile-scoped is a
+  natural follow-up.
+- Both providers happen to produce 768-d embedding vectors, so nothing errors if a self-hoster
+  switches `SPRING_PROFILES_ACTIVE` against a database that already has embeddings from the
+  other provider — retrieval silently degrades instead (see README's "Switching between `local`
+  and `gemini`" section for the symptom and recovery step).
 
 ## Alternatives Considered
 - **Keep Gemini as the only provider**: rejected — the adoption/reliability cost described in
