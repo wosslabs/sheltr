@@ -19,4 +19,7 @@ spring:
 
 sheltr:
   search:
+    # Pre-existing Phase-2 value, unchanged by ADR-0011's migration. NOT derived by
+    # RelevanceThresholdEvalTest — that harness is hard-pinned to @ActiveProfiles("local")
+    # and has never been run against Gemini's embedding space. See ADR-0011.
     relevance-threshold: 0.75

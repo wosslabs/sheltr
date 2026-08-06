@@ -3,7 +3,7 @@
 up:
 	podman compose -f infra/podman/compose.yaml up -d --wait
 	podman exec sheltr-ollama ollama pull qwen2.5:3b-instruct
-	podman exec sheltr-ollama ollama pull nomic-embed-text
+	podman exec sheltr-ollama ollama pull nomic-embed-text:v1.5
 
 down:
 	podman compose -f infra/podman/compose.yaml down

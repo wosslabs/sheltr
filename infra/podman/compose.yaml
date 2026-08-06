@@ -17,7 +17,7 @@ services:
       retries: 10
 
   ollama:
-    image: docker.io/ollama/ollama:latest
+    image: docker.io/ollama/ollama:0.32.6
     container_name: sheltr-ollama
     ports:
       - "11434:11434"
