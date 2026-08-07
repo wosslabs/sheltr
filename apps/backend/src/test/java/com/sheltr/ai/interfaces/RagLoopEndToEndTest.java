@@ -83,7 +83,7 @@ class RagLoopEndToEndTest {
         // runs. Backfilling all 32 real embeddings here is slow (network calls) but this
         // is the one test meant to prove the whole stack for real. The EmbeddingGenerator
         // used here is the real Spring-managed bean from EmbeddingGeneratorConfig (backed
-        // by the actual Gemini embedding model configured in application.yml), not a
+        // by the actual Gemini embedding model configured in application-gemini.yml), not a
         // manually constructed one. Guarded by a static flag so the backfill runs exactly
         // once for the class even though this is a @BeforeEach (required because a static
         // @BeforeAll cannot use instance-injected @Autowired fields).
