@@ -2,7 +2,6 @@ package com.sheltr.ai.interfaces;
 
 import com.sheltr.SheltrBackendApplication;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -20,8 +19,15 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Covers conversation CRUD only — no AI provider call, so this runs under {@code local} (the
+ * default profile) and needs neither a GEMINI_API_KEY nor a reachable Ollama. The provider-specific
+ * {@code /ask} behavior is covered separately: {@link ConversationControllerGeminiAskIntegrationTest}
+ * (Gemini, gated on GEMINI_API_KEY) and {@link LocalRagLoopEndToEndTest} (local, gated on
+ * OLLAMA_AVAILABLE).
+ */
 @Testcontainers
-@ActiveProfiles("gemini")
+@ActiveProfiles("local")
 @SpringBootTest(classes = SheltrBackendApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ConversationControllerIntegrationTest {
 
@@ -63,22 +69,5 @@ class ConversationControllerIntegrationTest {
                 restTemplate.getForEntity("/api/v1/conversations/" + UUID.randomUUID(), ConversationDto.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-    }
-
-    @Test
-    @EnabledIfEnvironmentVariable(named = "GEMINI_API_KEY", matches = ".+")
-    void askReturnsACitationBearingAnswerForAnInCorpusQuestion() {
-        ResponseEntity<ConversationDto> created =
-                restTemplate.postForEntity("/api/v1/conversations", null, ConversationDto.class);
-        UUID conversationId = created.getBody().id();
-
-        ResponseEntity<MessageDto> response = restTemplate.postForEntity(
-                "/api/v1/conversations/" + conversationId + "/ask",
-                new AskRequestDto("Is it safe to drink flood water?"),
-                MessageDto.class);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody().role()).isEqualTo("ASSISTANT");
-        assertThat(response.getBody().content()).isNotBlank();
     }
 }

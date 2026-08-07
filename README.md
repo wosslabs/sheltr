@@ -8,11 +8,22 @@ Sheltr never invents emergency guidance — every answer cites its source.
 
 ## Status
 
-Phase 1 (foundation) complete: repo scaffold, architecture decision
-records, C4 diagrams, domain model, database schema, and OpenAPI contract.
-See `docs/superpowers/specs/2026-07-04-phase1-foundation-design.md` for
-the full spec and `docs/superpowers/plans/2026-07-04-phase1-foundation.md`
-for how it was built.
+Phase 1 (foundation), Phase 2 (RAG MVP), and Phase 3 (ingestion MVP) are
+complete:
+
+- **Phase 1** — repo scaffold, architecture decision records, C4 diagrams,
+  domain model, database schema, and OpenAPI contract. See
+  `docs/superpowers/specs/2026-07-04-phase1-foundation-design.md` and
+  `docs/superpowers/plans/2026-07-04-phase1-foundation.md`.
+- **Phase 2** — pgvector semantic search, citation-grounded answer
+  generation (ADR-0008), and conversation/document REST APIs. See
+  `docs/superpowers/specs/2026-07-04-phase2-rag-mvp-design.md` and
+  `docs/superpowers/plans/2026-07-05-phase2-rag-mvp.md`.
+- **Phase 3** — document ingestion pipeline (FEMA PDF connector, text
+  cleaning/chunking, embedding backfill) wired end-to-end into the RAG
+  loop via admin REST endpoints. See
+  `docs/superpowers/specs/2026-07-13-ingestion-mvp-design.md` and
+  `docs/superpowers/plans/2026-07-13-ingestion-mvp.md`.
 
 Local/CPU model migration complete: the default Spring profile now runs fully
 offline after initial setup, on a local Ollama-backed provider
@@ -24,7 +35,7 @@ answer quality. See `docs/adr/0011-local-ollama-default-provider.md` and
 the full spec and `docs/superpowers/plans/2026-08-04-local-model-migration.md`
 for how it was built.
 
-Mobile app and deployment are future phases.
+Mobile app, admin curation UI, and deployment are future phases.
 
 ## Repo layout
 
@@ -67,6 +78,13 @@ Sheltr supports two interchangeable AI providers, selected via the
   quality and lower latency at the cost of a cloud dependency. Requires a
   `GEMINI_API_KEY` environment variable. Enable with
   `SPRING_PROFILES_ACTIVE=gemini`.
+
+If you only plan to use `gemini`, skip the local model pull (which needs
+network access and ~2.5GB of download) with:
+
+```bash
+SHELTR_PROVIDER=gemini make up
+```
 
 See `docs/adr/0011-local-ollama-default-provider.md` for the full rationale.
 

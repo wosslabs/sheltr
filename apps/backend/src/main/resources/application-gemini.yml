@@ -16,6 +16,7 @@ spring:
     exclude:
       - org.springframework.ai.model.ollama.autoconfigure.OllamaChatAutoConfiguration
       - org.springframework.ai.model.ollama.autoconfigure.OllamaEmbeddingAutoConfiguration
+      - org.springframework.ai.model.ollama.autoconfigure.OllamaApiAutoConfiguration
 
 sheltr:
   search:

@@ -2,8 +2,12 @@
 
 up:
 	podman compose -f infra/podman/compose.yaml up -d --wait
+ifeq ($(SHELTR_PROVIDER),gemini)
+	@echo "SHELTR_PROVIDER=gemini — skipping local Ollama model pull"
+else
 	podman exec sheltr-ollama ollama pull qwen2.5:3b-instruct
 	podman exec sheltr-ollama ollama pull nomic-embed-text:v1.5
+endif
 
 down:
 	podman compose -f infra/podman/compose.yaml down
