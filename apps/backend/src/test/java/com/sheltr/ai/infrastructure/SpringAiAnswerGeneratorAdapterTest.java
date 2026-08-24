@@ -1,6 +1,7 @@
 package com.sheltr.ai.infrastructure;
 
 import com.google.genai.Client;
+import com.sheltr.ai.application.AnswerContextBuilder;
 import com.sheltr.ai.domain.*;
 import com.sheltr.knowledge.domain.*;
 import com.sheltr.search.domain.RankedResult;
@@ -48,7 +49,8 @@ class SpringAiAnswerGeneratorAdapterTest {
             }
         };
 
-        SpringAiAnswerGeneratorAdapter adapter = new SpringAiAnswerGeneratorAdapter(chatModel, documentRepository);
+        SpringAiAnswerGeneratorAdapter adapter = new SpringAiAnswerGeneratorAdapter(
+                chatModel, new AnswerContextBuilder(documentRepository));
 
         ChunkId chunkId = new ChunkId(UUID.randomUUID());
         RankedResult result = new RankedResult(chunkId, documentId,
