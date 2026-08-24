@@ -7,6 +7,7 @@ import com.sheltr.search.domain.SearchQuery;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.http.HttpStatus;
@@ -26,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Testcontainers
 @EnabledIfEnvironmentVariable(named = "OLLAMA_AVAILABLE", matches = "true")
 @ActiveProfiles("local")
+@AutoConfigureTestRestTemplate
 @SpringBootTest(classes = SheltrBackendApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class LocalIngestionToRagEndToEndTest {
 
