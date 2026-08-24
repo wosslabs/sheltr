@@ -55,6 +55,7 @@ class AskQuestionServiceTest {
 
         assertThat(actual.role()).isEqualTo(MessageRole.ASSISTANT);
         assertThat(actual.citations()).isEmpty();
+        assertThat(actual.content().value()).isEqualTo(NoAnswerAvailable.MESSAGE);
     }
 
     @Test
