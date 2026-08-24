@@ -64,6 +64,8 @@ make test     # run backend tests (includes Testcontainers migration test — ne
 make down     # stop Postgres + Ollama
 ```
 
+After `make up` and `mvn -pl apps/backend spring-boot:run` (from repo root: `cd apps/backend && env -u SPRING_CONFIG_IMPORT mvn spring-boot:run`), open the chat UI at [http://127.0.0.1:8090/](http://127.0.0.1:8090/). The REST API stays on `:8080`. Opening `:8080` in a browser shows disconnected Lumina HTML because Tomcat is not the Lumina WebSocket server.
+
 ### Providers: `local` vs `gemini`
 
 Sheltr supports two interchangeable AI providers, selected via the

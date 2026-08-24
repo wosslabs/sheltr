@@ -1,6 +1,9 @@
 spring:
   application:
     name: sheltr-backend
+  autoconfigure:
+    exclude:
+      - io.lumina.springai.LuminaSpringAiAutoConfiguration
   profiles:
     active: local
   datasource:
@@ -12,6 +15,9 @@ spring:
 
 server:
   port: 8080
+
+lumina:
+  port: 8090
 
 management:
   endpoints:
