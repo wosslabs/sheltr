@@ -38,8 +38,7 @@ public class AskQuestionService {
 
         Message assistantMessage;
         if (!RelevanceGate.passesThreshold(results, relevanceThreshold)) {
-            assistantMessage = fallbackMessage(
-                    "I don't have enough reliable information from trusted sources to answer that question.");
+            assistantMessage = fallbackMessage(NoAnswerAvailable.MESSAGE);
             conversation.addMessage(assistantMessage);
             conversationRepository.save(conversation);
         } else {
@@ -53,8 +52,7 @@ public class AskQuestionService {
             }
             assistantMessage = switch (outcome) {
                 case AnswerGenerated generated -> generated.message();
-                case NoAnswerAvailable ignored -> fallbackMessage(
-                        "I don't have enough reliable information from trusted sources to answer that question.");
+                case NoAnswerAvailable ignored -> fallbackMessage(NoAnswerAvailable.MESSAGE);
                 case AnswerGenerationFailed ignored -> throw new IllegalStateException("handled above");
             };
             conversation.addMessage(assistantMessage);
