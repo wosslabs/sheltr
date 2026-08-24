@@ -3,6 +3,7 @@ package com.sheltr.ai.interfaces;
 import com.sheltr.SheltrBackendApplication;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -28,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @Testcontainers
 @ActiveProfiles("gemini")
+@AutoConfigureTestRestTemplate
 @SpringBootTest(classes = SheltrBackendApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ConversationControllerGeminiAskIntegrationTest {
 
