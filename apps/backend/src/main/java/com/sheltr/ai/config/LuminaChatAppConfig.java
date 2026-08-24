@@ -6,8 +6,10 @@ import com.sheltr.ai.interfaces.LuminaChatApp;
 import com.sheltr.search.domain.Retriever;
 import io.lumina.LuminaApp;
 import io.lumina.ai.ChatClient;
+import io.lumina.springai.SpringAiChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -15,9 +17,10 @@ import org.springframework.context.annotation.Configuration;
 public class LuminaChatAppConfig {
 
     @Bean
+    @ConditionalOnMissingBean(ChatClient.class)
     public ChatClient luminaChatClient(ChatModel chatModel) {
         // Lumina 1.0.0 evaluates ConditionalOnBean(ChatModel) before Ollama's ChatModel exists.
-        return new io.lumina.springai.SpringAiChatClient(
+        return new SpringAiChatClient(
                 org.springframework.ai.chat.client.ChatClient.create(chatModel));
     }
 
