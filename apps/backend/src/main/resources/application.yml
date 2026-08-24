@@ -1,9 +1,6 @@
 spring:
   application:
     name: sheltr-backend
-  autoconfigure:
-    exclude:
-      - io.lumina.springai.LuminaSpringAiAutoConfiguration
   profiles:
     active: local
   datasource:
