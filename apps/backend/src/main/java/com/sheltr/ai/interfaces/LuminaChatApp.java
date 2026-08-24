@@ -7,7 +7,6 @@ import com.sheltr.search.domain.RankedResult;
 import com.sheltr.search.domain.Retriever;
 import com.sheltr.search.domain.SearchQuery;
 import io.lumina.LuminaApp;
-import io.lumina.LuminaException;
 import io.lumina.ai.ChatClient;
 import io.lumina.ui.Ui;
 
@@ -103,7 +102,7 @@ public class LuminaChatApp implements LuminaApp {
                     results.stream().map(RankedResult::chunkId).toList()));
             conversationRepository.save(conversation);
             ui.text("Confidence: " + context.confidence().level().name());
-        } catch (LuminaException e) {
+        } catch (Exception e) {
             conversationRepository.save(conversation);
             ui.state().set("error", GENERATION_ERROR);
             ui.text(GENERATION_ERROR);
