@@ -7,7 +7,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.5.0</version>
+    <version>4.1.0</version>
     <relativePath/>
   </parent>
 
@@ -20,11 +20,20 @@
     <java.version>25</java.version>
     <jooq.version>3.19.11</jooq.version>
     <testcontainers.version>1.20.4</testcontainers.version>
-    <spring-ai.version>1.1.2</spring-ai.version>
+    <spring-ai.version>2.0.0</spring-ai.version>
   </properties>
 
   <dependencyManagement>
     <dependencies>
+      <!-- Boot 4.1 imports jooq-bom using jooq.version, but jOOQ 3.19.11 has no BOM.
+           Keep Sheltr's direct jOOQ pin while leaving Boot's BOM import resolvable. -->
+      <dependency>
+        <groupId>org.jooq</groupId>
+        <artifactId>jooq-bom</artifactId>
+        <version>3.21.5</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>org.springframework.ai</groupId>
         <artifactId>spring-ai-bom</artifactId>
@@ -95,7 +104,7 @@
 
     <dependency>
       <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-test</artifactId>
+      <artifactId>spring-boot-starter-webmvc-test</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>

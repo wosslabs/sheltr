@@ -27,7 +27,7 @@ class SpringAiAnswerGeneratorAdapterTest {
         Client genAiClient = Client.builder().apiKey(System.getenv("GEMINI_API_KEY")).build();
         ChatModel chatModel = GoogleGenAiChatModel.builder()
                 .genAiClient(genAiClient)
-                .defaultOptions(GoogleGenAiChatOptions.builder().model("gemini-2.5-flash").build())
+                .options(GoogleGenAiChatOptions.builder().model("gemini-2.5-flash").build())
                 .build();
 
         DocumentId documentId = new DocumentId(UUID.randomUUID());
