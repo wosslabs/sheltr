@@ -7,6 +7,7 @@ import com.sheltr.ingestion.domain.IngestionRunRepository;
 import com.sheltr.ingestion.domain.SourceMetadata;
 import com.sheltr.ingestion.domain.SourceType;
 import com.sheltr.knowledge.domain.DisasterType;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,7 +32,7 @@ public class IngestionController {
     }
 
     @PostMapping
-    public ResponseEntity<IngestionRunDto> trigger(@RequestBody TriggerIngestionRequestDto request) {
+    public ResponseEntity<IngestionRunDto> trigger(@Valid @RequestBody TriggerIngestionRequestDto request) {
         SourceType sourceType;
         SourceMetadata metadata;
         try {
