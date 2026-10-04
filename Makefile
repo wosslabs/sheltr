@@ -1,4 +1,4 @@
-.PHONY: up down build test migrate seed-embeddings
+.PHONY: up down build test migrate seed-embeddings ingest-corpus
 
 up:
 	podman compose -f infra/podman/compose.yaml up -d --wait
@@ -23,3 +23,6 @@ migrate:
 
 seed-embeddings:
 	cd apps/backend && mvn -q spring-boot:run -Dspring-boot.run.arguments=seed-embeddings
+
+ingest-corpus:
+	cd apps/backend && mvn -q spring-boot:run -Dspring-boot.run.arguments=ingest-corpus
