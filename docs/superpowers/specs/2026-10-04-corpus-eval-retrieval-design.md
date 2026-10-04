@@ -154,8 +154,10 @@ One new Flyway migration:
 
 `knowledge.related_hazards(hazard, related_hazard, source_document_id, note)` records that one
 hazard commonly triggers another, for example an earthquake followed by landslides. Each row
-must cite a corpus document that states the relationship. Rows are added by migration after
-maintainer approval; nothing is extracted by a model.
+must cite a corpus document that states the relationship. Rows are listed in
+`corpus/manifest.yaml` next to the documents, approved by the maintainer, and loaded by
+`make ingest-corpus`; a migration cannot add them because document IDs are assigned at
+ingest. Nothing is extracted by a model.
 
 ## 4. Eval harness
 
