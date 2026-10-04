@@ -31,3 +31,5 @@ sheltr:
     candidates-per-list: 20
     hazard-boost: 0.3
     related-hazard-boost: 0.15
+    # none | model. Switched to model only if the eval shows a gain (Task 14).
+    reranker: none
