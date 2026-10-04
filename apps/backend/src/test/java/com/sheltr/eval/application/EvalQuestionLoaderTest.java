@@ -78,6 +78,59 @@ class EvalQuestionLoaderTest {
                 .hasMessageContaining("line 1");
     }
 
+    @Test
+    void rejectsAnUnknownFieldNamingTheLine() {
+        String typo = OFF_TOPIC.replace("\"split\":\"heldout\"", "\"split\":\"heldout\",\"active_hazard\":[\"FLOOD\"]");
+
+        assertThatThrownBy(() -> EvalQuestionLoader.load(file(OFF_TOPIC + "\n" + typo)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("line 2")
+                .hasMessageContaining("active_hazard");
+    }
+
+    @Test
+    void rejectsAMissingId() {
+        assertThatThrownBy(() -> EvalQuestionLoader.load(file(OFF_TOPIC.replace("\"id\":\"off-001\",", ""))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("id is required");
+    }
+
+    @Test
+    void rejectsAMissingQuestion() {
+        assertThatThrownBy(() -> EvalQuestionLoader.load(
+                file(OFF_TOPIC.replace("\"question\":\"How do I bake bread?\",", ""))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("question is required");
+    }
+
+    @Test
+    void rejectsAMissingKind() {
+        assertThatThrownBy(() -> EvalQuestionLoader.load(file(OFF_TOPIC.replace("\"kind\":\"OFF_TOPIC\",", ""))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("kind is required");
+    }
+
+    @Test
+    void rejectsAnExpectedPassageMissingSourceUriOrContains() {
+        String noUri = ANSWERABLE.replace("\"source_uri\":\"https://example.org/flood.pdf\",", "");
+        String noContains = ANSWERABLE.replace(",\"contains\":\"rolling boil\"", "");
+
+        assertThatThrownBy(() -> EvalQuestionLoader.load(file(noUri)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("flood-001")
+                .hasMessageContaining("expected_passages[0] needs source_uri and contains");
+        assertThatThrownBy(() -> EvalQuestionLoader.load(file(noContains)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("expected_passages[0] needs source_uri and contains");
+    }
+
+    @Test
+    void aLiteralNullLineIsReportedWithItsLineNumber() {
+        assertThatThrownBy(() -> EvalQuestionLoader.load(file(OFF_TOPIC + "\nnull\n")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("line 2");
+    }
+
     private Path file(String content) throws IOException {
         Path path = dir.resolve("questions.jsonl");
         Files.writeString(path, content);

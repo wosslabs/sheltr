@@ -2,6 +2,7 @@ package com.sheltr.eval.application;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.sheltr.eval.domain.EvalQuestion;
+import com.sheltr.eval.domain.ExpectedPassage;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -30,9 +31,12 @@ public final class EvalQuestionLoader {
             String where = "line " + (i + 1);
             EvalQuestion question;
             try {
-                question = EvalJson.MAPPER.readValue(line, EvalQuestion.class);
+                question = EvalJson.STRICT.readValue(line, EvalQuestion.class);
             } catch (JsonProcessingException e) {
-                throw new IllegalArgumentException(where + ": not valid JSON: " + e.getOriginalMessage());
+                throw new IllegalArgumentException(where + ": " + e.getOriginalMessage());
+            }
+            if (question == null) {
+                throw new IllegalArgumentException(where + ": expected a question object, found null");
             }
             validate(question, where);
             if (!ids.add(question.id())) {
@@ -69,10 +73,13 @@ public final class EvalQuestionLoader {
             if (question.keyFacts().isEmpty()) {
                 throw new IllegalArgumentException(where + ": key_facts is required");
             }
-            if (question.expectedPassages().stream().anyMatch(passage -> passage.sourceUri() == null
-                    || passage.contains() == null || passage.contains().isBlank())) {
-                throw new IllegalArgumentException(
-                        where + ": every expected passage needs source_uri and contains");
+            for (int i = 0; i < question.expectedPassages().size(); i++) {
+                ExpectedPassage passage = question.expectedPassages().get(i);
+                if (passage == null || passage.sourceUri() == null || passage.sourceUri().isBlank()
+                        || passage.contains() == null || passage.contains().isBlank()) {
+                    throw new IllegalArgumentException(
+                            where + ": expected_passages[" + i + "] needs source_uri and contains");
+                }
             }
         }
     }

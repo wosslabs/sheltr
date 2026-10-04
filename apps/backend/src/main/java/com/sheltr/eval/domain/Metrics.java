@@ -84,6 +84,9 @@ public final class Metrics {
         double[] correctSum = new double[bins];
         int[] count = new int[bins];
         for (double[] pair : confidenceAndCorrect) {
+            if (!(pair[0] >= 0.0 && pair[0] <= 1.0)) {
+                throw new IllegalArgumentException("confidence must be within 0..1, was " + pair[0]);
+            }
             int bin = Math.min(bins - 1, (int) (pair[0] * bins));
             confidenceSum[bin] += pair[0];
             correctSum[bin] += pair[1];
