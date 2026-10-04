@@ -72,7 +72,12 @@ public class AnswerPipeline {
     // A failed judge could let an unsupported answer through: refuse.
     private RelevanceVerdict judge(SearchQuery query, List<RankedResult> passages) {
         try {
-            return judge.judge(query, passages);
+            RelevanceVerdict verdict = judge.judge(query, passages);
+            if (verdict == null) {
+                log.warn("Relevance judge returned no verdict, refusing");
+                return RelevanceVerdict.REFUSE;
+            }
+            return verdict;
         } catch (RuntimeException e) {
             log.warn("Relevance judge failed, refusing: {}", e.getMessage());
             return RelevanceVerdict.REFUSE;

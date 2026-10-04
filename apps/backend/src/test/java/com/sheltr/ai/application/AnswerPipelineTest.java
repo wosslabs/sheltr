@@ -87,12 +87,28 @@ class AnswerPipelineTest {
             throw new IllegalStateException("reranker unavailable");
         };
 
-        AnswerPipeline.PipelineResult result = new AnswerPipeline((query, topK) -> passages(8, 0.9),
+        List<RankedResult> retrieved = passages(8, 0.9);
+
+        AnswerPipeline.PipelineResult result = new AnswerPipeline((query, topK) -> retrieved,
                 reranker, new ThresholdRelevanceJudge(0.75),
                 (query, results, verdict) -> new AnswerGenerated(ANSWER)).answer(QUERY);
 
-        assertThat(result.passages()).hasSize(5);
+        assertThat(result.passages()).containsExactlyElementsOf(retrieved.subList(0, 5));
         assertThat(result.outcome()).isEqualTo(new AnswerGenerated(ANSWER));
+    }
+
+    @Test
+    void refusesWhenTheJudgeReturnsNull() {
+        RelevanceJudge judge = (query, passages) -> null;
+        AnswerGenerator generator = (query, results, verdict) -> {
+            throw new AssertionError("generator must not be called");
+        };
+
+        AnswerPipeline.PipelineResult result = new AnswerPipeline((query, topK) -> passages(3, 0.9),
+                new NoOpReranker(), judge, generator).answer(QUERY);
+
+        assertThat(result.verdict()).isEqualTo(RelevanceVerdict.REFUSE);
+        assertThat(result.outcome()).isInstanceOf(NoAnswerAvailable.class);
     }
 
     private static List<RankedResult> passages(int count, double score) {
