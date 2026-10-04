@@ -6,6 +6,7 @@ import com.sheltr.ingestion.domain.IngestionRunId;
 import com.sheltr.ingestion.domain.IngestionRunRepository;
 import com.sheltr.ingestion.domain.SourceMetadata;
 import com.sheltr.ingestion.domain.SourceType;
+import com.sheltr.interfaces.ApiError;
 import com.sheltr.knowledge.domain.DisasterType;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -32,7 +34,7 @@ public class IngestionController {
     }
 
     @PostMapping
-    public ResponseEntity<IngestionRunDto> trigger(@Valid @RequestBody TriggerIngestionRequestDto request) {
+    public ResponseEntity<?> trigger(@Valid @RequestBody TriggerIngestionRequestDto request) {
         SourceType sourceType;
         SourceMetadata metadata;
         try {
@@ -44,7 +46,8 @@ public class IngestionController {
             metadata = new SourceMetadata(request.title(), request.sourceAgency(), hazards, publishedDate,
                     request.license());
         } catch (IllegalArgumentException | NullPointerException | DateTimeParseException e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body(ApiError.of("VALIDATION_FAILED",
+                    "The request contains an invalid sourceType, hazard, publishedDate or metadata value."));
         }
         IngestionRun run = ingestDocumentService.ingest(request.sourceUri(), sourceType, metadata,
                 request.checksum());
@@ -52,10 +55,13 @@ public class IngestionController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<IngestionRunDto> get(@PathVariable UUID id) {
-        return ingestionRunRepository.findById(new IngestionRunId(id))
-                .map(run -> ResponseEntity.ok(toDto(run)))
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<?> get(@PathVariable UUID id) {
+        Optional<IngestionRun> run = ingestionRunRepository.findById(new IngestionRunId(id));
+        if (run.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiError.of("NOT_FOUND", "Ingestion run not found."));
+        }
+        return ResponseEntity.ok(toDto(run.get()));
     }
 
     private static IngestionRunDto toDto(IngestionRun run) {

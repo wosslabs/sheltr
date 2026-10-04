@@ -1,7 +1,9 @@
 package com.sheltr.ai.interfaces;
 
 import com.sheltr.ai.application.AskQuestionService;
+import com.sheltr.ai.application.ConversationNotFoundException;
 import com.sheltr.ai.domain.*;
+import com.sheltr.interfaces.ApiError;
 import com.sheltr.knowledge.domain.DisasterType;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -34,22 +36,25 @@ public class ConversationController {
 
     @GetMapping("/{id}")
     public ResponseEntity<ConversationDto> get(@PathVariable UUID id) {
-        return conversationRepository.findById(new ConversationId(id))
-                .map(conversation -> ResponseEntity.ok(toDto(conversation)))
-                .orElse(ResponseEntity.notFound().build());
+        ConversationId conversationId = new ConversationId(id);
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new ConversationNotFoundException(conversationId));
+        return ResponseEntity.ok(toDto(conversation));
     }
 
     @PostMapping("/{id}/ask")
-    public ResponseEntity<MessageDto> ask(@PathVariable UUID id, @Valid @RequestBody AskRequestDto request) {
+    public ResponseEntity<?> ask(@PathVariable UUID id, @Valid @RequestBody AskRequestDto request) {
         if (request.question() == null || request.question().isBlank()) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest()
+                    .body(ApiError.of("VALIDATION_FAILED", "question: must not be blank"));
         }
         Set<DisasterType> activeHazards;
         try {
             activeHazards = request.activeHazards() == null ? Set.of()
                     : request.activeHazards().stream().map(DisasterType::valueOf).collect(Collectors.toSet());
         } catch (IllegalArgumentException | NullPointerException e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest()
+                    .body(ApiError.of("VALIDATION_FAILED", "activeHazards: contains an unknown hazard"));
         }
         Message message = askQuestionService.ask(new ConversationId(id), request.question(), activeHazards);
         return ResponseEntity.ok(toDto(message));
