@@ -40,6 +40,8 @@ sheltr:
   ingestion:
     # Hostnames the ingestion connector may fetch. Empty denies all. Checked before any network call.
     allowed-hosts: [www.ready.gov]
+    # HttpPdfConnector timeouts are fixed in code (10 s connect, 60 s request) and redirects are refused.
+    # Not configurable here by design.
   search:
     # Document statuses retrieval may return. SEED rows are test fixtures and are never listed here.
     statuses: ACTIVE
