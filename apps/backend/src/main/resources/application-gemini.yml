@@ -12,9 +12,10 @@ spring:
             options:
               model: gemini-embedding-001
               dimensions: 768
-  # Request timeouts: Spring AI 2.0 (spring-ai-autoconfigure-model-google-genai) exposes no
-  # request or connect timeout property, so none is set here. Residual risk: a hung Gemini call
-  # is bounded only by the underlying HTTP client defaults. No executor wrapper is added.
+  # Request timeouts: Spring AI 2.0 exposes no Gemini request or connect timeout property.
+  # Gemini calls go through the Google GenAI SDK, not Boot's RestClient, so the shared
+  # spring.http.clients.* timeouts in application.yml do NOT apply. Residual risk: a hung Gemini
+  # call is bounded only by the SDK's own defaults. No executor wrapper is added.
   autoconfigure:
     exclude:
       - org.springframework.ai.model.ollama.autoconfigure.OllamaChatAutoConfiguration

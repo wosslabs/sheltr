@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.net.http.HttpTimeoutException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.time.Duration;
@@ -82,7 +83,8 @@ class HttpPdfConnectorTimeoutTest {
 
         long startNanos = System.nanoTime();
         assertThatThrownBy(() -> connector.fetch(url("/slow")))
-                .isInstanceOf(RuntimeException.class);
+                .isInstanceOf(RuntimeException.class)
+                .hasCauseInstanceOf(HttpTimeoutException.class);
         long elapsedSeconds = TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - startNanos);
 
         assertThat(elapsedSeconds).isLessThan(65);
