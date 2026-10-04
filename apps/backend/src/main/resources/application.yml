@@ -27,8 +27,8 @@ sheltr:
     admin:
       # Admin routes (/api/v1/admin/**) use HTTP Basic with role ADMIN.
       username: admin
-      # Set SHELTR_ADMIN_PASSWORD (plain or {noop}) or SHELTR_ADMIN_PASSWORD_HASH (bcrypt), never both.
-      # Outside the local profile, startup fails when neither is set.
+      # Set SHELTR_ADMIN_PASSWORD (plain value) or SHELTR_ADMIN_PASSWORD_HASH (bcrypt), never both.
+      # In every profile, including local, startup fails when neither is set. No password lives in YAML.
       password: ${SHELTR_ADMIN_PASSWORD:}
       password-hash: ${SHELTR_ADMIN_PASSWORD_HASH:}
   limits:
