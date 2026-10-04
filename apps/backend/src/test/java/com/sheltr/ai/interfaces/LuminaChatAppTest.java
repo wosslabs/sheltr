@@ -122,6 +122,7 @@ class LuminaChatAppTest {
         assertThat(sessionError).isEqualTo(LuminaChatApp.GENERATION_ERROR);
         verify(ui).text(LuminaChatApp.GENERATION_ERROR);
         verify(ui, never()).text(contains("secret-model"));
+        verify(ui, never()).ai(anyString());
         verify(chatClient, never()).stream(anyString());
     }
 

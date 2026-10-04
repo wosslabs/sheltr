@@ -48,6 +48,37 @@ class ModelRelevanceJudgeTest {
     }
 
     @Test
+    void parsesAWholeLineYesVerdict() {
+        assertThat(judge("ANSWERABLE: yes\nPROBABILITY: 0.9").judge(QUERY, PASSAGES).answerable()).isTrue();
+    }
+
+    @Test
+    void refusesWhenTheLabelIsOnlyASuffixOfAnotherWord() {
+        assertThat(judge("UNANSWERABLE: yes\nPROBABILITY: 0.9").judge(QUERY, PASSAGES))
+                .isEqualTo(RelevanceVerdict.REFUSE);
+    }
+
+    @Test
+    void refusesWhenTheModelEchoesThePromptTemplate() {
+        assertThat(judge("ANSWERABLE: yes or no\nANSWERABLE: no\nPROBABILITY: 0.9").judge(QUERY, PASSAGES))
+                .isEqualTo(RelevanceVerdict.REFUSE);
+    }
+
+    @Test
+    void refusesWhenTheAnswerHasTrailingQualifiers() {
+        assertThat(judge("ANSWERABLE: yes, partially\nPROBABILITY: 0.9").judge(QUERY, PASSAGES))
+                .isEqualTo(RelevanceVerdict.REFUSE);
+    }
+
+    @Test
+    void refusesWhenThereAreMultipleVerdictLines() {
+        assertThat(judge("ANSWERABLE: yes\nANSWERABLE: no\nPROBABILITY: 0.9").judge(QUERY, PASSAGES))
+                .isEqualTo(RelevanceVerdict.REFUSE);
+        assertThat(judge("ANSWERABLE: yes\nPROBABILITY: 0.9\nPROBABILITY: 0.1").judge(QUERY, PASSAGES))
+                .isEqualTo(RelevanceVerdict.REFUSE);
+    }
+
+    @Test
     void failsClosedWhenTheModelThrows() {
         ModelRelevanceJudge judge = new ModelRelevanceJudge(prompt -> {
             throw new IllegalStateException("model unavailable");
