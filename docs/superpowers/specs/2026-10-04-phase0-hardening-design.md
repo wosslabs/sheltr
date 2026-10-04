@@ -24,9 +24,9 @@ Out of scope (later phases): async ingestion (X4), conversation concurrency (X5)
 
 - Add `spring-boot-starter-security`. Justification: the only defensible way to protect the admin surface is a filter chain; hand-rolled checks would be weaker.
 - `/api/v1/admin/**` requires HTTP Basic authentication with role `ADMIN`. All other `/api/**` routes stay public: they are the citizen API.
-- Credentials come from `sheltr.security.admin.username` and `sheltr.security.admin.password`, bound from environment variables (`SHELTR_ADMIN_PASSWORD`). No default password outside the `local` profile.
-- In the `local` profile only, `application-local.yml` provides a fixed development password so local work needs no secret. A non-local profile that starts without `SHELTR_ADMIN_PASSWORD` fails at startup (fail fast).
-- Passwords are compared with Spring Security's `PasswordEncoder`. The password is stored as a `{noop}` prefix only in local config; production expects a bcrypt hash via `SHELTR_ADMIN_PASSWORD_HASH`. Ruling: accept one of the two variables, never both.
+- Credentials come from the environment in every profile, including local: `SHELTR_ADMIN_PASSWORD` (plaintext) or `SHELTR_ADMIN_PASSWORD_HASH` (bcrypt), never both. Neither set fails startup, naming both variables. No password is ever written to a YAML file.
+- Ruling (plaintext handling): a plaintext `SHELTR_ADMIN_PASSWORD` is bcrypt-encoded in memory at startup and the plaintext is discarded; a hash is used as given. Plaintext is never logged.
+- Local developers export a value (documented in the README). Tests supply their own password through test properties.
 - Responses for unauthenticated admin calls are `401`; authenticated but not admin is `403`.
 - The Lumina UI on port 8090 is a separate server and is not covered by this filter chain. It exposes only the chat UI, which calls `/ask` logic; no admin action is reachable from it. Recorded as a residual risk: a future Lumina admin page must add its own authorisation.
 
