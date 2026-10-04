@@ -1,14 +1,17 @@
 package com.sheltr.knowledge.interfaces;
 
 import com.sheltr.ai.domain.ConversationRepository;
+import com.sheltr.interfaces.ApiError;
 import com.sheltr.knowledge.domain.DocumentId;
 import com.sheltr.knowledge.domain.KnowledgeDocument;
 import com.sheltr.knowledge.domain.KnowledgeDocumentRepository;
 import com.sheltr.ai.interfaces.CitationDto;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -24,10 +27,13 @@ public class DocumentController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<DocumentMetadataDto> get(@PathVariable UUID id) {
-        return documentRepository.findById(new DocumentId(id))
-                .map(document -> ResponseEntity.ok(toDto(document)))
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<?> get(@PathVariable UUID id) {
+        Optional<KnowledgeDocument> document = documentRepository.findById(new DocumentId(id));
+        if (document.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiError.of("NOT_FOUND", "Document not found."));
+        }
+        return ResponseEntity.ok(toDto(document.get()));
     }
 
     @GetMapping("/{id}/citations")
