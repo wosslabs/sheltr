@@ -1,5 +1,6 @@
 package com.sheltr.ingestion.infrastructure;
 
+import com.sheltr.ingestion.domain.StoredDocument;
 import com.sheltr.knowledge.domain.*;
 import com.sheltr.knowledge.infrastructure.JooqKnowledgeDocumentRepository;
 import org.flywaydb.core.Flyway;
@@ -47,6 +48,9 @@ class JooqCorpusCatalogIntegrationTest {
         assertThat(catalog.findActiveDocumentId("https://example.org/unknown.pdf")).isEmpty();
         // Seed rows have status SEED and must never count as corpus documents.
         assertThat(catalog.findActiveDocumentId("https://www.fema.gov/earthquakes")).isEmpty();
+        assertThat(catalog.findActiveDocument("https://example.org/quake.pdf"))
+                .contains(new StoredDocument(documentId, "abc"));
+        assertThat(catalog.findActiveDocument("https://www.fema.gov/earthquakes")).isEmpty();
 
         catalog.upsertRelatedHazard(DisasterType.EARTHQUAKE, DisasterType.LANDSLIDE, documentId, "first");
         catalog.upsertRelatedHazard(DisasterType.EARTHQUAKE, DisasterType.LANDSLIDE, documentId, "second");
