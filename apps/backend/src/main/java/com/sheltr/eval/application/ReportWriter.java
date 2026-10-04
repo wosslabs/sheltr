@@ -10,7 +10,18 @@ import java.util.TreeMap;
 
 public final class ReportWriter {
 
+    /** Judge and maintainer agreement must reach this share before the judge is trusted (spec 4.2). */
+    public static final double AGREEMENT_TARGET = 0.90;
+    public static final String AGREEMENT_ROW_PREFIX = "| Judge and maintainer agreement |";
+
     private ReportWriter() {
+    }
+
+    /** One Markdown table row recording judge and maintainer agreement. */
+    public static String agreementRow(double agreement) {
+        return AGREEMENT_ROW_PREFIX + " " + number(agreement) + " | at least "
+                + String.format(Locale.ROOT, "%.2f", AGREEMENT_TARGET) + " | "
+                + (agreement >= AGREEMENT_TARGET ? "PASS" : "FAIL") + " |";
     }
 
     public static String markdown(EvalReport report) {

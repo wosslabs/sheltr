@@ -62,4 +62,54 @@ class AnswerJudgeTest {
     void unsupportedIsNotMistakenForSupported() {
         assertThat(new AnswerJudge(prompt -> "UNSUPPORTED").faithfulness("Boil it.", PASSAGES)).isZero();
     }
+
+    @Test
+    void aReplyWithMarkdownOrQuotesAroundTheWordIsStillRead() {
+        assertThat(new AnswerJudge(prompt -> "**SUPPORTED**").faithfulness("Boil it.", PASSAGES)).isEqualTo(1.0);
+        assertThat(new AnswerJudge(prompt -> "\"YES\"").keyFactCoverage("Boil it.", List.of("boil"))).isEqualTo(1.0);
+    }
+
+    @Test
+    void unsupportedIsReadAsUnsupportedWhetherOrNotItIsQuoted() {
+        assertThat(new AnswerJudge(prompt -> "UNSUPPORTED").faithfulness("Boil it.", PASSAGES)).isZero();
+        assertThat(new AnswerJudge(prompt -> "**UNSUPPORTED**").faithfulness("Boil it.", PASSAGES)).isZero();
+    }
+
+    @Test
+    void theAnswerWordMustBeTheWholeFirstWord() {
+        AnswerJudge judge = new AnswerJudge(prompt -> "NOTE: YES");
+
+        assertThat(judge.keyFactCoverage("Boil it.", List.of("boil"))).isZero();
+        assertThat(judge.errors()).isEqualTo(1);
+    }
+
+    @Test
+    void noIsReadAsNoEvenThoughNoteStartsWithIt() {
+        AnswerJudge judge = new AnswerJudge(prompt -> "NO");
+
+        assertThat(judge.keyFactCoverage("Boil it.", List.of("boil"))).isZero();
+        assertThat(judge.errors()).isZero();
+    }
+
+    @Test
+    void aNoteReplyIsUnreadableAndNotANo() {
+        AnswerJudge judge = new AnswerJudge(prompt -> "NOTE: NO");
+
+        assertThat(judge.keyFactCoverage("Boil it.", List.of("boil"))).isZero();
+        assertThat(judge.errors()).isEqualTo(1);
+    }
+
+    @Test
+    void citationListsAndRangesAreRemovedBeforeJudging() {
+        List<String> prompts = new ArrayList<>();
+        new AnswerJudge(prompt -> {
+            prompts.add(prompt);
+            return "SUPPORTED";
+        }).faithfulness("Boil it for one minute [1, 2]. Then add salt [1-3]. Stir [12].", PASSAGES);
+
+        assertThat(prompts).hasSize(3);
+        assertThat(prompts.get(0)).contains("Sentence: Boil it for one minute.").doesNotContain("[");
+        assertThat(prompts.get(1)).contains("Sentence: Then add salt.").doesNotContain("[");
+        assertThat(prompts.get(2)).contains("Sentence: Stir.").doesNotContain("[");
+    }
 }

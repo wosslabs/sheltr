@@ -36,4 +36,18 @@ class ReportWriterTest {
         assertThat(ReportWriter.markdown(new EvalReport("x", Map.of(), Map.of("tune", tune), List.of(), 0)))
                 .contains("n/a").doesNotContain("NaN");
     }
+
+    @Test
+    void agreementRowPassesAtOrAboveTheTarget() {
+        assertThat(ReportWriter.agreementRow(0.92))
+                .isEqualTo("| Judge and maintainer agreement | 0.920 | at least 0.90 | PASS |");
+        assertThat(ReportWriter.agreementRow(0.90))
+                .isEqualTo("| Judge and maintainer agreement | 0.900 | at least 0.90 | PASS |");
+    }
+
+    @Test
+    void agreementRowFailsBelowTheTarget() {
+        assertThat(ReportWriter.agreementRow(0.85))
+                .isEqualTo("| Judge and maintainer agreement | 0.850 | at least 0.90 | FAIL |");
+    }
 }

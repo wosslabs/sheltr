@@ -1,6 +1,7 @@
 package com.sheltr.eval.config;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.sheltr.ai.application.AnswerPipeline;
 import com.sheltr.eval.application.AnswerJudge;
 import com.sheltr.eval.application.EvalJson;
@@ -29,9 +30,11 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Command-line eval modes:
@@ -39,6 +42,8 @@ import java.util.Map;
  */
 @Component
 public class EvalRunner implements ApplicationRunner {
+
+    private static final String SPOTCHECK_SUFFIX = ".spotcheck.jsonl";
 
     private static final List<String> RECORDED_SETTINGS = List.of(
             "sheltr.search.mode", "sheltr.search.reranker", "sheltr.search.hazard-boost",
@@ -70,11 +75,15 @@ public class EvalRunner implements ApplicationRunner {
             runQuestions(option(args, "config"), Path.of(option(args, "questions")), Path.of(option(args, "out")));
             System.exit(0);
         } else if (modes.contains("eval-score")) {
-            score(Path.of(option(args, "raw")), Path.of(option(args, "questions")));
+            try {
+                score(Path.of(option(args, "raw")), Path.of(option(args, "questions")));
+            } catch (IllegalStateException | IllegalArgumentException e) {
+                System.err.println("eval-score refused: " + e.getMessage());
+                System.exit(1);
+            }
             System.exit(0);
         } else if (modes.contains("eval-agreement")) {
-            agreement(Path.of(option(args, "spotcheck")));
-            System.exit(0);
+            System.exit(agreement(Path.of(option(args, "spotcheck"))));
         }
     }
 
@@ -120,8 +129,13 @@ public class EvalRunner implements ApplicationRunner {
     }
 
     private void score(Path rawPath, Path questionsPath) throws Exception {
-        List<EvalQuestion> questions = EvalQuestionLoader.load(questionsPath);
         EvalRun run = EvalJson.MAPPER.readValue(rawPath.toFile(), EvalRun.class);
+        String recorded = run.settings() == null ? null : run.settings().get("spring.profiles.active");
+        String conflict = judgeProfileConflict(recorded, String.join(",", environment.getActiveProfiles()));
+        if (conflict != null) {
+            throw new IllegalStateException(conflict);
+        }
+        List<EvalQuestion> questions = EvalQuestionLoader.load(questionsPath);
         EvalScoreService.Output output = new EvalScoreService(new AnswerJudge(chatModel::call))
                 .score(questions, run);
 
@@ -141,7 +155,23 @@ public class EvalRunner implements ApplicationRunner {
         System.out.println("Wrote " + base + ".report.md, .report.json, .spotcheck.jsonl");
     }
 
-    private void agreement(Path spotcheckPath) throws Exception {
+    /**
+     * Records agreement in the run's report.md and report.json, then returns the exit code:
+     * 0 at or above the target, 1 below it.
+     */
+    private int agreement(Path spotcheckPath) throws Exception {
+        String name = spotcheckPath.toString();
+        if (!name.endsWith(SPOTCHECK_SUFFIX)) {
+            throw new IllegalArgumentException("--spotcheck must be a " + SPOTCHECK_SUFFIX + " file: " + name);
+        }
+        String base = name.substring(0, name.length() - SPOTCHECK_SUFFIX.length());
+        Path reportMd = Path.of(base + ".report.md");
+        Path reportJson = Path.of(base + ".report.json");
+        if (!Files.exists(reportMd) || !Files.exists(reportJson)) {
+            throw new IllegalStateException("Run eval-score first: " + reportMd + " and " + reportJson
+                    + " must exist");
+        }
+
         List<SpotcheckItem> items = new ArrayList<>();
         for (String line : Files.readAllLines(spotcheckPath)) {
             if (!line.isBlank()) {
@@ -150,8 +180,52 @@ public class EvalRunner implements ApplicationRunner {
             }
         }
         double agreement = EvalScoreService.agreement(items);
+
+        ObjectNode json = (ObjectNode) EvalJson.MAPPER.readTree(reportJson.toFile());
+        json.put("judge_agreement", agreement);
+        EvalJson.MAPPER.writeValue(reportJson.toFile(), json);
+
+        // Replace an earlier agreement row, so running this again does not duplicate it.
+        StringBuilder md = new StringBuilder();
+        Files.readAllLines(reportMd).stream()
+                .filter(line -> !line.startsWith(ReportWriter.AGREEMENT_ROW_PREFIX))
+                .forEach(line -> md.append(line).append('\n'));
+        md.append(ReportWriter.agreementRow(agreement)).append('\n');
+        Files.writeString(reportMd, md);
+
         System.out.printf("Judge and maintainer agree on %.0f%% of %d answers (target: at least 90%%).%n",
                 agreement * 100, items.size());
+        if (agreement < ReportWriter.AGREEMENT_TARGET) {
+            System.out.println("Below the target. Fix the judge prompt before trusting any result.");
+            return 1;
+        }
+        return 0;
+    }
+
+    /**
+     * Returns why eval-score must refuse, or null. The judge must not be the profile that produced the run
+     * (spec 4.2). Profile lists are compared as sorted, trimmed, comma-separated names.
+     */
+    static String judgeProfileConflict(String recorded, String current) {
+        String produced = normalizeProfiles(recorded);
+        String judge = normalizeProfiles(current);
+        if (produced.isEmpty() || !produced.equals(judge)) {
+            return null;
+        }
+        String other = produced.equals("gemini") ? "local" : "gemini";
+        return "The judge profile must differ from the profile that produced the run (both are " + produced
+                + "). Run eval-score under another profile, for example SPRING_PROFILES_ACTIVE=" + other + ".";
+    }
+
+    private static String normalizeProfiles(String profiles) {
+        if (profiles == null) {
+            return "";
+        }
+        return Arrays.stream(profiles.split(","))
+                .map(String::trim)
+                .filter(profile -> !profile.isEmpty())
+                .sorted()
+                .collect(Collectors.joining(","));
     }
 
     private Map<String, String> settings() {
