@@ -81,6 +81,14 @@ Sheltr supports two interchangeable AI providers, selected via the
   `GEMINI_API_KEY` environment variable. Enable with
   `SPRING_PROFILES_ACTIVE=gemini`.
 
+The backend will not start without an admin password in every profile.
+Export one of these before running it (`SHELTR_ADMIN_PASSWORD` for a plain
+value, or `SHELTR_ADMIN_PASSWORD_HASH` for a bcrypt hash, never both):
+
+```bash
+export SHELTR_ADMIN_PASSWORD='choose-a-local-password'
+```
+
 If you only plan to use `gemini`, skip the local model pull (which needs
 network access and ~2.5GB of download) with:
 
