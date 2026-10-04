@@ -9,9 +9,11 @@ import java.util.stream.Collectors;
 
 /**
  * Allows only https URIs whose host exactly matches one of {@code sheltr.ingestion.allowed-hosts}
- * (case-insensitive). An empty list denies everything.
+ * (case-insensitive), with no explicit port other than 443 and no userinfo. An empty list denies everything.
  */
 public class HostAllowlistSourcePolicy implements SourcePolicy {
+
+    private static final int HTTPS_PORT = 443;
 
     private final Set<String> allowedHosts;
 
@@ -32,7 +34,9 @@ public class HostAllowlistSourcePolicy implements SourcePolicy {
         } catch (IllegalArgumentException e) {
             return false;
         }
-        if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getRawUserInfo() != null) {
+        if (!"https".equalsIgnoreCase(uri.getScheme())
+                || uri.getRawUserInfo() != null
+                || (uri.getPort() != -1 && uri.getPort() != HTTPS_PORT)) {
             return false;
         }
         String host = uri.getHost();
