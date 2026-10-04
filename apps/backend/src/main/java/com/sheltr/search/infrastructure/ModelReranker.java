@@ -18,7 +18,8 @@ import java.util.regex.Pattern;
 public class ModelReranker implements Reranker {
 
     private static final Logger log = LoggerFactory.getLogger(ModelReranker.class);
-    private static final Pattern NUMBER = Pattern.compile("\\d+");
+    /** The first comma-separated list of numbers in the reply; later numbers in prose are ignored. */
+    private static final Pattern RANKING = Pattern.compile("\\d+(?:\\s*,\\s*\\d+)+");
 
     private final UnaryOperator<String> llm;
 
@@ -28,20 +29,23 @@ public class ModelReranker implements Reranker {
 
     @Override
     public List<RankedResult> rerank(SearchQuery query, List<RankedResult> candidates, int topK) {
+        int limit = Math.max(0, topK);
         if (candidates.size() <= 1) {
-            return candidates.stream().limit(topK).toList();
+            return candidates.stream().limit(limit).toList();
         }
         Set<Integer> order = new LinkedHashSet<>();
         try {
-            Matcher matcher = NUMBER.matcher(llm.apply(prompt(query, candidates)));
-            while (matcher.find()) {
-                int index = parse(matcher.group()) - 1;
+            String reply = llm.apply(prompt(query, candidates));
+            Matcher ranking = RANKING.matcher(reply);
+            String list = ranking.find() ? ranking.group() : reply.strip();
+            for (String token : list.split(",")) {
+                int index = parse(token.strip()) - 1;
                 if (index >= 0 && index < candidates.size()) {
                     order.add(index);
                 }
             }
         } catch (RuntimeException e) {
-            log.warn("Reranker failed, keeping retrieval order: {}", e.getMessage());
+            log.warn("Reranker failed, keeping retrieval order", e);
             order.clear();
         }
         for (int i = 0; i < candidates.size(); i++) {
@@ -51,7 +55,7 @@ public class ModelReranker implements Reranker {
         for (int index : order) {
             reranked.add(candidates.get(index));
         }
-        return reranked.stream().limit(topK).toList();
+        return reranked.stream().limit(limit).toList();
     }
 
     private static int parse(String digits) {
