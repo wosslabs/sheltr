@@ -17,9 +17,11 @@ import com.sheltr.search.domain.NoOpReranker;
 import com.sheltr.search.domain.RankedResult;
 import com.sheltr.search.domain.Retriever;
 import io.lumina.ai.ChatClient;
+import io.lumina.ai.TokenStream;
 import io.lumina.state.StateStore;
 import io.lumina.ui.Ui;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.util.HashMap;
 import java.util.List;
@@ -124,6 +126,65 @@ class LuminaChatAppTest {
         verify(ui, never()).text(contains("secret-model"));
         verify(ui, never()).ai(anyString());
         verify(chatClient, never()).stream(anyString());
+    }
+
+    @Test
+    void showsVerifiedCitedReplyAsCompletedStreamSoClientSeesStreamEnd() {
+        Conversation conversation = new Conversation(new ConversationId(UUID.randomUUID()), null);
+        FakeConversationRepository conversations = new FakeConversationRepository(conversation);
+        Retriever retriever = mock(Retriever.class);
+        AnswerContextBuilder contextBuilder = mock(AnswerContextBuilder.class);
+        ChatClient chatClient = mock(ChatClient.class);
+        Ui ui = uiFor(conversation.id(), "Is flood water safe to drink?");
+        RankedResult relevant = result(0.90);
+        Citation citation = new Citation(relevant.documentId(), relevant.chunkId(), "Flood Safety", "https://example.org", null);
+        when(retriever.retrieve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(List.of(relevant));
+        when(contextBuilder.buildContext(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new AnswerContext(
+                        "grounded prompt", List.of(citation), AnswerConfidence.fromSimilarity(0.90)));
+        when(chatClient.stream("grounded prompt"))
+                .thenReturn(TokenStream.fromIterable(List.of("Do not drink ", "flood water [1].")));
+
+        new LuminaChatApp(conversations, pipeline(retriever), contextBuilder, chatClient).build(ui);
+
+        ArgumentCaptor<TokenStream> shown = ArgumentCaptor.forClass(TokenStream.class);
+        verify(ui).ai(shown.capture());
+        assertThat(String.join("", shown.getValue())).isEqualTo("Do not drink flood water [1].");
+        verify(ui, never()).ai(anyString());
+        assertThat(conversations.saved.messages()).last()
+                .satisfies(message -> assertThat(message.citations()).containsExactly(citation));
+    }
+
+    @Test
+    void refusesUncitedReplyAsCompletedStreamWithoutShowingIt() {
+        Conversation conversation = new Conversation(new ConversationId(UUID.randomUUID()), null);
+        FakeConversationRepository conversations = new FakeConversationRepository(conversation);
+        Retriever retriever = mock(Retriever.class);
+        AnswerContextBuilder contextBuilder = mock(AnswerContextBuilder.class);
+        ChatClient chatClient = mock(ChatClient.class);
+        Ui ui = uiFor(conversation.id(), "Is flood water safe to drink?");
+        RankedResult relevant = result(0.90);
+        Citation citation = new Citation(relevant.documentId(), relevant.chunkId(), "Flood Safety", "https://example.org", null);
+        when(retriever.retrieve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(List.of(relevant));
+        when(contextBuilder.buildContext(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new AnswerContext(
+                        "grounded prompt", List.of(citation), AnswerConfidence.fromSimilarity(0.90)));
+        when(chatClient.stream("grounded prompt"))
+                .thenReturn(TokenStream.fromIterable(List.of("Uncited claim.")));
+
+        new LuminaChatApp(conversations, pipeline(retriever), contextBuilder, chatClient).build(ui);
+
+        ArgumentCaptor<TokenStream> shown = ArgumentCaptor.forClass(TokenStream.class);
+        verify(ui).ai(shown.capture());
+        assertThat(String.join("", shown.getValue())).isEqualTo(NoAnswerAvailable.MESSAGE);
+        verify(ui, never()).ai(anyString());
+        assertThat(conversations.saved.messages()).last()
+                .satisfies(message -> {
+                    assertThat(message.content().value()).isEqualTo(NoAnswerAvailable.MESSAGE);
+                    assertThat(message.citations()).isEmpty();
+                });
     }
 
     private static Ui uiFor(ConversationId conversationId, String prompt) {

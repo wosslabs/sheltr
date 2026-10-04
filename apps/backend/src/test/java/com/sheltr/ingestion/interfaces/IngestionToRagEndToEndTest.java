@@ -28,7 +28,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @EnabledIfEnvironmentVariable(named = "GEMINI_API_KEY", matches = ".+")
 @ActiveProfiles("gemini")
 @AutoConfigureTestRestTemplate
-@SpringBootTest(classes = SheltrBackendApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(classes = SheltrBackendApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "spring.ai.google.genai.chat.options.temperature=0.0")
 class IngestionToRagEndToEndTest {
 
     private static final String CAREGIVERS_GUIDE_URL =
