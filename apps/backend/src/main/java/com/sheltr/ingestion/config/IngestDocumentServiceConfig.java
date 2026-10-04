@@ -3,6 +3,7 @@ package com.sheltr.ingestion.config;
 import com.sheltr.ingestion.application.IngestDocumentService;
 import com.sheltr.ingestion.domain.IngestionRunRepository;
 import com.sheltr.ingestion.domain.SourceConnector;
+import com.sheltr.ingestion.domain.SourcePolicy;
 import com.sheltr.ingestion.domain.SourceDocumentRepository;
 import com.sheltr.ingestion.infrastructure.PdfContentExtractor;
 import com.sheltr.knowledge.domain.ChunkRepository;
@@ -20,12 +21,18 @@ public class IngestDocumentServiceConfig {
     }
 
     @Bean
+    public SourcePolicy sourcePolicy(IngestionProperties properties) {
+        return new HostAllowlistSourcePolicy(properties);
+    }
+
+    @Bean
     public IngestDocumentService ingestDocumentService(
             SourceConnector sourceConnector, PdfContentExtractor pdfContentExtractor,
             EmbeddingGenerator embeddingGenerator, SourceDocumentRepository sourceDocumentRepository,
             IngestionRunRepository ingestionRunRepository, KnowledgeDocumentRepository knowledgeDocumentRepository,
-            ChunkRepository chunkRepository) {
+            ChunkRepository chunkRepository, SourcePolicy sourcePolicy) {
         return new IngestDocumentService(sourceConnector, pdfContentExtractor, embeddingGenerator,
-                sourceDocumentRepository, ingestionRunRepository, knowledgeDocumentRepository, chunkRepository);
+                sourceDocumentRepository, ingestionRunRepository, knowledgeDocumentRepository, chunkRepository,
+                sourcePolicy);
     }
 }
