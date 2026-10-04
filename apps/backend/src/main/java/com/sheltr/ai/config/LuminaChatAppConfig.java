@@ -1,14 +1,13 @@
 package com.sheltr.ai.config;
 
 import com.sheltr.ai.application.AnswerContextBuilder;
+import com.sheltr.ai.application.AnswerPipeline;
 import com.sheltr.ai.domain.ConversationRepository;
 import com.sheltr.ai.interfaces.LuminaChatApp;
-import com.sheltr.search.domain.Retriever;
 import io.lumina.LuminaApp;
 import io.lumina.ai.ChatClient;
 import io.lumina.springai.SpringAiChatClient;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,10 +24,8 @@ public class LuminaChatAppConfig {
     }
 
     @Bean
-    public LuminaApp luminaApp(ConversationRepository conversationRepository, Retriever retriever,
-                               AnswerContextBuilder answerContextBuilder, ChatClient chatClient,
-                               @Value("${sheltr.search.relevance-threshold}") double relevanceThreshold) {
-        return new LuminaChatApp(conversationRepository, retriever, answerContextBuilder, chatClient,
-                relevanceThreshold);
+    public LuminaApp luminaApp(ConversationRepository conversationRepository, AnswerPipeline answerPipeline,
+                               AnswerContextBuilder answerContextBuilder, ChatClient chatClient) {
+        return new LuminaChatApp(conversationRepository, answerPipeline, answerContextBuilder, chatClient);
     }
 }

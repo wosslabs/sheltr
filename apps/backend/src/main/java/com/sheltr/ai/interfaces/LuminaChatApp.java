@@ -1,10 +1,11 @@
 package com.sheltr.ai.interfaces;
 
 import com.sheltr.ai.application.AnswerContext;
+import com.sheltr.ai.application.AnswerPipeline;
 import com.sheltr.ai.application.AnswerContextBuilder;
 import com.sheltr.ai.domain.*;
+import com.sheltr.knowledge.domain.StaleEmbeddingsException;
 import com.sheltr.search.domain.RankedResult;
-import com.sheltr.search.domain.Retriever;
 import com.sheltr.search.domain.SearchQuery;
 import io.lumina.LuminaApp;
 import io.lumina.ai.ChatClient;
@@ -17,24 +18,20 @@ import java.util.UUID;
 
 public class LuminaChatApp implements LuminaApp {
 
-    private static final int TOP_K = 5;
     static final String GENERATION_ERROR =
             "I couldn't generate an answer just now. Please try again.";
 
     private final ConversationRepository conversationRepository;
-    private final Retriever retriever;
+    private final AnswerPipeline pipeline;
     private final AnswerContextBuilder answerContextBuilder;
     private final ChatClient chatClient;
-    private final double relevanceThreshold;
 
-    public LuminaChatApp(ConversationRepository conversationRepository, Retriever retriever,
-                         AnswerContextBuilder answerContextBuilder, ChatClient chatClient,
-                         double relevanceThreshold) {
+    public LuminaChatApp(ConversationRepository conversationRepository, AnswerPipeline pipeline,
+                         AnswerContextBuilder answerContextBuilder, ChatClient chatClient) {
         this.conversationRepository = conversationRepository;
-        this.retriever = retriever;
+        this.pipeline = pipeline;
         this.answerContextBuilder = answerContextBuilder;
         this.chatClient = chatClient;
-        this.relevanceThreshold = relevanceThreshold;
     }
 
     @Override
@@ -77,8 +74,17 @@ public class LuminaChatApp implements LuminaApp {
                 List.of(), null, List.of()));
 
         SearchQuery query = new SearchQuery(prompt);
-        List<RankedResult> results = retriever.retrieve(query, TOP_K);
-        if (!RelevanceGate.passesThreshold(results, relevanceThreshold)) {
+        AnswerPipeline.JudgedPassages judged;
+        try {
+            judged = pipeline.retrieve(query);
+        } catch (StaleEmbeddingsException e) {
+            conversationRepository.save(conversation);
+            ui.state().set("error", GENERATION_ERROR);
+            ui.text(GENERATION_ERROR);
+            return;
+        }
+        List<RankedResult> results = judged.passages();
+        if (!judged.verdict().answerable()) {
             ui.ai(NoAnswerAvailable.MESSAGE);
             conversation.addMessage(new Message(
                     new MessageId(UUID.randomUUID()), MessageRole.ASSISTANT,
@@ -87,7 +93,7 @@ public class LuminaChatApp implements LuminaApp {
             return;
         }
 
-        AnswerContext context = answerContextBuilder.buildContext(query, results);
+        AnswerContext context = answerContextBuilder.buildContext(query, results, judged.verdict());
         List<Map<String, Object>> sources = new ArrayList<>();
         for (Citation citation : context.citations()) {
             sources.add(Map.of("title", citation.sourceTitle(), "url", citation.sourceUrl()));

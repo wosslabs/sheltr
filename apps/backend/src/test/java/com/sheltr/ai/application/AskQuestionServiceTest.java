@@ -3,6 +3,7 @@ package com.sheltr.ai.application;
 import com.sheltr.ai.domain.*;
 import com.sheltr.knowledge.domain.ChunkId;
 import com.sheltr.knowledge.domain.DocumentId;
+import com.sheltr.search.domain.NoOpReranker;
 import com.sheltr.search.domain.RankedResult;
 import com.sheltr.search.domain.Retriever;
 import com.sheltr.search.domain.SearchQuery;
@@ -17,6 +18,12 @@ class AskQuestionServiceTest {
 
     private static final double THRESHOLD = 0.75;
 
+    private static AskQuestionService service(Retriever retriever, AnswerGenerator answerGenerator,
+                                              ConversationRepository conversations) {
+        return new AskQuestionService(new AnswerPipeline(retriever, new NoOpReranker(),
+                new ThresholdRelevanceJudge(THRESHOLD), answerGenerator), conversations);
+    }
+
     @Test
     void returnsGeneratedAnswerWhenRetrievalIsRelevant() {
         ConversationId conversationId = new ConversationId(UUID.randomUUID());
@@ -27,9 +34,9 @@ class AskQuestionServiceTest {
         Retriever retriever = (query, topK) -> List.of(relevantResult);
         Message expectedAnswer = new Message(new MessageId(UUID.randomUUID()), MessageRole.ASSISTANT,
                 new MessageContent("Boil the water for one minute."), List.of(), AnswerConfidence.fromSimilarity(0.90), List.of());
-        AnswerGenerator answerGenerator = (query, results) -> new AnswerGenerated(expectedAnswer);
+        AnswerGenerator answerGenerator = (query, results, verdict) -> new AnswerGenerated(expectedAnswer);
 
-        AskQuestionService service = new AskQuestionService(retriever, answerGenerator, conversations, THRESHOLD);
+        AskQuestionService service = service(retriever, answerGenerator, conversations);
 
         Message actual = service.ask(conversationId, "Is flood water safe to drink?");
 
@@ -45,11 +52,11 @@ class AskQuestionServiceTest {
         RankedResult irrelevantResult = new RankedResult(
                 new ChunkId(UUID.randomUUID()), new DocumentId(UUID.randomUUID()), "Unrelated text.", 0.40);
         Retriever retriever = (query, topK) -> List.of(irrelevantResult);
-        AnswerGenerator answerGenerator = (query, results) -> {
+        AnswerGenerator answerGenerator = (query, results, verdict) -> {
             throw new AssertionError("AnswerGenerator must not be called when below threshold");
         };
 
-        AskQuestionService service = new AskQuestionService(retriever, answerGenerator, conversations, THRESHOLD);
+        AskQuestionService service = service(retriever, answerGenerator, conversations);
 
         Message actual = service.ask(conversationId, "What is the capital of France?");
 
@@ -66,9 +73,9 @@ class AskQuestionServiceTest {
         RankedResult relevantResult = new RankedResult(
                 new ChunkId(UUID.randomUUID()), new DocumentId(UUID.randomUUID()), "Boil water first.", 0.90);
         Retriever retriever = (query, topK) -> List.of(relevantResult);
-        AnswerGenerator answerGenerator = (query, results) -> new AnswerGenerationFailed("Gemini timed out");
+        AnswerGenerator answerGenerator = (query, results, verdict) -> new AnswerGenerationFailed("Gemini timed out");
 
-        AskQuestionService service = new AskQuestionService(retriever, answerGenerator, conversations, THRESHOLD);
+        AskQuestionService service = service(retriever, answerGenerator, conversations);
 
         assertThatThrownBy(() -> service.ask(conversationId, "Is flood water safe to drink?"))
                 .isInstanceOf(AnswerGenerationFailedException.class)
@@ -80,9 +87,9 @@ class AskQuestionServiceTest {
         ConversationId conversationId = new ConversationId(UUID.randomUUID());
         FakeConversationRepository conversations = new FakeConversationRepository(null);
         Retriever retriever = (query, topK) -> List.of();
-        AnswerGenerator answerGenerator = (query, results) -> new AnswerGenerationFailed("unused");
+        AnswerGenerator answerGenerator = (query, results, verdict) -> new AnswerGenerationFailed("unused");
 
-        AskQuestionService service = new AskQuestionService(retriever, answerGenerator, conversations, THRESHOLD);
+        AskQuestionService service = service(retriever, answerGenerator, conversations);
 
         assertThatThrownBy(() -> service.ask(conversationId, "question"))
                 .isInstanceOf(ConversationNotFoundException.class);

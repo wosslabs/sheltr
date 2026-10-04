@@ -1,7 +1,9 @@
 package com.sheltr.ai.application;
 
 import com.sheltr.ai.domain.Citation;
+import com.sheltr.ai.domain.ConfidenceBands;
 import com.sheltr.ai.domain.ConfidenceLevel;
+import com.sheltr.ai.domain.RelevanceVerdict;
 import com.sheltr.knowledge.domain.*;
 import com.sheltr.search.domain.RankedResult;
 import com.sheltr.search.domain.SearchQuery;
@@ -41,8 +43,9 @@ class AnswerContextBuilderTest {
         RankedResult result = new RankedResult(chunkId, documentId,
                 "If tap water is contaminated after a flood, boil it at a rolling boil for one full minute.", 0.88);
 
-        AnswerContext context = new AnswerContextBuilder(documents)
-                .buildContext(new SearchQuery("Is it safe to drink flood water?"), List.of(result));
+        AnswerContext context = new AnswerContextBuilder(documents, ConfidenceBands.DEFAULT)
+                .buildContext(new SearchQuery("Is it safe to drink flood water?"), List.of(result),
+                        new RelevanceVerdict(true, 0.88));
 
         assertThat(context.prompt()).contains("Is it safe to drink flood water?");
         assertThat(context.prompt()).contains("boil it at a rolling boil for one full minute");
@@ -77,8 +80,9 @@ class AnswerContextBuilderTest {
         RankedResult missing = new RankedResult(new ChunkId(UUID.randomUUID()), missingId, "gone", 0.91);
         RankedResult present = new RankedResult(new ChunkId(UUID.randomUUID()), presentId, "here", 0.80);
 
-        AnswerContext context = new AnswerContextBuilder(documents)
-                .buildContext(new SearchQuery("flood water"), List.of(missing, present));
+        AnswerContext context = new AnswerContextBuilder(documents, ConfidenceBands.DEFAULT)
+                .buildContext(new SearchQuery("flood water"), List.of(missing, present),
+                        new RelevanceVerdict(true, 0.91));
 
         assertThat(context.citations()).hasSize(1);
         assertThat(context.citations().get(0).sourceTitle()).isEqualTo("Present");

@@ -2,6 +2,8 @@ package com.sheltr.ai.application;
 
 import com.sheltr.ai.domain.AnswerConfidence;
 import com.sheltr.ai.domain.Citation;
+import com.sheltr.ai.domain.ConfidenceBands;
+import com.sheltr.ai.domain.RelevanceVerdict;
 import com.sheltr.knowledge.domain.KnowledgeDocument;
 import com.sheltr.knowledge.domain.KnowledgeDocumentRepository;
 import com.sheltr.search.domain.RankedResult;
@@ -13,12 +15,14 @@ import java.util.List;
 public class AnswerContextBuilder {
 
     private final KnowledgeDocumentRepository documentRepository;
+    private final ConfidenceBands confidenceBands;
 
-    public AnswerContextBuilder(KnowledgeDocumentRepository documentRepository) {
+    public AnswerContextBuilder(KnowledgeDocumentRepository documentRepository, ConfidenceBands confidenceBands) {
         this.documentRepository = documentRepository;
+        this.confidenceBands = confidenceBands;
     }
 
-    public AnswerContext buildContext(SearchQuery query, List<RankedResult> results) {
+    public AnswerContext buildContext(SearchQuery query, List<RankedResult> results, RelevanceVerdict verdict) {
         StringBuilder context = new StringBuilder();
         for (RankedResult result : results) {
             context.append("- ").append(result.content()).append('\n');
@@ -42,6 +46,6 @@ public class AnswerContextBuilder {
             }
         }
 
-        return new AnswerContext(prompt, citations, AnswerConfidence.fromSimilarity(results.get(0).score()));
+        return new AnswerContext(prompt, citations, AnswerConfidence.of(verdict.probability(), confidenceBands));
     }
 }
