@@ -1,30 +1,22 @@
 package com.sheltr.config;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-
 /**
- * Admin credentials for {@code /api/v1/admin/**}. Bound from {@code sheltr.security.admin.*}.
+ * Raw admin credential settings from {@code sheltr.security.admin.*}: {@code username},
+ * {@code password} (from {@code SHELTR_ADMIN_PASSWORD}) and {@code passwordHash} (from
+ * {@code SHELTR_ADMIN_PASSWORD_HASH}, a bcrypt hash).
  *
- * <p>Exactly one of {@code password} (from {@code SHELTR_ADMIN_PASSWORD}) or {@code passwordHash}
- * (from {@code SHELTR_ADMIN_PASSWORD_HASH}, a bcrypt hash) must be set in every profile. No
+ * <p>Not a Spring bean and deliberately not {@code @ConfigurationProperties}: it is bound only
+ * inside {@link AdminCredentials#load}, used once to build the encoded credential, and then
+ * dropped, so no bean holds the plaintext after startup.
+ *
+ * <p>Exactly one of {@code password} or {@code passwordHash} must be set in every profile. No
  * password is defined in YAML. Blank values are treated as absent.
  */
-@ConfigurationProperties("sheltr.security.admin")
-public record SecurityProperties(String username, String password, String passwordHash) {
+record SecurityProperties(String username, String password, String passwordHash) {
 
-    public SecurityProperties {
+    SecurityProperties {
         password = blankToNull(password);
         passwordHash = blankToNull(passwordHash);
-    }
-
-    /**
-     * Returns this instance after checking the credential rules.
-     *
-     * @throws IllegalStateException when the credentials are missing or ambiguous
-     */
-    public SecurityProperties validated() {
-        requireCredentials();
-        return this;
     }
 
     /**
@@ -33,7 +25,7 @@ public record SecurityProperties(String username, String password, String passwo
      *
      * @throws IllegalStateException when both password and hash are set, or when neither is set
      */
-    public void requireCredentials() {
+    void requireCredentials() {
         boolean hasPassword = password != null;
         boolean hasHash = passwordHash != null;
 

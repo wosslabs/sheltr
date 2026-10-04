@@ -3,7 +3,6 @@ package com.sheltr.config;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
 import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration;
 import org.springframework.boot.security.autoconfigure.web.servlet.ServletWebSecurityAutoConfiguration;
@@ -19,14 +18,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Loads {@link SecurityConfig} with {@link SecurityProperties} and Boot's security
- * auto-configuration, without a database, to check startup behaviour.
+ * Loads {@link SecurityConfig} with Boot's security auto-configuration, without a database, to
+ * check startup behaviour. Credentials come from {@code sheltr.security.admin.*} properties.
  */
 @ExtendWith(OutputCaptureExtension.class)
 class SecurityConfigContextTest {
 
     @Configuration(proxyBeanMethods = false)
-    @EnableConfigurationProperties(SecurityProperties.class)
     @Import(SecurityConfig.class)
     static class Config {
     }
@@ -76,6 +74,63 @@ class SecurityConfigContextTest {
                             .isTrue();
                 });
         assertThat(output).doesNotContain("Using generated security password").doesNotContain("plain-secret-value");
+    }
+
+    @Test
+    void noBeanHoldsThePlaintextPasswordOrTheSettingsRecord() {
+        runner.withPropertyValues("sheltr.security.admin.password=plain-secret-value")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(SecurityProperties.class);
+                    assertThat(context).doesNotHaveBean(AdminCredentials.class);
+                    assertThat(BeanSecrets.beansExposing(context.getBeanFactory(), "plain-secret-value")).isEmpty();
+                });
+    }
+
+    @Test
+    void bcryptCostBelow04FailsStartup() {
+        runner.withPropertyValues("sheltr.security.admin.password-hash=" + hashWithCost("03"))
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure()).rootCause()
+                            .hasMessageContaining("SHELTR_ADMIN_PASSWORD_HASH");
+                });
+    }
+
+    @Test
+    void bcryptCostAbove31FailsStartup() {
+        runner.withPropertyValues("sheltr.security.admin.password-hash=" + hashWithCost("32"))
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure()).rootCause()
+                            .hasMessageContaining("SHELTR_ADMIN_PASSWORD_HASH");
+                });
+    }
+
+    @Test
+    void bcryptCostBoundariesAndVariantsAreAccepted() {
+        for (String hash : new String[] {hashWithCost("04"), hashWithCost("31"),
+                validRawHash().replace("$2a$", "$2b$"), validRawHash().replace("$2a$", "$2y$")}) {
+            runner.withPropertyValues("sheltr.security.admin.password-hash=" + hash)
+                    .run(context -> assertThat(context).hasNotFailed());
+        }
+    }
+
+    @Test
+    void unsupportedBcryptVariantFailsStartup() {
+        runner.withPropertyValues("sheltr.security.admin.password-hash=" + validRawHash().replace("$2a$", "$2x$"))
+                .run(context -> assertThat(context).hasFailed());
+    }
+
+    private static String validRawHash() {
+        return SecurityConfig.passwordEncoder().encode("hashed-secret").substring("{bcrypt}".length());
+    }
+
+    /** A syntactically valid bcrypt string with the given two-digit cost (not re-hashed). */
+    private static String hashWithCost(String cost) {
+        String raw = validRawHash();
+        assertThat(raw).startsWith("$2a$10$");
+        return "$2a$" + cost + raw.substring("$2a$10".length());
     }
 
     @Test
