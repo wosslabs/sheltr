@@ -20,6 +20,8 @@ public class LuminaChatApp implements LuminaApp {
 
     static final String GENERATION_ERROR =
             "I couldn't generate an answer just now. Please try again.";
+    static final String UNCITED_WARNING =
+            "This answer could not be tied to a source passage and should not be relied on.";
 
     private final ConversationRepository conversationRepository;
     private final AnswerPipeline pipeline;
@@ -101,10 +103,25 @@ public class LuminaChatApp implements LuminaApp {
         ui.ragSources(sources);
 
         try {
-            String reply = ui.ai(chatClient.stream(context.prompt()));
+            // Buffer the whole reply before showing it: an uncited answer must be refused, never displayed (ADR-0008).
+            StringBuilder buffered = new StringBuilder();
+            for (String chunk : chatClient.stream(context.prompt())) {
+                buffered.append(chunk);
+            }
+            String reply = buffered.toString();
+            List<Citation> used = CitationSelector.select(reply, results, context.citations());
+            if (used.isEmpty()) {
+                ui.ai(NoAnswerAvailable.MESSAGE);
+                conversation.addMessage(new Message(
+                        new MessageId(UUID.randomUUID()), MessageRole.ASSISTANT,
+                        new MessageContent(NoAnswerAvailable.MESSAGE), List.of(), null, List.of()));
+                conversationRepository.save(conversation);
+                return;
+            }
+            ui.ai(reply);
             conversation.addMessage(new Message(
                     new MessageId(UUID.randomUUID()), MessageRole.ASSISTANT, new MessageContent(reply),
-                    context.citations(), context.confidence(),
+                    used, context.confidence(),
                     results.stream().map(RankedResult::chunkId).toList()));
             conversationRepository.save(conversation);
             ui.text("Confidence: " + context.confidence().level().name());

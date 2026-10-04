@@ -50,7 +50,7 @@ class SpringAiAnswerGeneratorAdapterTest {
         };
 
         SpringAiAnswerGeneratorAdapter adapter = new SpringAiAnswerGeneratorAdapter(
-                chatModel, new AnswerContextBuilder(documentRepository, ConfidenceBands.DEFAULT));
+                chatModel::call, new AnswerContextBuilder(documentRepository, ConfidenceBands.DEFAULT));
 
         ChunkId chunkId = new ChunkId(UUID.randomUUID());
         RankedResult result = new RankedResult(chunkId, documentId,
