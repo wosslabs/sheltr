@@ -25,6 +25,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(classes = SheltrBackendApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class IngestionControllerIntegrationTest {
 
+    /** Admin credentials from src/test/resources/application.properties. */
+    private static final String ADMIN_USER = "admin";
+    private static final String ADMIN_PASSWORD = "test-only-password";
+
     private static final String CAREGIVERS_GUIDE_URL =
             "https://www.ready.gov/sites/default/files/2024-02/ready-gov_caregivers-preparedness-guide.pdf";
 
@@ -44,7 +48,7 @@ class IngestionControllerIntegrationTest {
 
     @Test
     void triggersRealIngestionAndReachesIndexedStatus() {
-        ResponseEntity<IngestionRunDto> response = restTemplate.postForEntity(
+        ResponseEntity<IngestionRunDto> response = restTemplate.withBasicAuth(ADMIN_USER, ADMIN_PASSWORD).postForEntity(
                 "/api/v1/admin/ingestion/runs",
                 new TriggerIngestionRequestDto(CAREGIVERS_GUIDE_URL, "PDF", "Disaster Preparedness Guide for Caregivers",
                 "FEMA", java.util.List.of("FLOOD"), "2024-02-01", "test-fixture-licence", null),
@@ -54,7 +58,7 @@ class IngestionControllerIntegrationTest {
         assertThat(response.getBody().status()).isEqualTo("SUCCEEDED");
         assertThat(response.getBody().finishedAt()).isNotNull();
 
-        ResponseEntity<IngestionRunDto> fetched = restTemplate.getForEntity(
+        ResponseEntity<IngestionRunDto> fetched = restTemplate.withBasicAuth(ADMIN_USER, ADMIN_PASSWORD).getForEntity(
                 "/api/v1/admin/ingestion/runs/" + response.getBody().id(), IngestionRunDto.class);
 
         assertThat(fetched.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -63,7 +67,7 @@ class IngestionControllerIntegrationTest {
 
     @Test
     void returnsNotFoundForUnknownRun() {
-        ResponseEntity<IngestionRunDto> response = restTemplate.getForEntity(
+        ResponseEntity<IngestionRunDto> response = restTemplate.withBasicAuth(ADMIN_USER, ADMIN_PASSWORD).getForEntity(
                 "/api/v1/admin/ingestion/runs/" + java.util.UUID.randomUUID(), IngestionRunDto.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);

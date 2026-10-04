@@ -32,6 +32,10 @@ import static org.assertj.core.api.Assertions.assertThat;
         properties = "spring.ai.google.genai.chat.options.temperature=0.0")
 class IngestionToRagEndToEndTest {
 
+    /** Admin credentials from src/test/resources/application.properties. */
+    private static final String ADMIN_USER = "admin";
+    private static final String ADMIN_PASSWORD = "test-only-password";
+
     private static final String CAREGIVERS_GUIDE_URL =
             "https://www.ready.gov/sites/default/files/2024-02/ready-gov_caregivers-preparedness-guide.pdf";
 
@@ -54,7 +58,7 @@ class IngestionToRagEndToEndTest {
 
     @Test
     void ingestedDocumentIsRetrievableViaSemanticSearch() {
-        ResponseEntity<IngestionRunDto> response = restTemplate.postForEntity(
+        ResponseEntity<IngestionRunDto> response = restTemplate.withBasicAuth(ADMIN_USER, ADMIN_PASSWORD).postForEntity(
                 "/api/v1/admin/ingestion/runs",
                 new TriggerIngestionRequestDto(CAREGIVERS_GUIDE_URL, "PDF", "Disaster Preparedness Guide for Caregivers",
                 "FEMA", java.util.List.of("FLOOD"), "2024-02-01", "test-fixture-licence", null),
