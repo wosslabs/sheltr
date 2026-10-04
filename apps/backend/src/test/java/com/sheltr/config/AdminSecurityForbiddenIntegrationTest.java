@@ -57,10 +57,11 @@ class AdminSecurityForbiddenIntegrationTest {
     TestRestTemplate restTemplate;
 
     @Test
-    void authenticatedNonAdminIsForbidden() {
+    void authenticatedNonAdminIsForbidden() throws Exception {
         ResponseEntity<String> response = restTemplate.withBasicAuth("viewer", "viewer-password")
                 .getForEntity("/api/v1/admin/ingestion/runs/" + UUID.randomUUID(), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        AdminSecurityIntegrationTest.assertApiError(response, "FORBIDDEN", "Admin role required.");
     }
 }
