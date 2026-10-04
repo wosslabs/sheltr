@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
@@ -135,6 +136,36 @@ class EvalRunServiceTest {
         assertThat(result.cited()).extracting("sourceUri", "content")
                 .containsExactly(tuple("", "Boil water for one minute."));
         assertThat(result.error()).isNull();
+    }
+
+    @Test
+    void aFailedDocumentLookupIsRetriedForLaterPassagesFromTheSameDocument() {
+        Retriever retriever = (query, topK) -> List.of(boil, bleach);
+        AnswerGenerator generator = (query, results, verdict) -> new AnswerGenerationFailed("unused");
+        KnowledgeDocument document = new KnowledgeDocument(documentId, "Flood", "Agency", URI,
+                Set.of(DisasterType.FLOOD), LocalDate.of(2021, 3, 15), new DocumentVersion(1),
+                new Checksum("abc"), null, DocumentStatus.ACTIVE);
+        AtomicInteger lookups = new AtomicInteger();
+        KnowledgeDocumentRepository flakyLookups = new KnowledgeDocumentRepository() {
+            @Override
+            public Optional<KnowledgeDocument> findById(DocumentId id) {
+                if (lookups.incrementAndGet() == 1) {
+                    throw new IllegalStateException("lookup down");
+                }
+                return Optional.of(document);
+            }
+
+            @Override
+            public void save(KnowledgeDocument ignored) {
+                throw new UnsupportedOperationException("not needed by this test");
+            }
+        };
+
+        EvalResult result = service(retriever, generator, flakyLookups).run(question);
+
+        assertThat(result.passages()).extracting("sourceUri", "content")
+                .containsExactly(tuple("", "Boil water for one minute."), tuple(URI, "Use unscented bleach."));
+        assertThat(lookups.get()).isEqualTo(2);
     }
 
     private EvalRunService service(Retriever retriever, AnswerGenerator generator) {
