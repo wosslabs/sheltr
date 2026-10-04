@@ -20,7 +20,7 @@ class SpringAiEmbeddingGeneratorAdapterTest {
                 .build();
         EmbeddingModel embeddingModel = new GoogleGenAiTextEmbeddingModel(connectionDetails,
                 GoogleGenAiTextEmbeddingOptions.builder().model("gemini-embedding-001").dimensions(768).build());
-        SpringAiEmbeddingGeneratorAdapter adapter = new SpringAiEmbeddingGeneratorAdapter(embeddingModel);
+        SpringAiEmbeddingGeneratorAdapter adapter = new SpringAiEmbeddingGeneratorAdapter(embeddingModel, "gemini-embedding-001");
 
         Embedding embedding = adapter.embed("Boil water for one minute to make it safe to drink.");
 

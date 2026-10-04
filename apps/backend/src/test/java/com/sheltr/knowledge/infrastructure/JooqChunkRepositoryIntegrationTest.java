@@ -51,16 +51,16 @@ class JooqChunkRepositoryIntegrationTest {
         ChunkId chunkId = new ChunkId(UUID.randomUUID());
         insertChunkWithoutEmbedding(dataSource, chunkId, documentId);
 
-        List<Chunk> pending = chunkRepository.findPendingEmbeddings();
+        List<Chunk> pending = chunkRepository.findPendingEmbeddings("test-model");
         assertThat(pending).extracting(Chunk::id).contains(chunkId);
 
         float[] vector = new float[768];
         vector[0] = 0.42f;
         Chunk toSave = pending.stream().filter(c -> c.id().equals(chunkId)).findFirst().orElseThrow()
                 .withEmbedding(new Embedding(vector));
-        chunkRepository.save(toSave);
+        chunkRepository.save(toSave, "test-model");
 
-        List<Chunk> pendingAfter = chunkRepository.findPendingEmbeddings();
+        List<Chunk> pendingAfter = chunkRepository.findPendingEmbeddings("test-model");
         assertThat(pendingAfter).extracting(Chunk::id).doesNotContain(chunkId);
 
         Optional<KnowledgeDocument> document = documentRepository.findById(documentId);

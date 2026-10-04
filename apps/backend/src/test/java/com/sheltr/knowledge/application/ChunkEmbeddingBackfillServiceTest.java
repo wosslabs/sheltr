@@ -40,13 +40,16 @@ class ChunkEmbeddingBackfillServiceTest {
         public Optional<Chunk> findById(ChunkId id) { return Optional.empty(); }
 
         @Override
-        public List<Chunk> findPendingEmbeddings() { return pending; }
+        public List<Chunk> findPendingEmbeddings(String embeddingModel) { return pending; }
 
         @Override
-        public void save(Chunk chunk) { saved.add(chunk); }
+        public void save(Chunk chunk, String embeddingModel) { saved.add(chunk); }
 
         @Override
-        public void insert(Chunk chunk) { throw new UnsupportedOperationException("not needed by this test"); }
+        public void insert(Chunk chunk, String embeddingModel) { throw new UnsupportedOperationException("not needed by this test"); }
+
+        @Override
+        public int countEmbeddedWithOtherModel(String embeddingModel) { return 0; }
     }
 
     private static class FakeEmbeddingGenerator implements EmbeddingGenerator {
@@ -56,5 +59,8 @@ class ChunkEmbeddingBackfillServiceTest {
             values[0] = 1.0f;
             return new Embedding(values);
         }
+
+        @Override
+        public String modelName() { return "test-model"; }
     }
 }

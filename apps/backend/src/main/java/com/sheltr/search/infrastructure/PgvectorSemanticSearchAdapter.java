@@ -15,28 +15,34 @@ import org.jooq.impl.DSL;
 import javax.sql.DataSource;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 public class PgvectorSemanticSearchAdapter implements Retriever {
 
     private final DSLContext dsl;
     private final EmbeddingGenerator embeddingGenerator;
+    private final String statusesLiteral;
 
-    public PgvectorSemanticSearchAdapter(DataSource dataSource, EmbeddingGenerator embeddingGenerator) {
+    public PgvectorSemanticSearchAdapter(DataSource dataSource, EmbeddingGenerator embeddingGenerator,
+                                         Set<String> statuses) {
         this.dsl = DSL.using(dataSource, SQLDialect.POSTGRES);
         this.embeddingGenerator = embeddingGenerator;
+        this.statusesLiteral = "{" + String.join(",", statuses) + "}";
     }
 
     @Override
     public List<RankedResult> retrieve(SearchQuery query, int topK) {
-        Embedding queryEmbedding = embeddingGenerator.embed(query.text());
+        Embedding queryEmbedding = embeddingGenerator.embedQuery(query.text());
         String vectorLiteral = toVectorLiteral(queryEmbedding);
 
         var rows = dsl.fetch(
-                "SELECT id, document_id, content, embedding <=> ?::vector AS distance "
-                        + "FROM knowledge.chunks WHERE embedding IS NOT NULL "
-                        + "ORDER BY embedding <=> ?::vector ASC LIMIT ?",
-                vectorLiteral, vectorLiteral, topK);
+                "SELECT c.id, c.document_id, c.content, c.embedding <=> ?::vector AS distance "
+                        + "FROM knowledge.chunks c JOIN knowledge.documents d ON d.id = c.document_id "
+                        + "WHERE c.embedding IS NOT NULL AND c.embedding_model = ? "
+                        + "AND d.status = ANY(?::text[]) "
+                        + "ORDER BY c.embedding <=> ?::vector ASC LIMIT ?",
+                vectorLiteral, embeddingGenerator.modelName(), statusesLiteral, vectorLiteral, topK);
 
         List<RankedResult> results = new ArrayList<>();
         for (Record row : rows) {

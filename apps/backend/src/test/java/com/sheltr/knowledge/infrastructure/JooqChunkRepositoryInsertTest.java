@@ -51,7 +51,7 @@ class JooqChunkRepositoryInsertTest {
                 new Embedding(vector), new PageNumber(2), 0,
                 new ChunkMetadata("Water Safety", Set.of(DisasterType.FLOOD)), new Checksum("chunkchecksum"));
 
-        chunkRepository.insert(chunk);
+        chunkRepository.insert(chunk, "test-model");
 
         Optional<Chunk> reloaded = chunkRepository.findById(chunkId);
         assertThat(reloaded).isPresent();

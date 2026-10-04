@@ -17,10 +17,11 @@ public class ChunkEmbeddingBackfillService {
     }
 
     public int backfillAll() {
-        List<Chunk> pending = chunkRepository.findPendingEmbeddings();
+        String model = embeddingGenerator.modelName();
+        List<Chunk> pending = chunkRepository.findPendingEmbeddings(model);
         for (Chunk chunk : pending) {
             var embedding = embeddingGenerator.embed(chunk.content().value());
-            chunkRepository.save(chunk.withEmbedding(embedding));
+            chunkRepository.save(chunk.withEmbedding(embedding), model);
         }
         return pending.size();
     }

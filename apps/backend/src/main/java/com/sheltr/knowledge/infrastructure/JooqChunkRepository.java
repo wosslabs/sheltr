@@ -31,10 +31,11 @@ public class JooqChunkRepository implements ChunkRepository {
     }
 
     @Override
-    public List<Chunk> findPendingEmbeddings() {
+    public List<Chunk> findPendingEmbeddings(String embeddingModel) {
         var result = dsl.fetch(
                 "SELECT id, document_id, content, page_number, chunk_index, section_heading, checksum "
-                        + "FROM knowledge.chunks WHERE embedding IS NULL");
+                        + "FROM knowledge.chunks WHERE embedding IS NULL OR embedding_model IS DISTINCT FROM ?",
+                embeddingModel);
         List<Chunk> chunks = new ArrayList<>();
         for (Record record : result) {
             chunks.add(mapRow(record));
@@ -43,23 +44,33 @@ public class JooqChunkRepository implements ChunkRepository {
     }
 
     @Override
-    public void save(Chunk chunk) {
+    public void save(Chunk chunk, String embeddingModel) {
         Embedding embedding = chunk.embedding().orElseThrow(
                 () -> new IllegalStateException("save() only supports writing an embedding in this slice"));
-        dsl.execute("UPDATE knowledge.chunks SET embedding = ?::vector WHERE id = ?",
-                toVectorLiteral(embedding), chunk.id().value());
+        dsl.execute("UPDATE knowledge.chunks SET embedding = ?::vector, embedding_model = ? WHERE id = ?",
+                toVectorLiteral(embedding), embeddingModel, chunk.id().value());
     }
 
     @Override
-    public void insert(Chunk chunk) {
+    public void insert(Chunk chunk, String embeddingModel) {
         Embedding embedding = chunk.embedding().orElseThrow(
                 () -> new IllegalStateException("insert() requires the chunk to already have an embedding"));
         dsl.execute(
-                "INSERT INTO knowledge.chunks (id, document_id, content, embedding, page_number, chunk_index, "
-                        + "section_heading, checksum) VALUES (?, ?, ?, ?::vector, ?, ?, ?, ?)",
+                "INSERT INTO knowledge.chunks (id, document_id, content, embedding, embedding_model, "
+                        + "page_number, chunk_index, section_heading, checksum) "
+                        + "VALUES (?, ?, ?, ?::vector, ?, ?, ?, ?, ?)",
                 chunk.id().value(), chunk.documentId().value(), chunk.content().value(),
-                toVectorLiteral(embedding), chunk.pageNumber().map(PageNumber::value).orElse(null),
+                toVectorLiteral(embedding), embeddingModel,
+                chunk.pageNumber().map(PageNumber::value).orElse(null),
                 chunk.chunkIndex(), chunk.metadata().sectionHeading(), chunk.checksum().hex());
+    }
+
+    @Override
+    public int countEmbeddedWithOtherModel(String embeddingModel) {
+        return dsl.fetchOne(
+                "SELECT count(*) AS n FROM knowledge.chunks "
+                        + "WHERE embedding IS NOT NULL AND embedding_model IS DISTINCT FROM ?",
+                embeddingModel).get("n", Integer.class);
     }
 
     private static String toVectorLiteral(Embedding embedding) {
