@@ -103,4 +103,23 @@ class EvalScoreServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("a");
     }
+
+    @Test
+    void rejectsDuplicateQuestionIds() {
+        List<EvalQuestion> duplicated = List.of(questions.get(0), questions.get(0), questions.get(2));
+
+        assertThatThrownBy(() -> new EvalScoreService(judge).score(duplicated, run))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Duplicate question").hasMessageContaining("good");
+    }
+
+    @Test
+    void rejectsResultsForQuestionsNotInTheQuestionFile() {
+        EvalResult stray = new EvalResult("stray", List.of(), true, null, 0.2, List.of(), 50, null);
+        EvalRun withStray = new EvalRun("baseline", "t", Map.of(), List.of(run.results().get(0), stray));
+
+        assertThatThrownBy(() -> new EvalScoreService(judge).score(questions, withStray))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("stray");
+    }
 }

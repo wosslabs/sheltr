@@ -4,10 +4,13 @@ import com.sheltr.eval.domain.*;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -31,6 +34,21 @@ public class EvalScoreService {
     }
 
     public Output score(List<EvalQuestion> questions, EvalRun run) {
+        List<String> questionIds = questions.stream().map(EvalQuestion::id).toList();
+        List<String> duplicateQuestions = duplicates(questionIds);
+        if (!duplicateQuestions.isEmpty()) {
+            throw new IllegalArgumentException("Duplicate question ID(s) in the question file: " + duplicateQuestions);
+        }
+        List<String> resultIds = run.results().stream().map(EvalResult::questionId).toList();
+        List<String> duplicateResults = duplicates(resultIds);
+        if (!duplicateResults.isEmpty()) {
+            throw new IllegalArgumentException("Duplicate result ID(s) in the run: " + duplicateResults);
+        }
+        List<String> strays = resultIds.stream().filter(id -> !questionIds.contains(id)).toList();
+        if (!strays.isEmpty()) {
+            throw new IllegalArgumentException("The run has results for ID(s) not in the question file: " + strays);
+        }
+
         Map<String, EvalResult> results = run.results().stream()
                 .collect(Collectors.toMap(EvalResult::questionId, Function.identity()));
         List<String> missing = questions.stream().map(EvalQuestion::id)
@@ -77,6 +95,17 @@ public class EvalScoreService {
         }
         long agreed = items.stream().filter(item -> item.judgeFaithful() == item.humanFaithful()).count();
         return (double) agreed / items.size();
+    }
+
+    private static List<String> duplicates(List<String> ids) {
+        Set<String> seen = new HashSet<>();
+        Set<String> duplicates = new TreeSet<>();
+        for (String id : ids) {
+            if (!seen.add(id)) {
+                duplicates.add(id);
+            }
+        }
+        return List.copyOf(duplicates);
     }
 
     private static SplitScores scoreSplit(List<Metrics.Scored> scored, List<Judged> judged) {

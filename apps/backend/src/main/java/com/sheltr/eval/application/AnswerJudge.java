@@ -4,6 +4,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.UnaryOperator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Scores answers with a chat model. Run it under a different model than the one that wrote
@@ -11,6 +13,10 @@ import java.util.function.UnaryOperator;
  * {@link #errors()}.
  */
 public class AnswerJudge {
+
+    /** Citation markers such as [1], [1, 2] and [1-3]. */
+    private static final String CITATION = "\\s*\\[\\d{1,3}(?:\\s*[,\\-\u2013]\\s*\\d{1,3})*\\]";
+    private static final Pattern LEADING_WORD = Pattern.compile("[A-Z]+");
 
     private final UnaryOperator<String> llm;
     private int errors;
@@ -58,12 +64,17 @@ public class AnswerJudge {
     private boolean verdict(String prompt, String positive, String negative) {
         try {
             String reply = llm.apply(prompt).trim().toUpperCase(Locale.ROOT);
-            // Check the negative word first: "UNSUPPORTED" contains "SUPPORTED".
-            if (reply.startsWith(negative)) {
-                return false;
-            }
-            if (reply.startsWith(positive)) {
-                return true;
+            // Skip markdown, quotes and punctuation before the word, then read the first whole word.
+            Matcher word = LEADING_WORD.matcher(reply.replaceFirst("^[^A-Z]+", ""));
+            if (word.lookingAt()) {
+                String first = word.group();
+                // Check the negative word first: a reply that starts with UNSUPPORTED is never SUPPORTED.
+                if (first.equals(negative)) {
+                    return false;
+                }
+                if (first.equals(positive)) {
+                    return true;
+                }
             }
         } catch (RuntimeException e) {
             // counted below
@@ -76,7 +87,7 @@ public class AnswerJudge {
         if (answer == null) {
             return List.of();
         }
-        return Arrays.stream(answer.replaceAll("\\s*\\[\\d{1,3}\\]", "").split("(?<=[.!?])\\s+"))
+        return Arrays.stream(answer.replaceAll(CITATION, "").split("(?<=[.!?])\\s+"))
                 .map(String::trim)
                 .filter(sentence -> !sentence.isEmpty())
                 .toList();
