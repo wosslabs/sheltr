@@ -38,11 +38,11 @@ public class AnswerContextBuilder {
 
         String prompt = """
                 You are a disaster-response assistant. Answer the question using ONLY the numbered \
-                passages below. Every sentence of your answer must end with the bracketed number of \
-                the passage it came from, like [1]. For example: "Boil tap water for one full minute \
-                before drinking it. [1]" An answer without bracketed numbers will be rejected. If the \
-                passages do not contain enough information to answer, say so clearly rather than \
-                guessing, and still end that sentence with the number of the closest passage.
+                passages below. Every sentence that states an answer must end with the bracketed \
+                number of a passage that supports it, like [1]. For example: "The meeting starts at \
+                noon. [2]" An answer without bracketed numbers will be rejected. If the passages do \
+                not contain the answer, reply that the passages do not contain enough information, \
+                and do not cite them.
 
                 %sPassages:
                 %s

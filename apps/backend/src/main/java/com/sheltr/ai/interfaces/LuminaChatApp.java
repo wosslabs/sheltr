@@ -21,8 +21,6 @@ public class LuminaChatApp implements LuminaApp {
 
     static final String GENERATION_ERROR =
             "I couldn't generate an answer just now. Please try again.";
-    static final String UNCITED_WARNING =
-            "This answer could not be tied to a source passage and should not be relied on.";
 
     private final ConversationRepository conversationRepository;
     private final AnswerPipeline pipeline;
@@ -97,11 +95,6 @@ public class LuminaChatApp implements LuminaApp {
         }
 
         AnswerContext context = answerContextBuilder.buildContext(query, results, judged.verdict());
-        List<Map<String, Object>> sources = new ArrayList<>();
-        for (Citation citation : context.citations()) {
-            sources.add(Map.of("title", citation.sourceTitle(), "url", citation.sourceUrl()));
-        }
-        ui.ragSources(sources);
 
         try {
             // Buffer the whole reply before showing it: an uncited answer must be refused, never displayed (ADR-0008).
@@ -113,6 +106,7 @@ public class LuminaChatApp implements LuminaApp {
             List<Citation> used = CitationSelector.select(reply, results, context.citations());
             // Verified text is shown as one completed stream so the client gets the stream end frame.
             if (used.isEmpty()) {
+                ui.ragSources(List.of());
                 ui.ai(TokenStream.of(NoAnswerAvailable.MESSAGE));
                 conversation.addMessage(new Message(
                         new MessageId(UUID.randomUUID()), MessageRole.ASSISTANT,
@@ -120,6 +114,8 @@ public class LuminaChatApp implements LuminaApp {
                 conversationRepository.save(conversation);
                 return;
             }
+            // Only the passages the answer cites are shown as sources (spec 5.4).
+            ui.ragSources(sourcesOf(used));
             ui.ai(TokenStream.of(reply));
             conversation.addMessage(new Message(
                     new MessageId(UUID.randomUUID()), MessageRole.ASSISTANT, new MessageContent(reply),
@@ -132,5 +128,13 @@ public class LuminaChatApp implements LuminaApp {
             ui.state().set("error", GENERATION_ERROR);
             ui.text(GENERATION_ERROR);
         }
+    }
+
+    private static List<Map<String, Object>> sourcesOf(List<Citation> citations) {
+        List<Map<String, Object>> sources = new ArrayList<>();
+        for (Citation citation : citations) {
+            sources.add(Map.of("title", citation.sourceTitle(), "url", citation.sourceUrl()));
+        }
+        return sources;
     }
 }

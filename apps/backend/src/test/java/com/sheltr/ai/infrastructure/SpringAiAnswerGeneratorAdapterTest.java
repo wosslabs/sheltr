@@ -56,13 +56,14 @@ class SpringAiAnswerGeneratorAdapterTest {
         RankedResult result = new RankedResult(chunkId, documentId,
                 "If tap water is contaminated after a flood, boil it at a rolling boil for one full minute.", 0.88);
 
-        AnswerOutcome outcome = adapter.generate(new SearchQuery("Is it safe to drink flood water?"), List.of(result),
+        AnswerOutcome outcome = adapter.generate(new SearchQuery("How long should I boil contaminated tap water?"), List.of(result),
                 new RelevanceVerdict(true, 0.88));
 
         assertThat(outcome).isInstanceOf(AnswerGenerated.class);
         Message message = ((AnswerGenerated) outcome).message();
         assertThat(message.role()).isEqualTo(MessageRole.ASSISTANT);
         assertThat(message.content().value()).isNotBlank();
+        assertThat(message.content().value()).doesNotContainIgnoringCase("not contain enough information");
         assertThat(message.citations()).hasSize(1);
         assertThat(message.citations().get(0).sourceTitle()).isEqualTo("Flood Safety and Water Purification");
         assertThat(message.confidence().level()).isEqualTo(ConfidenceLevel.MEDIUM);
