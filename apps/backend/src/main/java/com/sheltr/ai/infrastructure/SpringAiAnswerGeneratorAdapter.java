@@ -5,18 +5,18 @@ import com.sheltr.ai.application.AnswerContextBuilder;
 import com.sheltr.ai.domain.*;
 import com.sheltr.search.domain.RankedResult;
 import com.sheltr.search.domain.SearchQuery;
-import org.springframework.ai.chat.model.ChatModel;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.function.UnaryOperator;
 
 public class SpringAiAnswerGeneratorAdapter implements AnswerGenerator {
 
-    private final ChatModel chatModel;
+    private final UnaryOperator<String> llm;
     private final AnswerContextBuilder answerContextBuilder;
 
-    public SpringAiAnswerGeneratorAdapter(ChatModel chatModel, AnswerContextBuilder answerContextBuilder) {
-        this.chatModel = chatModel;
+    public SpringAiAnswerGeneratorAdapter(UnaryOperator<String> llm, AnswerContextBuilder answerContextBuilder) {
+        this.llm = llm;
         this.answerContextBuilder = answerContextBuilder;
     }
 
@@ -25,14 +25,20 @@ public class SpringAiAnswerGeneratorAdapter implements AnswerGenerator {
         AnswerContext context = answerContextBuilder.buildContext(query, results, verdict);
         String answerText;
         try {
-            answerText = chatModel.call(context.prompt());
+            answerText = llm.apply(context.prompt());
         } catch (Exception e) {
             return new AnswerGenerationFailed("Answer generation failed: " + e.getMessage());
         }
 
+        // ADR-0008: an answer that cannot be tied to a retrieved passage is never shown.
+        List<Citation> used = CitationSelector.select(answerText, results, context.citations());
+        if (used.isEmpty()) {
+            return new NoAnswerAvailable();
+        }
+
         Message message = new Message(
                 new MessageId(UUID.randomUUID()), MessageRole.ASSISTANT, new MessageContent(answerText),
-                context.citations(), context.confidence(),
+                used, context.confidence(),
                 results.stream().map(RankedResult::chunkId).toList());
 
         return new AnswerGenerated(message);

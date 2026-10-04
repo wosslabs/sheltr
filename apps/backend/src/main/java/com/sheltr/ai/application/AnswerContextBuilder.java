@@ -11,6 +11,7 @@ import com.sheltr.search.domain.SearchQuery;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class AnswerContextBuilder {
 
@@ -23,19 +24,28 @@ public class AnswerContextBuilder {
     }
 
     public AnswerContext buildContext(SearchQuery query, List<RankedResult> results, RelevanceVerdict verdict) {
-        StringBuilder context = new StringBuilder();
-        for (RankedResult result : results) {
-            context.append("- ").append(result.content()).append('\n');
+        StringBuilder passages = new StringBuilder();
+        for (int i = 0; i < results.size(); i++) {
+            passages.append('[').append(i + 1).append("] ").append(results.get(i).content()).append('\n');
         }
-        String prompt = """
-                You are a disaster-response assistant. Answer the citizen's question using ONLY the \
-                context below. If the context does not contain enough information to answer, say so \
-                clearly rather than guessing.
 
-                Context:
+        String hazards = "";
+        if (!query.activeHazards().isEmpty()) {
+            hazards = "Official alerts report these hazards near the user: "
+                    + query.activeHazards().stream().map(Enum::name).sorted().collect(Collectors.joining(", "))
+                    + ". Do not state whether any hazard is or is not occurring; only give guidance.\n\n";
+        }
+
+        String prompt = """
+                You are a disaster-response assistant. Answer the question using ONLY the numbered \
+                passages below. After every sentence, cite the passage that supports it like [1]. \
+                If the passages do not contain enough information to answer, say so clearly rather \
+                than guessing.
+
+                %sPassages:
                 %s
                 Question: %s
-                """.formatted(context, query.text());
+                """.formatted(hazards, passages, query.text());
 
         List<Citation> citations = new ArrayList<>();
         for (RankedResult result : results) {

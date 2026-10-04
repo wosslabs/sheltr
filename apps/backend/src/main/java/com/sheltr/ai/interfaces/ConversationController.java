@@ -4,12 +4,15 @@ import com.sheltr.ai.application.AnswerGenerationFailedException;
 import com.sheltr.ai.application.AskQuestionService;
 import com.sheltr.ai.application.ConversationNotFoundException;
 import com.sheltr.ai.domain.*;
+import com.sheltr.knowledge.domain.DisasterType;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/conversations")
@@ -39,7 +42,17 @@ public class ConversationController {
 
     @PostMapping("/{id}/ask")
     public ResponseEntity<MessageDto> ask(@PathVariable UUID id, @RequestBody AskRequestDto request) {
-        Message message = askQuestionService.ask(new ConversationId(id), request.question());
+        if (request.question() == null || request.question().isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        Set<DisasterType> activeHazards;
+        try {
+            activeHazards = request.activeHazards() == null ? Set.of()
+                    : request.activeHazards().stream().map(DisasterType::valueOf).collect(Collectors.toSet());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            return ResponseEntity.badRequest().build();
+        }
+        Message message = askQuestionService.ask(new ConversationId(id), request.question(), activeHazards);
         return ResponseEntity.ok(toDto(message));
     }
 

@@ -12,6 +12,6 @@ public class AnswerGeneratorConfig {
 
     @Bean
     public AnswerGenerator answerGenerator(ChatModel chatModel, AnswerContextBuilder answerContextBuilder) {
-        return new SpringAiAnswerGeneratorAdapter(chatModel, answerContextBuilder);
+        return new SpringAiAnswerGeneratorAdapter(chatModel::call, answerContextBuilder);
     }
 }
