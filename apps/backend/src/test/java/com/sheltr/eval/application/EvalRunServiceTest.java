@@ -20,6 +20,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 class EvalRunServiceTest {
 
@@ -48,6 +49,7 @@ class EvalRunServiceTest {
 
         assertThat(queries.get(0).activeHazards()).containsExactly(DisasterType.FLOOD);
         assertThat(result.questionId()).isEqualTo("flood-001");
+        assertThat(result.latencyMs()).isGreaterThanOrEqualTo(0L);
         assertThat(result.refused()).isFalse();
         assertThat(result.answer()).isEqualTo("One minute [1].");
         assertThat(result.confidence()).isEqualTo(0.9);
@@ -64,10 +66,13 @@ class EvalRunServiceTest {
             throw new AssertionError("generator must not be called");
         }).run(question);
 
+        assertThat(result.latencyMs()).isGreaterThanOrEqualTo(0L);
         assertThat(result.refused()).isTrue();
         assertThat(result.answer()).isNull();
         assertThat(result.confidence()).isEqualTo(0.2);
         assertThat(result.passages()).hasSize(1);
+        assertThat(result.cited()).isEmpty();
+        assertThat(result.error()).isNull();
     }
 
     @Test
@@ -75,7 +80,13 @@ class EvalRunServiceTest {
         EvalResult result = service((query, topK) -> List.of(boil),
                 (query, results, verdict) -> new AnswerGenerationFailed("model unavailable")).run(question);
 
+        assertThat(result.latencyMs()).isGreaterThanOrEqualTo(0L);
         assertThat(result.refused()).isTrue();
+        assertThat(result.answer()).isNull();
+        assertThat(result.confidence()).isEqualTo(boil.score());
+        assertThat(result.passages()).extracting("sourceUri", "content")
+                .containsExactly(tuple(URI, "Boil water for one minute."));
+        assertThat(result.cited()).isEmpty();
         assertThat(result.error()).isEqualTo("model unavailable");
     }
 
@@ -85,9 +96,45 @@ class EvalRunServiceTest {
             throw new IllegalStateException("database down");
         }, (query, results, verdict) -> new AnswerGenerationFailed("unused")).run(question);
 
+        assertThat(result.latencyMs()).isGreaterThanOrEqualTo(0L);
         assertThat(result.refused()).isTrue();
-        assertThat(result.error()).isEqualTo("database down");
+        assertThat(result.answer()).isNull();
+        assertThat(result.confidence()).isNull();
         assertThat(result.passages()).isEmpty();
+        assertThat(result.cited()).isEmpty();
+        assertThat(result.error()).isEqualTo("database down");
+    }
+
+    @Test
+    void aSuccessfulAnswerStaysAnsweredWhenDocumentLookupFails() {
+        Retriever retriever = (query, topK) -> List.of(boil, bleach);
+        AnswerGenerator generator = (query, results, verdict) -> new AnswerGenerated(new Message(
+                new MessageId(UUID.randomUUID()), MessageRole.ASSISTANT, new MessageContent("One minute [1]."),
+                List.of(new Citation(documentId, boil.chunkId(), "Flood", URI, null)),
+                AnswerConfidence.fromSimilarity(0.9), List.of(boil.chunkId(), bleach.chunkId())));
+        KnowledgeDocumentRepository failingLookups = new KnowledgeDocumentRepository() {
+            @Override
+            public Optional<KnowledgeDocument> findById(DocumentId id) {
+                throw new IllegalStateException("lookup down");
+            }
+
+            @Override
+            public void save(KnowledgeDocument ignored) {
+                throw new UnsupportedOperationException("not needed by this test");
+            }
+        };
+
+        EvalResult result = service(retriever, generator, failingLookups).run(question);
+
+        assertThat(result.latencyMs()).isGreaterThanOrEqualTo(0L);
+        assertThat(result.refused()).isFalse();
+        assertThat(result.answer()).isEqualTo("One minute [1].");
+        assertThat(result.confidence()).isEqualTo(0.9);
+        assertThat(result.passages()).extracting("sourceUri", "content")
+                .containsExactly(tuple("", "Boil water for one minute."), tuple("", "Use unscented bleach."));
+        assertThat(result.cited()).extracting("sourceUri", "content")
+                .containsExactly(tuple("", "Boil water for one minute."));
+        assertThat(result.error()).isNull();
     }
 
     private EvalRunService service(Retriever retriever, AnswerGenerator generator) {
@@ -105,6 +152,11 @@ class EvalRunServiceTest {
                 throw new UnsupportedOperationException("not needed by this test");
             }
         };
+        return service(retriever, generator, documents);
+    }
+
+    private EvalRunService service(Retriever retriever, AnswerGenerator generator,
+                                   KnowledgeDocumentRepository documents) {
         return new EvalRunService(new AnswerPipeline(retriever, new NoOpReranker(),
                 new ThresholdRelevanceJudge(0.75), generator), documents);
     }
