@@ -76,7 +76,8 @@ public class EvalRunner implements ApplicationRunner {
             System.exit(0);
         } else if (modes.contains("eval-score")) {
             try {
-                score(Path.of(option(args, "raw")), Path.of(option(args, "questions")));
+                score(Path.of(option(args, "raw")), Path.of(option(args, "questions")),
+                        args.containsOption("force"));
             } catch (IllegalStateException | IllegalArgumentException e) {
                 System.err.println("eval-score refused: " + e.getMessage());
                 System.exit(1);
@@ -128,18 +129,28 @@ public class EvalRunner implements ApplicationRunner {
         System.out.println("Wrote " + raw);
     }
 
-    private void score(Path rawPath, Path questionsPath) throws Exception {
+    private void score(Path rawPath, Path questionsPath, boolean force) throws Exception {
         EvalRun run = EvalJson.MAPPER.readValue(rawPath.toFile(), EvalRun.class);
         String recorded = run.settings() == null ? null : run.settings().get("spring.profiles.active");
         String conflict = judgeProfileConflict(recorded, String.join(",", environment.getActiveProfiles()));
         if (conflict != null) {
             throw new IllegalStateException(conflict);
         }
+        String base = rawPath.toString().replaceFirst("\\.raw\\.json$", "");
+        Path spotcheckPath = Path.of(base + SPOTCHECK_SUFFIX);
+        // Checked before the judge runs and before any file is written, so maintainer labels survive a refusal.
+        SpotcheckWrite decision = spotcheckWriteDecision(Files.exists(spotcheckPath), force);
+        if (decision == SpotcheckWrite.REFUSE) {
+            throw new IllegalStateException(spotcheckPath + " already exists and holds maintainer labels. "
+                    + "Move or delete it to rescore.");
+        }
+        if (decision == SpotcheckWrite.OVERWRITE) {
+            System.out.println("eval-score --force: overwriting " + spotcheckPath + " and its maintainer labels");
+        }
         List<EvalQuestion> questions = EvalQuestionLoader.load(questionsPath);
         EvalScoreService.Output output = new EvalScoreService(new AnswerJudge(chatModel::call))
                 .score(questions, run);
 
-        String base = rawPath.toString().replaceFirst("\\.raw\\.json$", "");
         Map<String, Object> reportWithJudge = new LinkedHashMap<>();
         reportWithJudge.put("report", output.report());
         reportWithJudge.put("judge_profiles", String.join(",", environment.getActiveProfiles()));
@@ -150,7 +161,7 @@ public class EvalRunner implements ApplicationRunner {
         for (SpotcheckItem item : output.spotcheck()) {
             lines.append(EvalJson.LINE_WRITER.writeValueAsString(item)).append('\n');
         }
-        Files.writeString(Path.of(base + ".spotcheck.jsonl"), lines);
+        Files.writeString(spotcheckPath, lines);
         System.out.println(ReportWriter.markdown(output.report()));
         System.out.println("Wrote " + base + ".report.md, .report.json, .spotcheck.jsonl");
     }
@@ -200,6 +211,20 @@ public class EvalRunner implements ApplicationRunner {
             return 1;
         }
         return 0;
+    }
+
+    /** What eval-score does with an existing spot-check file. */
+    enum SpotcheckWrite { WRITE, OVERWRITE, REFUSE }
+
+    /**
+     * An existing spot-check file holds the maintainer's human_faithful labels, so it is kept unless
+     * --force is given.
+     */
+    static SpotcheckWrite spotcheckWriteDecision(boolean exists, boolean force) {
+        if (!exists) {
+            return SpotcheckWrite.WRITE;
+        }
+        return force ? SpotcheckWrite.OVERWRITE : SpotcheckWrite.REFUSE;
     }
 
     /**

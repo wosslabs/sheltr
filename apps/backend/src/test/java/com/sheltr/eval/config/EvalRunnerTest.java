@@ -36,4 +36,20 @@ class EvalRunnerTest {
         assertThat(EvalRunner.judgeProfileConflict("", "")).isNull();
         assertThat(EvalRunner.judgeProfileConflict(null, "gemini")).isNull();
     }
+
+    @Test
+    void refusesToOverwriteAnExistingSpotcheckFileWithoutForce() {
+        assertThat(EvalRunner.spotcheckWriteDecision(true, false)).isEqualTo(EvalRunner.SpotcheckWrite.REFUSE);
+    }
+
+    @Test
+    void overwritesAnExistingSpotcheckFileWhenForced() {
+        assertThat(EvalRunner.spotcheckWriteDecision(true, true)).isEqualTo(EvalRunner.SpotcheckWrite.OVERWRITE);
+    }
+
+    @Test
+    void writesSpotcheckFileWhenNoneExists() {
+        assertThat(EvalRunner.spotcheckWriteDecision(false, false)).isEqualTo(EvalRunner.SpotcheckWrite.WRITE);
+        assertThat(EvalRunner.spotcheckWriteDecision(false, true)).isEqualTo(EvalRunner.SpotcheckWrite.WRITE);
+    }
 }
