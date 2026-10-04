@@ -33,7 +33,7 @@ class ErrorBodyMockMvcTest {
 
     private final MockMvc ingestion = MockMvcBuilders
             .standaloneSetup(new IngestionController(mock(IngestDocumentService.class),
-                    mock(IngestionRunRepository.class)))
+                    mock(IngestionRunRepository.class), uri -> true))
             .setControllerAdvice(new ApiErrorAdvice())
             .build();
 

@@ -5,6 +5,7 @@ import com.sheltr.ingestion.domain.IngestionRun;
 import com.sheltr.ingestion.domain.IngestionRunId;
 import com.sheltr.ingestion.domain.IngestionRunRepository;
 import com.sheltr.ingestion.domain.SourceMetadata;
+import com.sheltr.ingestion.domain.SourcePolicy;
 import com.sheltr.ingestion.domain.SourceType;
 import com.sheltr.interfaces.ApiError;
 import com.sheltr.knowledge.domain.DisasterType;
@@ -26,11 +27,13 @@ public class IngestionController {
 
     private final IngestDocumentService ingestDocumentService;
     private final IngestionRunRepository ingestionRunRepository;
+    private final SourcePolicy sourcePolicy;
 
     public IngestionController(IngestDocumentService ingestDocumentService,
-                                IngestionRunRepository ingestionRunRepository) {
+                                IngestionRunRepository ingestionRunRepository, SourcePolicy sourcePolicy) {
         this.ingestDocumentService = ingestDocumentService;
         this.ingestionRunRepository = ingestionRunRepository;
+        this.sourcePolicy = sourcePolicy;
     }
 
     @PostMapping
@@ -48,6 +51,10 @@ public class IngestionController {
         } catch (IllegalArgumentException | NullPointerException | DateTimeParseException e) {
             return ResponseEntity.badRequest().body(ApiError.of("VALIDATION_FAILED",
                     "The request contains an invalid sourceType, hazard, publishedDate or metadata value."));
+        }
+        if (!sourcePolicy.allows(request.sourceUri())) {
+            return ResponseEntity.badRequest().body(ApiError.of("VALIDATION_FAILED",
+                    SourcePolicy.rejectionMessage(request.sourceUri())));
         }
         IngestionRun run = ingestDocumentService.ingest(request.sourceUri(), sourceType, metadata,
                 request.checksum());

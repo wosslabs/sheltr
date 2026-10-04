@@ -16,13 +16,14 @@ public class IngestDocumentService {
     private final IngestionRunRepository ingestionRunRepository;
     private final KnowledgeDocumentRepository knowledgeDocumentRepository;
     private final ChunkRepository chunkRepository;
+    private final SourcePolicy sourcePolicy;
 
     public IngestDocumentService(SourceConnector connector, PdfContentExtractor pdfContentExtractor,
                                   EmbeddingGenerator embeddingGenerator,
                                   SourceDocumentRepository sourceDocumentRepository,
                                   IngestionRunRepository ingestionRunRepository,
                                   KnowledgeDocumentRepository knowledgeDocumentRepository,
-                                  ChunkRepository chunkRepository) {
+                                  ChunkRepository chunkRepository, SourcePolicy sourcePolicy) {
         this.connector = connector;
         this.pdfContentExtractor = pdfContentExtractor;
         this.embeddingGenerator = embeddingGenerator;
@@ -30,6 +31,7 @@ public class IngestDocumentService {
         this.ingestionRunRepository = ingestionRunRepository;
         this.knowledgeDocumentRepository = knowledgeDocumentRepository;
         this.chunkRepository = chunkRepository;
+        this.sourcePolicy = sourcePolicy;
     }
 
     public IngestionRun ingest(String sourceUri, SourceType sourceType, SourceMetadata metadata,
@@ -43,6 +45,9 @@ public class IngestDocumentService {
         ingestionRunRepository.save(run);
 
         try {
+            if (!sourcePolicy.allows(sourceUri)) {
+                throw new IllegalArgumentException(SourcePolicy.rejectionMessage(sourceUri));
+            }
             if (sourceType != SourceType.PDF) {
                 throw new UnsupportedOperationException(
                         "Only PDF ingestion is supported in this slice, got " + sourceType);

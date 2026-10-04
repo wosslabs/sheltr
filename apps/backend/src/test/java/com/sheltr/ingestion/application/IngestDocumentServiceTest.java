@@ -1,5 +1,7 @@
 package com.sheltr.ingestion.application;
 
+import com.sheltr.ingestion.config.HostAllowlistSourcePolicy;
+import com.sheltr.ingestion.config.IngestionProperties;
 import com.sheltr.ingestion.domain.*;
 import com.sheltr.ingestion.infrastructure.PdfContentExtractor;
 import com.sheltr.knowledge.domain.*;
@@ -22,6 +24,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class IngestDocumentServiceTest {
 
+    private static final SourcePolicy EXAMPLE_ORG_POLICY = new HostAllowlistSourcePolicy(
+            new IngestionProperties(List.of("example.org"), null, null));
+
     private static final SourceMetadata METADATA = new SourceMetadata(
             "Test Document", "Test Agency", Set.of(DisasterType.FLOOD),
             LocalDate.of(2021, 3, 15), "test-fixture-licence");
@@ -38,7 +43,7 @@ class IngestDocumentServiceTest {
 
         IngestDocumentService service = new IngestDocumentService(connector, new PdfContentExtractor(),
                 embeddingGenerator, sourceDocumentRepository, ingestionRunRepository,
-                knowledgeDocumentRepository, chunkRepository);
+                knowledgeDocumentRepository, chunkRepository, EXAMPLE_ORG_POLICY);
 
         IngestionRun run = service.ingest("https://example.org/test.pdf", SourceType.PDF, METADATA, null);
 
@@ -59,7 +64,7 @@ class IngestDocumentServiceTest {
 
         IngestDocumentService service = new IngestDocumentService(connector, new PdfContentExtractor(),
                 embeddingGenerator, sourceDocumentRepository, ingestionRunRepository,
-                knowledgeDocumentRepository, chunkRepository);
+                knowledgeDocumentRepository, chunkRepository, EXAMPLE_ORG_POLICY);
 
         IngestionRun run = service.ingest("https://example.org/test.pdf", SourceType.PDF, METADATA, null);
 
@@ -123,7 +128,7 @@ class IngestDocumentServiceTest {
                                                      FakeSourceDocumentRepository sourceDocumentRepository) {
         return new IngestDocumentService(connector, new PdfContentExtractor(), new FakeEmbeddingGenerator(),
                 sourceDocumentRepository, new FakeIngestionRunRepository(), knowledgeDocumentRepository,
-                new FakeChunkRepository());
+                new FakeChunkRepository(), EXAMPLE_ORG_POLICY);
     }
 
     private static byte[] buildBlankPdf() throws IOException {
@@ -167,7 +172,7 @@ class IngestDocumentServiceTest {
 
     }
 
-    private static class FakeEmbeddingGenerator implements EmbeddingGenerator {
+    static class FakeEmbeddingGenerator implements EmbeddingGenerator {
         @Override
         public Embedding embed(String text) {
             float[] values = new float[768];
@@ -179,7 +184,7 @@ class IngestDocumentServiceTest {
         public String modelName() { return "test-model"; }
     }
 
-    private static class FakeSourceDocumentRepository implements SourceDocumentRepository {
+    static class FakeSourceDocumentRepository implements SourceDocumentRepository {
         final List<SourceDocument> saved = new ArrayList<>();
 
         @Override
@@ -191,7 +196,7 @@ class IngestDocumentServiceTest {
         SourceDocument lastSaved() { return saved.get(saved.size() - 1); }
     }
 
-    private static class FakeIngestionRunRepository implements IngestionRunRepository {
+    static class FakeIngestionRunRepository implements IngestionRunRepository {
         @Override
         public void save(IngestionRun run) { }
 
@@ -199,7 +204,7 @@ class IngestDocumentServiceTest {
         public Optional<IngestionRun> findById(IngestionRunId id) { return Optional.empty(); }
     }
 
-    private static class FakeKnowledgeDocumentRepository implements KnowledgeDocumentRepository {
+    static class FakeKnowledgeDocumentRepository implements KnowledgeDocumentRepository {
         final List<KnowledgeDocument> saved = new ArrayList<>();
 
         @Override
@@ -209,7 +214,7 @@ class IngestDocumentServiceTest {
         public void save(KnowledgeDocument document) { saved.add(document); }
     }
 
-    private static class FakeChunkRepository implements ChunkRepository {
+    static class FakeChunkRepository implements ChunkRepository {
         final List<Chunk> inserted = new ArrayList<>();
 
         @Override
