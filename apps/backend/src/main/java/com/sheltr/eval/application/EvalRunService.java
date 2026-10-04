@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -70,17 +71,29 @@ public class EvalRunService {
     }
 
     private RetrievedPassage toPassage(RankedResult result, Map<DocumentId, String> sourceUris) {
-        String sourceUri = sourceUris.computeIfAbsent(result.documentId(), this::lookupSourceUri);
+        String sourceUri = sourceUris.get(result.documentId());
+        if (sourceUri == null) {
+            Optional<String> found = lookupSourceUri(result.documentId());
+            if (found.isPresent()) {
+                sourceUri = found.get();
+                sourceUris.put(result.documentId(), sourceUri);
+            } else {
+                sourceUri = "";
+            }
+        }
         return new RetrievedPassage(sourceUri, result.content());
     }
 
-    /** A lookup failure only loses the source URI; it must not change the outcome of the answer. */
-    private String lookupSourceUri(DocumentId documentId) {
+    /**
+     * A lookup failure only loses the source URI; it must not change the outcome of the answer.
+     * Empty means the lookup failed or the document is absent; neither is cached, so a later passage retries.
+     */
+    private Optional<String> lookupSourceUri(DocumentId documentId) {
         try {
-            return documents.findById(documentId).map(KnowledgeDocument::sourceUri).orElse("");
+            return documents.findById(documentId).map(KnowledgeDocument::sourceUri);
         } catch (RuntimeException e) {
-            log.warn("Source URI lookup failed for document {}; recording an empty URI", documentId, e);
-            return "";
+            log.warn("Source URI lookup failed for document {}; recording an empty URI for this passage", documentId, e);
+            return Optional.empty();
         }
     }
 }
