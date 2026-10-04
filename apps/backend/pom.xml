@@ -50,6 +50,12 @@
       <artifactId>spring-boot-starter-web</artifactId>
     </dependency>
     <dependency>
+      <!-- Used directly by the eval question loader and JSON settings (com.sheltr.eval.application).
+           Version comes from the Spring Boot parent's dependency management. -->
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+    <dependency>
       <!-- Provides the pooled javax.sql.DataSource bean (via HikariCP) that Spring Boot's
            DataSourceAutoConfiguration wires up from the spring.datasource.* properties
            already in application.yml. Needed so SeedEmbeddingsRunner can have a DataSource

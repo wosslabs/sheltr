@@ -14,6 +14,9 @@ public final class EvalJson {
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
             .enable(SerializationFeature.INDENT_OUTPUT);
 
+    /** Same as MAPPER but rejects unknown fields, so typos in hand-written question files fail loudly. */
+    public static final ObjectMapper STRICT = MAPPER.copy().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+
     /** Writes one object per line, for .jsonl files. */
     public static final ObjectWriter LINE_WRITER = MAPPER.writer().without(SerializationFeature.INDENT_OUTPUT);
 

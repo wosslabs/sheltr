@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
 class MetricsTest {
@@ -66,6 +67,29 @@ class MetricsTest {
     }
 
     @Test
+    void anErroredResultCountsAsRefusedEvenWhenTheFlagIsFalse() {
+        EvalResult errored = new EvalResult("off", List.of(), false, null, null, List.of(), 100, "llm timeout");
+        List<Metrics.Scored> scored = List.of(
+                scored(question("off", EvalKind.OFF_TOPIC, List.of()), errored));
+
+        assertThat(errored.refused()).isTrue();
+        assertThat(Metrics.falseAcceptRate(scored)).isEqualTo(0.0);
+    }
+
+    @Test
+    void meanReciprocalRankForAHitAtRankTwoAndAtRankFour() {
+        EvalQuestion question = question("q1", EvalKind.ANSWERABLE, List.of(BOIL));
+
+        assertThat(Metrics.meanReciprocalRank(List.of(scored(question,
+                result("q1", false, List.of(passage("unrelated"), passage("rolling boil for one minute")))))))
+                .isEqualTo(0.5);
+        assertThat(Metrics.meanReciprocalRank(List.of(scored(question,
+                result("q1", false, List.of(passage("a"), passage("b"), passage("c"),
+                        passage("rolling boil for one minute")))))))
+                .isEqualTo(0.25);
+    }
+
+    @Test
     void ratesAreNotANumberWhenNoQuestionApplies() {
         assertThat(Metrics.falseAcceptRate(List.of())).isNaN();
         assertThat(Metrics.recallAtK(List.of(), 5)).isNaN();
@@ -76,8 +100,21 @@ class MetricsTest {
         // Two answers at 0.9 confidence, one right: accuracy 0.5, gap 0.4.
         assertThat(Metrics.calibrationError(List.of(new double[]{0.9, 1}, new double[]{0.9, 0}), 5))
                 .isCloseTo(0.4, within(1e-9));
-        assertThat(Metrics.calibrationError(List.of(new double[]{1.0, 1}, new double[]{0.0, 0}), 5))
-                .isCloseTo(0.0, within(1e-9));
+        // Bin 4 (0.8-1.0): confidence 0.9, accuracy 0.5, gap 0.4, weight 2/3.
+        // Bin 0 (0.0-0.2): confidence 0.1, accuracy 0.0, gap 0.1, weight 1/3.
+        assertThat(Metrics.calibrationError(
+                List.of(new double[]{0.9, 1}, new double[]{0.9, 0}, new double[]{0.1, 0}), 5))
+                .isCloseTo((2.0 / 3) * 0.4 + (1.0 / 3) * 0.1, within(1e-9));
+    }
+
+    @Test
+    void calibrationErrorRejectsConfidencesOutsideZeroToOneOrNaN() {
+        assertThatThrownBy(() -> Metrics.calibrationError(List.of(new double[]{Double.NaN, 1}), 5))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> Metrics.calibrationError(List.of(new double[]{1.5, 1}), 5))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> Metrics.calibrationError(List.of(new double[]{-0.1, 0}), 5))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
