@@ -1,10 +1,9 @@
 package com.sheltr.ai.interfaces;
 
-import com.sheltr.ai.application.AnswerGenerationFailedException;
 import com.sheltr.ai.application.AskQuestionService;
-import com.sheltr.ai.application.ConversationNotFoundException;
 import com.sheltr.ai.domain.*;
 import com.sheltr.knowledge.domain.DisasterType;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -41,7 +40,7 @@ public class ConversationController {
     }
 
     @PostMapping("/{id}/ask")
-    public ResponseEntity<MessageDto> ask(@PathVariable UUID id, @RequestBody AskRequestDto request) {
+    public ResponseEntity<MessageDto> ask(@PathVariable UUID id, @Valid @RequestBody AskRequestDto request) {
         if (request.question() == null || request.question().isBlank()) {
             return ResponseEntity.badRequest().build();
         }
@@ -54,21 +53,6 @@ public class ConversationController {
         }
         Message message = askQuestionService.ask(new ConversationId(id), request.question(), activeHazards);
         return ResponseEntity.ok(toDto(message));
-    }
-
-    @ExceptionHandler(ConversationNotFoundException.class)
-    public ResponseEntity<Void> handleNotFound() {
-        return ResponseEntity.notFound().build();
-    }
-
-    @ExceptionHandler(AnswerGenerationFailedException.class)
-    public ResponseEntity<Void> handleGenerationFailed() {
-        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
-    }
-
-    @ExceptionHandler(com.sheltr.knowledge.domain.StaleEmbeddingsException.class)
-    public ResponseEntity<Void> handleStaleEmbeddings() {
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
     }
 
     private static ConversationDto toDto(Conversation conversation) {
