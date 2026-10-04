@@ -65,6 +65,35 @@ class ModelRerankerTest {
                 .extracting(RankedResult::content).containsExactly("one", "two");
     }
 
+    @Test
+    void readsOnlyTheFirstNumberListWhenTheReplyHasADistractorBeforeIt() {
+        List<RankedResult> results = new ModelReranker(prompt -> "Passage 2 is off-topic. Ranking: 3,1,2")
+                .rerank(QUERY, candidates, 3);
+
+        assertThat(results).extracting(RankedResult::content).containsExactly("three", "one", "two");
+    }
+
+    @Test
+    void ignoresYearLikeNumbersInProseAfterTheList() {
+        List<RankedResult> results = new ModelReranker(prompt -> "3,1,2. The 2019 guidance is the newest.")
+                .rerank(QUERY, candidates, 3);
+
+        assertThat(results).extracting(RankedResult::content).containsExactly("three", "one", "two");
+    }
+
+    @Test
+    void readsABareNumberReplyAsASingleRanking() {
+        List<RankedResult> results = new ModelReranker(prompt -> "2").rerank(QUERY, candidates, 3);
+
+        assertThat(results).extracting(RankedResult::content).containsExactly("two", "one", "three");
+    }
+
+    @Test
+    void negativeTopKReturnsNothingInsteadOfThrowing() {
+        assertThat(new ModelReranker(prompt -> "3,1,2").rerank(QUERY, candidates, -1)).isEmpty();
+        assertThat(new NoOpReranker().rerank(QUERY, candidates, -1)).isEmpty();
+    }
+
     private static RankedResult passage(String content) {
         return new RankedResult(new ChunkId(UUID.randomUUID()), new DocumentId(UUID.randomUUID()), content, 0.8);
     }
