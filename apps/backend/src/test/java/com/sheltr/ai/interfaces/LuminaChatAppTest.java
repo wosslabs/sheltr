@@ -137,12 +137,14 @@ class LuminaChatAppTest {
         ChatClient chatClient = mock(ChatClient.class);
         Ui ui = uiFor(conversation.id(), "Is flood water safe to drink?");
         RankedResult relevant = result(0.90);
+        RankedResult uncitedPassage = result(0.85);
         Citation citation = new Citation(relevant.documentId(), relevant.chunkId(), "Flood Safety", "https://example.org", null);
+        Citation uncited = new Citation(uncitedPassage.documentId(), uncitedPassage.chunkId(), "Shelter Basics", "https://example.org/shelter", null);
         when(retriever.retrieve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()))
-                .thenReturn(List.of(relevant));
+                .thenReturn(List.of(relevant, uncitedPassage));
         when(contextBuilder.buildContext(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(new AnswerContext(
-                        "grounded prompt", List.of(citation), AnswerConfidence.fromSimilarity(0.90)));
+                        "grounded prompt", List.of(citation, uncited), AnswerConfidence.fromSimilarity(0.90)));
         when(chatClient.stream("grounded prompt"))
                 .thenReturn(TokenStream.fromIterable(List.of("Do not drink ", "flood water [1].")));
 
@@ -154,6 +156,35 @@ class LuminaChatAppTest {
         verify(ui, never()).ai(anyString());
         assertThat(conversations.saved.messages()).last()
                 .satisfies(message -> assertThat(message.citations()).containsExactly(citation));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void sendsOnlyCitedPassagesAsRagSources() {
+        Conversation conversation = new Conversation(new ConversationId(UUID.randomUUID()), null);
+        FakeConversationRepository conversations = new FakeConversationRepository(conversation);
+        Retriever retriever = mock(Retriever.class);
+        AnswerContextBuilder contextBuilder = mock(AnswerContextBuilder.class);
+        ChatClient chatClient = mock(ChatClient.class);
+        Ui ui = uiFor(conversation.id(), "Is flood water safe to drink?");
+        RankedResult first = result(0.90);
+        RankedResult second = result(0.85);
+        Citation firstCitation = new Citation(first.documentId(), first.chunkId(), "Flood Safety", "https://example.org", null);
+        Citation secondCitation = new Citation(second.documentId(), second.chunkId(), "Shelter Basics", "https://example.org/shelter", null);
+        when(retriever.retrieve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(List.of(first, second));
+        when(contextBuilder.buildContext(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new AnswerContext(
+                        "grounded prompt", List.of(firstCitation, secondCitation), AnswerConfidence.fromSimilarity(0.90)));
+        when(chatClient.stream("grounded prompt"))
+                .thenReturn(TokenStream.fromIterable(List.of("Go to a public shelter. [2]")));
+
+        new LuminaChatApp(conversations, pipeline(retriever), contextBuilder, chatClient).build(ui);
+
+        ArgumentCaptor<List<Map<String, Object>>> sources = ArgumentCaptor.forClass(List.class);
+        verify(ui).ragSources(sources.capture());
+        assertThat(sources.getValue()).containsExactly(
+                Map.of("title", "Shelter Basics", "url", "https://example.org/shelter"));
     }
 
     @Test
@@ -180,6 +211,7 @@ class LuminaChatAppTest {
         verify(ui).ai(shown.capture());
         assertThat(String.join("", shown.getValue())).isEqualTo(NoAnswerAvailable.MESSAGE);
         verify(ui, never()).ai(anyString());
+        verify(ui).ragSources(List.of());
         assertThat(conversations.saved.messages()).last()
                 .satisfies(message -> {
                     assertThat(message.content().value()).isEqualTo(NoAnswerAvailable.MESSAGE);
