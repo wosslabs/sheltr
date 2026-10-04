@@ -13,6 +13,12 @@ spring:
       - org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiEmbeddingConnectionAutoConfiguration
 
 sheltr:
+  security:
+    admin:
+      # DEVELOPMENT CREDENTIAL ONLY. This fixed password exists so local work needs no secret.
+      # It must never be used outside local development; other profiles require
+      # SHELTR_ADMIN_PASSWORD or SHELTR_ADMIN_PASSWORD_HASH.
+      password: "{noop}local-dev-only"
   search:
     # Derived by RelevanceThresholdEvalTest against nomic-embed-text: threshold=0.65 was the
     # lowest candidate with falseAccepts=0 (falseRejects=1), swept 0.30-0.90 in 0.05 steps
