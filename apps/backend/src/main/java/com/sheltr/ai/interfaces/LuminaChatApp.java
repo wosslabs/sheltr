@@ -9,6 +9,7 @@ import com.sheltr.search.domain.RankedResult;
 import com.sheltr.search.domain.SearchQuery;
 import io.lumina.LuminaApp;
 import io.lumina.ai.ChatClient;
+import io.lumina.ai.TokenStream;
 import io.lumina.ui.Ui;
 
 import java.util.ArrayList;
@@ -110,15 +111,16 @@ public class LuminaChatApp implements LuminaApp {
             }
             String reply = buffered.toString();
             List<Citation> used = CitationSelector.select(reply, results, context.citations());
+            // Verified text is shown as one completed stream so the client gets the stream end frame.
             if (used.isEmpty()) {
-                ui.ai(NoAnswerAvailable.MESSAGE);
+                ui.ai(TokenStream.of(NoAnswerAvailable.MESSAGE));
                 conversation.addMessage(new Message(
                         new MessageId(UUID.randomUUID()), MessageRole.ASSISTANT,
                         new MessageContent(NoAnswerAvailable.MESSAGE), List.of(), null, List.of()));
                 conversationRepository.save(conversation);
                 return;
             }
-            ui.ai(reply);
+            ui.ai(TokenStream.of(reply));
             conversation.addMessage(new Message(
                     new MessageId(UUID.randomUUID()), MessageRole.ASSISTANT, new MessageContent(reply),
                     used, context.confidence(),

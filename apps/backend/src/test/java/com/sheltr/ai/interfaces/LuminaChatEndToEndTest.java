@@ -46,7 +46,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(
         classes = SheltrBackendApplication.class,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "lumina.port=0")
+        properties = {"lumina.port=0", "spring.ai.google.genai.chat.options.temperature=0.0"})
 class LuminaChatEndToEndTest {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
