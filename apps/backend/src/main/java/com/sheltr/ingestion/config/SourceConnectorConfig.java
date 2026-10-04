@@ -1,7 +1,7 @@
 package com.sheltr.ingestion.config;
 
 import com.sheltr.ingestion.domain.SourceConnector;
-import com.sheltr.ingestion.infrastructure.FemaHttpConnector;
+import com.sheltr.ingestion.infrastructure.HttpPdfConnector;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -10,6 +10,6 @@ public class SourceConnectorConfig {
 
     @Bean
     public SourceConnector sourceConnector() {
-        return new FemaHttpConnector();
+        return new HttpPdfConnector();
     }
 }

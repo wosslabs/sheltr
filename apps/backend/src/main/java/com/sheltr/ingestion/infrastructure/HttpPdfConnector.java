@@ -2,9 +2,7 @@ package com.sheltr.ingestion.infrastructure;
 
 import com.sheltr.ingestion.domain.RawContent;
 import com.sheltr.ingestion.domain.SourceConnector;
-import com.sheltr.ingestion.domain.SourceMetadata;
 import com.sheltr.knowledge.domain.Checksum;
-import com.sheltr.knowledge.domain.DisasterType;
 
 import java.io.IOException;
 import java.net.URI;
@@ -13,9 +11,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Set;
 
-public class FemaHttpConnector implements SourceConnector {
+public class HttpPdfConnector implements SourceConnector {
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
@@ -32,14 +29,6 @@ public class FemaHttpConnector implements SourceConnector {
         } catch (IOException | InterruptedException e) {
             throw new RuntimeException("Failed to download " + sourceUri, e);
         }
-    }
-
-    @Override
-    public SourceMetadata metadata() {
-        return new SourceMetadata(
-                "Disaster Preparedness Guide for Caregivers",
-                "FEMA",
-                Set.of(DisasterType.values()));
     }
 
     private static String sha256Hex(byte[] bytes) {

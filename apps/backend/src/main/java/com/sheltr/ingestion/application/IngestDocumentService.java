@@ -4,7 +4,6 @@ import com.sheltr.ingestion.domain.*;
 import com.sheltr.ingestion.infrastructure.PdfContentExtractor;
 import com.sheltr.knowledge.domain.*;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,7 +32,8 @@ public class IngestDocumentService {
         this.chunkRepository = chunkRepository;
     }
 
-    public IngestionRun ingest(String sourceUri, SourceType sourceType) {
+    public IngestionRun ingest(String sourceUri, SourceType sourceType, SourceMetadata metadata,
+                               String expectedChecksum) {
         DocumentId documentId = new DocumentId(UUID.randomUUID());
         SourceDocument sourceDocument = new SourceDocument(documentId, sourceUri, sourceType);
         // Persist DISCOVERED source document first so ingestion_runs FK is satisfiable.
@@ -49,6 +49,11 @@ public class IngestDocumentService {
             }
 
             RawContent raw = connector.fetch(sourceUri);
+            if (expectedChecksum != null && !expectedChecksum.equalsIgnoreCase(raw.checksum().hex())) {
+                throw new IllegalStateException("Checksum mismatch for " + sourceUri + ": approved "
+                        + expectedChecksum + " but downloaded " + raw.checksum().hex()
+                        + ". The document changed since approval and needs re-approval.");
+            }
             sourceDocument.markDownloaded(raw.checksum());
             sourceDocumentRepository.save(sourceDocument);
 
@@ -63,13 +68,17 @@ public class IngestDocumentService {
             sourceDocumentRepository.save(sourceDocument);
 
             List<ChunkDraft> chunkDrafts = Chunker.chunk(cleanedPages);
+            if (chunkDrafts.isEmpty()) {
+                throw new IllegalStateException("No extractable text in " + sourceUri
+                        + ". Scanned or image-only PDFs are not supported.");
+            }
             sourceDocument.markChunked();
             sourceDocumentRepository.save(sourceDocument);
 
-            SourceMetadata metadata = connector.metadata();
             KnowledgeDocument knowledgeDocument = new KnowledgeDocument(
                     documentId, metadata.title(), metadata.sourceAgency(), sourceUri, metadata.disasterTypes(),
-                    LocalDate.now(), new DocumentVersion(1), raw.checksum(), null, DocumentStatus.ACTIVE);
+                    metadata.publishedDate(), new DocumentVersion(1), raw.checksum(), null,
+                    DocumentStatus.ACTIVE, metadata.license());
             knowledgeDocumentRepository.save(knowledgeDocument);
 
             int chunkIndex = 0;

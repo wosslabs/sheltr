@@ -55,7 +55,8 @@ class LocalIngestionToRagEndToEndTest {
     void ingestedDocumentIsRetrievableViaLocalSemanticSearch() {
         ResponseEntity<IngestionRunDto> response = restTemplate.postForEntity(
                 "/api/v1/admin/ingestion/runs",
-                new TriggerIngestionRequestDto(CAREGIVERS_GUIDE_URL, "PDF"),
+                new TriggerIngestionRequestDto(CAREGIVERS_GUIDE_URL, "PDF", "Disaster Preparedness Guide for Caregivers",
+                "FEMA", java.util.List.of("FLOOD"), "2024-02-01", "test-fixture-licence", null),
                 IngestionRunDto.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);

@@ -1,21 +1,20 @@
 package com.sheltr.ingestion.infrastructure;
 
 import com.sheltr.ingestion.domain.RawContent;
-import com.sheltr.ingestion.domain.SourceMetadata;
 import org.junit.jupiter.api.Test;
 
 import java.security.MessageDigest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class FemaHttpConnectorTest {
+class HttpPdfConnectorTest {
 
     private static final String CAREGIVERS_GUIDE_URL =
             "https://www.ready.gov/sites/default/files/2024-02/ready-gov_caregivers-preparedness-guide.pdf";
 
     @Test
     void downloadsRealPdfAndComputesCorrectChecksum() throws Exception {
-        FemaHttpConnector connector = new FemaHttpConnector();
+        HttpPdfConnector connector = new HttpPdfConnector();
 
         RawContent content = connector.fetch(CAREGIVERS_GUIDE_URL);
 
@@ -33,14 +32,4 @@ class FemaHttpConnectorTest {
         assertThat(content.checksum().hex()).isEqualTo(expectedHex.toString());
     }
 
-    @Test
-    void metadataReturnsFemaAgencyAndTitle() {
-        FemaHttpConnector connector = new FemaHttpConnector();
-
-        SourceMetadata metadata = connector.metadata();
-
-        assertThat(metadata.sourceAgency()).isEqualTo("FEMA");
-        assertThat(metadata.title()).isNotBlank();
-        assertThat(metadata.disasterTypes()).isNotEmpty();
-    }
 }
