@@ -24,3 +24,5 @@ sheltr:
     # RelevanceThresholdEvalTest — that harness is hard-pinned to @ActiveProfiles("local")
     # and has never been run against Gemini's embedding space. See ADR-0011.
     relevance-threshold: 0.75
+  embedding:
+    model-name: gemini-embedding-001

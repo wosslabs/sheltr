@@ -53,6 +53,11 @@ public class ConversationController {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
     }
 
+    @ExceptionHandler(com.sheltr.knowledge.domain.StaleEmbeddingsException.class)
+    public ResponseEntity<Void> handleStaleEmbeddings() {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+    }
+
     private static ConversationDto toDto(Conversation conversation) {
         List<MessageDto> messages = conversation.messages().stream().map(ConversationController::toDto).toList();
         return new ConversationDto(conversation.id().value(), conversation.createdAt(), conversation.lastActiveAt(), messages);

@@ -79,7 +79,7 @@ public class IngestDocumentService {
                         new ChunkId(UUID.randomUUID()), documentId, new ChunkContent(draft.content()), embedding,
                         draft.pageNumber(), chunkIndex++, new ChunkMetadata(null, metadata.disasterTypes()),
                         raw.checksum());
-                chunkRepository.insert(chunk);
+                chunkRepository.insert(chunk, embeddingGenerator.modelName());
             }
 
             sourceDocument.markIndexed();

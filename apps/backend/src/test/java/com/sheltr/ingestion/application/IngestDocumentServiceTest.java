@@ -107,6 +107,9 @@ class IngestDocumentServiceTest {
             values[0] = 1.0f;
             return new Embedding(values);
         }
+
+        @Override
+        public String modelName() { return "test-model"; }
     }
 
     private static class FakeSourceDocumentRepository implements SourceDocumentRepository {
@@ -146,12 +149,15 @@ class IngestDocumentServiceTest {
         public Optional<Chunk> findById(ChunkId id) { return Optional.empty(); }
 
         @Override
-        public List<Chunk> findPendingEmbeddings() { return List.of(); }
+        public List<Chunk> findPendingEmbeddings(String embeddingModel) { return List.of(); }
 
         @Override
-        public void save(Chunk chunk) { }
+        public void save(Chunk chunk, String embeddingModel) { }
 
         @Override
-        public void insert(Chunk chunk) { inserted.add(chunk); }
+        public void insert(Chunk chunk, String embeddingModel) { inserted.add(chunk); }
+
+        @Override
+        public int countEmbeddedWithOtherModel(String embeddingModel) { return 0; }
     }
 }

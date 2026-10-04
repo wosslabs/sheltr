@@ -48,13 +48,14 @@ class PgvectorSemanticSearchAdapterIntegrationTest {
                 .build();
         EmbeddingModel embeddingModel = new GoogleGenAiTextEmbeddingModel(connectionDetails,
                 GoogleGenAiTextEmbeddingOptions.builder().model("gemini-embedding-001").dimensions(768).build());
-        EmbeddingGenerator embeddingGenerator = new SpringAiEmbeddingGeneratorAdapter(embeddingModel);
+        EmbeddingGenerator embeddingGenerator = new SpringAiEmbeddingGeneratorAdapter(embeddingModel, "gemini-embedding-001");
 
         // Manually embed and store the two seeded chunks this test cares about.
         embedAndStore(dataSource, embeddingGenerator, "b0000000-0000-0000-0000-000000000006");
         embedAndStore(dataSource, embeddingGenerator, "b0000000-0000-0000-0000-000000000029");
 
-        PgvectorSemanticSearchAdapter adapter = new PgvectorSemanticSearchAdapter(dataSource, embeddingGenerator);
+        PgvectorSemanticSearchAdapter adapter = new PgvectorSemanticSearchAdapter(
+                dataSource, embeddingGenerator, java.util.Set.of("ACTIVE", "SEED"));
 
         List<RankedResult> results = adapter.retrieve(new SearchQuery("Is it safe to drink flood water?"), 5);
 
@@ -82,9 +83,11 @@ class PgvectorSemanticSearchAdapterIntegrationTest {
         }
         sb.append(']');
         try (var conn = dataSource.getConnection();
-             var stmt = conn.prepareStatement("UPDATE knowledge.chunks SET embedding = ?::vector WHERE id = ?")) {
+             var stmt = conn.prepareStatement(
+                     "UPDATE knowledge.chunks SET embedding = ?::vector, embedding_model = ? WHERE id = ?")) {
             stmt.setString(1, sb.toString());
-            stmt.setObject(2, UUID.fromString(chunkId));
+            stmt.setString(2, generator.modelName());
+            stmt.setObject(3, UUID.fromString(chunkId));
             stmt.executeUpdate();
         }
     }

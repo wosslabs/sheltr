@@ -21,3 +21,8 @@ management:
     web:
       exposure:
         include: health,info
+
+sheltr:
+  search:
+    # Document statuses retrieval may return. SEED rows are test fixtures and are never listed here.
+    statuses: ACTIVE
