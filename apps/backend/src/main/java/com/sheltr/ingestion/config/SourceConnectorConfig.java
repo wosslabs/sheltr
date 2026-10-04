@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Configuration;
 public class SourceConnectorConfig {
 
     @Bean
-    public SourceConnector sourceConnector() {
-        return new HttpPdfConnector();
+    public SourceConnector sourceConnector(IngestionProperties properties) {
+        return new HttpPdfConnector(properties.connectTimeout(), properties.requestTimeout());
     }
 }

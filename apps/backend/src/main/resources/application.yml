@@ -10,6 +10,14 @@ spring:
     password: ${SHELTR_DB_PASSWORD:sheltr}
   flyway:
     enabled: true
+  http:
+    clients:
+      # Boot's shared RestClient timeouts. They apply to EVERY Boot-built RestClient, including the
+      # Ollama client (Spring AI 2.0 exposes no Ollama request timeout, so this is the bound that
+      # applies). Gemini uses its own Google GenAI SDK and does NOT read these values: residual risk.
+      # Key names are the canonical Boot 4.1 ones (spring.http.clients.*); spring.http.client.* is deprecated.
+      connect-timeout: 5s
+      read-timeout: 120s
 
 server:
   port: 8080
@@ -40,8 +48,10 @@ sheltr:
   ingestion:
     # Hostnames the ingestion connector may fetch. Empty denies all. Checked before any network call.
     allowed-hosts: [www.ready.gov]
-    # HttpPdfConnector timeouts are fixed in code (10 s connect, 60 s request) and redirects are refused.
-    # Not configurable here by design.
+    # Source fetch timeouts (spec 2.4). Positive durations; redirects are always refused.
+    # connect-timeout: TCP/TLS connect. request-timeout: bounds the wait for response headers, not a slow body.
+    connect-timeout: 10s
+    request-timeout: 60s
   search:
     # Document statuses retrieval may return. SEED rows are test fixtures and are never listed here.
     statuses: ACTIVE

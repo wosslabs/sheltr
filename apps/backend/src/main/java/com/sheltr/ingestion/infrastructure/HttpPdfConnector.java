@@ -49,6 +49,9 @@ public class HttpPdfConnector implements SourceConnector {
         try {
             HttpRequest request = HttpRequest.newBuilder(URI.create(sourceUri))
                     .GET()
+                    // Known limit: HttpRequest.timeout bounds the wait for response headers (and a stalled
+                    // response), not the time spent streaming a slow body. A server that sends headers and
+                    // then trickles the PDF bytes can hold this call open past requestTimeout.
                     .timeout(requestTimeout)
                     .build();
             HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());

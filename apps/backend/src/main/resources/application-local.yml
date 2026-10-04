@@ -6,10 +6,11 @@ spring:
         model: qwen2.5:3b-instruct
       embedding:
         model: nomic-embed-text:v1.5
-  # Request timeouts: Spring AI 2.0 (spring-ai-autoconfigure-model-ollama) exposes no request
-  # timeout property. spring.ai.ollama.init.timeout (5m) only bounds the startup model pull and
-  # is off by default (pull-model-strategy: never), so it is not set. Residual risk: a hung
-  # Ollama call is bounded only by the underlying HTTP client defaults. No executor wrapper is added.
+  # Request timeouts: Spring AI 2.0 exposes no Ollama request timeout property.
+  # spring.ai.ollama.init.timeout (5m) only bounds the startup model pull and is off by default
+  # (pull-model-strategy: never), so it is not set. The read timeout for this Ollama block is the
+  # shared Boot value in application.yml (spring.http.clients.read-timeout: 120s, connect 5s).
+  # No executor wrapper is added.
   autoconfigure:
     exclude:
       - org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration
