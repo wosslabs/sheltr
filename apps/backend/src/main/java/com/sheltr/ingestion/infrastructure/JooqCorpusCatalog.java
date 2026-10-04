@@ -1,6 +1,7 @@
 package com.sheltr.ingestion.infrastructure;
 
 import com.sheltr.ingestion.domain.CorpusCatalog;
+import com.sheltr.ingestion.domain.StoredDocument;
 import com.sheltr.knowledge.domain.DisasterType;
 import com.sheltr.knowledge.domain.DocumentId;
 import org.jooq.DSLContext;
@@ -21,11 +22,12 @@ public class JooqCorpusCatalog implements CorpusCatalog {
     }
 
     @Override
-    public Optional<DocumentId> findActiveDocumentId(String sourceUri) {
+    public Optional<StoredDocument> findActiveDocument(String sourceUri) {
         Record record = dsl.fetchOne(
-                "SELECT id FROM knowledge.documents WHERE source_uri = ? AND status = 'ACTIVE' LIMIT 1",
+                "SELECT id, checksum FROM knowledge.documents WHERE source_uri = ? AND status = 'ACTIVE' LIMIT 1",
                 sourceUri);
-        return Optional.ofNullable(record).map(r -> new DocumentId((UUID) r.get("id")));
+        return Optional.ofNullable(record)
+                .map(r -> new StoredDocument(new DocumentId((UUID) r.get("id")), (String) r.get("checksum")));
     }
 
     @Override

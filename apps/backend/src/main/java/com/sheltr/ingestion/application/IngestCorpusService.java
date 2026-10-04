@@ -5,6 +5,7 @@ import com.sheltr.ingestion.domain.IngestionRun;
 import com.sheltr.ingestion.domain.RunStatus;
 import com.sheltr.ingestion.domain.SourceMetadata;
 import com.sheltr.ingestion.domain.SourceType;
+import com.sheltr.ingestion.domain.StoredDocument;
 import com.sheltr.knowledge.domain.DocumentId;
 
 import java.util.ArrayList;
@@ -38,8 +39,15 @@ public class IngestCorpusService {
         Map<String, String> failed = new LinkedHashMap<>();
 
         for (CorpusManifest.Document document : manifest.documents()) {
-            if (catalog.findActiveDocumentId(document.sourceUri()).isPresent()) {
-                skipped.add(document.sourceUri());
+            Optional<StoredDocument> existing = catalog.findActiveDocument(document.sourceUri());
+            if (existing.isPresent()) {
+                String stored = existing.get().checksum();
+                if (stored == null || !document.checksum().equalsIgnoreCase(stored)) {
+                    failed.put(document.sourceUri(), "checksum mismatch: approved " + document.checksum()
+                            + " but stored " + (stored == null ? "none" : stored) + "; re-approval needed");
+                } else {
+                    skipped.add(document.sourceUri());
+                }
                 continue;
             }
             IngestionRun run = ingestor.ingest(document.sourceUri(), SourceType.PDF, document.metadata(),
