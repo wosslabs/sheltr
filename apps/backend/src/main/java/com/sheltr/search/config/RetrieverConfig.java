@@ -2,8 +2,13 @@ package com.sheltr.search.config;
 
 import com.sheltr.knowledge.domain.ChunkRepository;
 import com.sheltr.knowledge.domain.EmbeddingGenerator;
+import com.sheltr.search.domain.HazardBoost;
+import com.sheltr.search.domain.HybridRanker;
+import com.sheltr.search.domain.RelatedHazards;
 import com.sheltr.search.domain.Retriever;
 import com.sheltr.search.infrastructure.GuardedRetriever;
+import com.sheltr.search.infrastructure.HybridSearchAdapter;
+import com.sheltr.search.infrastructure.JooqRelatedHazards;
 import com.sheltr.search.infrastructure.PgvectorSemanticSearchAdapter;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,10 +23,25 @@ import java.util.Set;
 public class RetrieverConfig {
 
     @Bean
+    public RelatedHazards relatedHazards(DataSource dataSource) {
+        return new JooqRelatedHazards(dataSource);
+    }
+
+    @Bean
     public Retriever retriever(DataSource dataSource, EmbeddingGenerator embeddingGenerator,
-                               ChunkRepository chunkRepository,
-                               @Value("${sheltr.search.statuses}") Set<String> statuses) {
-        Retriever search = new PgvectorSemanticSearchAdapter(dataSource, embeddingGenerator, statuses);
+                               ChunkRepository chunkRepository, RelatedHazards relatedHazards,
+                               @Value("${sheltr.search.statuses}") Set<String> statuses,
+                               @Value("${sheltr.search.mode}") String mode,
+                               @Value("${sheltr.search.candidates-per-list}") int candidatesPerList,
+                               @Value("${sheltr.search.hazard-boost}") double hazardBoost,
+                               @Value("${sheltr.search.related-hazard-boost}") double relatedHazardBoost) {
+        Retriever search = switch (mode) {
+            case "vector" -> new PgvectorSemanticSearchAdapter(dataSource, embeddingGenerator, statuses);
+            case "hybrid" -> new HybridSearchAdapter(dataSource, embeddingGenerator, statuses, relatedHazards,
+                    new HybridRanker(new HazardBoost(hazardBoost, relatedHazardBoost)), candidatesPerList);
+            default -> throw new IllegalArgumentException(
+                    "sheltr.search.mode must be 'vector' or 'hybrid', got '" + mode + "'");
+        };
         return new GuardedRetriever(search, chunkRepository, embeddingGenerator.modelName());
     }
 

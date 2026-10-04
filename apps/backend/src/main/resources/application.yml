@@ -26,3 +26,8 @@ sheltr:
   search:
     # Document statuses retrieval may return. SEED rows are test fixtures and are never listed here.
     statuses: ACTIVE
+    # vector | hybrid. Switched to hybrid only if the eval shows a gain (Task 14).
+    mode: vector
+    candidates-per-list: 20
+    hazard-boost: 0.3
+    related-hazard-boost: 0.15
