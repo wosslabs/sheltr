@@ -1,0 +1,20 @@
+# The approved Sheltr corpus. Every entry is an official English document of global
+# guidance whose reuse terms allow storing and quoting it with attribution.
+# Load with `make ingest-corpus`.
+#
+# documents:
+#   - source_uri: direct URL of the PDF
+#     title: title as printed on the document
+#     source_agency: publishing organisation
+#     hazards: [FLOOD, LANDSLIDE]
+#     published_date: 2021-03-15
+#     license: reuse terms, plus the URL where they are stated
+#     checksum: SHA-256 of the file when it was approved
+#
+# related_hazards:
+#   - hazard: EARTHQUAKE
+#     related_hazard: LANDSLIDE
+#     source_uri: a document above that states the relationship
+#     note: where in the document it is stated
+documents: []
+related_hazards: []
