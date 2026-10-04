@@ -2,6 +2,7 @@ package com.sheltr.config;
 
 import org.junit.jupiter.api.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -34,5 +35,23 @@ class SecurityPropertiesTest {
     void acceptsHashOnly() {
         var props = new SecurityProperties("admin", null, "$2a$10$hash");
         assertThatCode(props::requireCredentials).doesNotThrowAnyException();
+    }
+
+    @Test
+    void treatsBlankPasswordAsAbsent() {
+        assertThatThrownBy(() -> new SecurityProperties("admin", "   ", null).requireCredentials())
+            .isInstanceOf(IllegalStateException.class);
+        assertThatCode(() -> new SecurityProperties("admin", "   ", "$2a$10$hash").requireCredentials())
+            .doesNotThrowAnyException();
+    }
+
+    @Test
+    void toStringMasksSecrets() {
+        var props = new SecurityProperties("admin", "plain-secret", null);
+        assertThat(props.toString())
+            .doesNotContain("plain-secret")
+            .contains("username=admin")
+            .contains("password=****")
+            .contains("passwordHash=null");
     }
 }
