@@ -50,13 +50,14 @@ class SpringAiAnswerGeneratorAdapterTest {
         };
 
         SpringAiAnswerGeneratorAdapter adapter = new SpringAiAnswerGeneratorAdapter(
-                chatModel, new AnswerContextBuilder(documentRepository));
+                chatModel, new AnswerContextBuilder(documentRepository, ConfidenceBands.DEFAULT));
 
         ChunkId chunkId = new ChunkId(UUID.randomUUID());
         RankedResult result = new RankedResult(chunkId, documentId,
                 "If tap water is contaminated after a flood, boil it at a rolling boil for one full minute.", 0.88);
 
-        AnswerOutcome outcome = adapter.generate(new SearchQuery("Is it safe to drink flood water?"), List.of(result));
+        AnswerOutcome outcome = adapter.generate(new SearchQuery("Is it safe to drink flood water?"), List.of(result),
+                new RelevanceVerdict(true, 0.88));
 
         assertThat(outcome).isInstanceOf(AnswerGenerated.class);
         Message message = ((AnswerGenerated) outcome).message();

@@ -33,3 +33,11 @@ sheltr:
     related-hazard-boost: 0.15
     # none | model. Switched to model only if the eval shows a gain (Task 14).
     reranker: none
+  judge:
+    # threshold | model. threshold uses sheltr.search.relevance-threshold from the active profile.
+    type: threshold
+    min-probability: 0.5
+  confidence:
+    # Refitted on the eval tuning split for the chosen judge (Task 14).
+    high: 0.90
+    medium: 0.75

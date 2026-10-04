@@ -6,5 +6,5 @@ import com.sheltr.search.domain.SearchQuery;
 import java.util.List;
 
 public interface AnswerGenerator {
-    AnswerOutcome generate(SearchQuery query, List<RankedResult> results);
+    AnswerOutcome generate(SearchQuery query, List<RankedResult> results, RelevanceVerdict verdict);
 }

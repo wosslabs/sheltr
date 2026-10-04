@@ -2,6 +2,7 @@ package com.sheltr.ai.interfaces;
 
 import com.sheltr.ai.application.AnswerContext;
 import com.sheltr.ai.application.AnswerContextBuilder;
+import com.sheltr.ai.application.AnswerPipeline;
 import com.sheltr.ai.domain.AnswerConfidence;
 import com.sheltr.ai.domain.Citation;
 import com.sheltr.ai.domain.Conversation;
@@ -9,8 +10,10 @@ import com.sheltr.ai.domain.ConversationId;
 import com.sheltr.ai.domain.ConversationRepository;
 import com.sheltr.ai.domain.MessageRole;
 import com.sheltr.ai.domain.NoAnswerAvailable;
+import com.sheltr.ai.domain.ThresholdRelevanceJudge;
 import com.sheltr.knowledge.domain.ChunkId;
 import com.sheltr.knowledge.domain.DocumentId;
+import com.sheltr.search.domain.NoOpReranker;
 import com.sheltr.search.domain.RankedResult;
 import com.sheltr.search.domain.Retriever;
 import io.lumina.ai.ChatClient;
@@ -37,6 +40,13 @@ class LuminaChatAppTest {
 
     private static final double THRESHOLD = 0.75;
 
+    private static AnswerPipeline pipeline(Retriever retriever) {
+        return new AnswerPipeline(retriever, new NoOpReranker(), new ThresholdRelevanceJudge(THRESHOLD),
+                (query, results, verdict) -> {
+                    throw new AssertionError("Lumina streams through ChatClient, not AnswerGenerator");
+                });
+    }
+
     @Test
     void persistsRefusalWithoutCallingChatClientWhenBelowThreshold() {
         Conversation conversation = new Conversation(new ConversationId(UUID.randomUUID()), null);
@@ -49,7 +59,7 @@ class LuminaChatAppTest {
         when(retriever.retrieve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()))
                 .thenReturn(List.of(irrelevant));
 
-        new LuminaChatApp(conversations, retriever, contextBuilder, chatClient, THRESHOLD).build(ui);
+        new LuminaChatApp(conversations, pipeline(retriever), contextBuilder, chatClient).build(ui);
 
         assertThat(conversations.saved.messages())
                 .extracting(message -> message.role(), message -> message.content().value())
@@ -73,13 +83,13 @@ class LuminaChatAppTest {
         RankedResult relevant = result(0.90);
         when(retriever.retrieve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()))
                 .thenReturn(List.of(relevant));
-        when(contextBuilder.buildContext(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyList()))
+        when(contextBuilder.buildContext(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(new AnswerContext(
                         "grounded prompt", List.of(), AnswerConfidence.fromSimilarity(0.90)));
         when(chatClient.stream("grounded prompt"))
                 .thenThrow(new IllegalStateException("provider-secret: model unavailable"));
 
-        new LuminaChatApp(conversations, retriever, contextBuilder, chatClient, THRESHOLD).build(ui);
+        new LuminaChatApp(conversations, pipeline(retriever), contextBuilder, chatClient).build(ui);
 
         assertThat(conversations.saved.messages())
                 .singleElement()
@@ -91,6 +101,28 @@ class LuminaChatAppTest {
         assertThat(sessionError).isEqualTo(LuminaChatApp.GENERATION_ERROR);
         verify(ui).text(LuminaChatApp.GENERATION_ERROR);
         verify(ui, never()).text(contains("provider-secret"));
+    }
+
+    @Test
+    void showsGenericErrorWithoutLeakingDetailsWhenEmbeddingsAreStale() {
+        Conversation conversation = new Conversation(new ConversationId(UUID.randomUUID()), null);
+        FakeConversationRepository conversations = new FakeConversationRepository(conversation);
+        Retriever retriever = mock(Retriever.class);
+        AnswerContextBuilder contextBuilder = mock(AnswerContextBuilder.class);
+        ChatClient chatClient = mock(ChatClient.class);
+        Ui ui = uiFor(conversation.id(), "Is flood water safe to drink?");
+        when(retriever.retrieve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenThrow(new com.sheltr.knowledge.domain.StaleEmbeddingsException(3, "secret-model"));
+
+        new LuminaChatApp(conversations, pipeline(retriever), contextBuilder, chatClient).build(ui);
+
+        assertThat(conversations.saved.messages()).singleElement()
+                .satisfies(message -> assertThat(message.role()).isEqualTo(MessageRole.USER));
+        String sessionError = ui.state().get("error");
+        assertThat(sessionError).isEqualTo(LuminaChatApp.GENERATION_ERROR);
+        verify(ui).text(LuminaChatApp.GENERATION_ERROR);
+        verify(ui, never()).text(contains("secret-model"));
+        verify(chatClient, never()).stream(anyString());
     }
 
     private static Ui uiFor(ConversationId conversationId, String prompt) {

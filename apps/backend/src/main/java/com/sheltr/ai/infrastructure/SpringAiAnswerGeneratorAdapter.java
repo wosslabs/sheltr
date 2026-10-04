@@ -21,8 +21,8 @@ public class SpringAiAnswerGeneratorAdapter implements AnswerGenerator {
     }
 
     @Override
-    public AnswerOutcome generate(SearchQuery query, List<RankedResult> results) {
-        AnswerContext context = answerContextBuilder.buildContext(query, results);
+    public AnswerOutcome generate(SearchQuery query, List<RankedResult> results, RelevanceVerdict verdict) {
+        AnswerContext context = answerContextBuilder.buildContext(query, results, verdict);
         String answerText;
         try {
             answerText = chatModel.call(context.prompt());
