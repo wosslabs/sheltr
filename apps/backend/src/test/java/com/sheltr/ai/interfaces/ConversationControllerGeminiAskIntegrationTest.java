@@ -32,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @AutoConfigureTestRestTemplate
 @SpringBootTest(classes = SheltrBackendApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {"spring.ai.google.genai.chat.options.temperature=0.0",
-                "sheltr.security.admin.password={noop}test-only"})
+                "sheltr.security.admin.password=test-only"})
 class ConversationControllerGeminiAskIntegrationTest {
 
     @Container

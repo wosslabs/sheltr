@@ -47,6 +47,20 @@ public record SecurityProperties(String username, String password, String passwo
         }
     }
 
+    /**
+     * Masks both secrets so they never reach logs. Other fields print normally.
+     */
+    @Override
+    public String toString() {
+        return "SecurityProperties[username=" + username
+                + ", password=" + mask(password)
+                + ", passwordHash=" + mask(passwordHash) + "]";
+    }
+
+    private static String mask(String secret) {
+        return secret == null ? "null" : "****";
+    }
+
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value;
     }

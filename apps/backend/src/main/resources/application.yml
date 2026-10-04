@@ -6,7 +6,8 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/sheltr
     username: sheltr
-    password: sheltr
+    # The default below is the local Postgres container credential, the only accepted YAML default for a secret.
+    password: ${SHELTR_DB_PASSWORD:sheltr}
   flyway:
     enabled: true
 
