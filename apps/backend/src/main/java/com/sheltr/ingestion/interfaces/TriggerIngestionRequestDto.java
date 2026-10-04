@@ -1,4 +1,8 @@
 package com.sheltr.ingestion.interfaces;
 
-public record TriggerIngestionRequestDto(String sourceUri, String sourceType) {
+import java.util.List;
+
+public record TriggerIngestionRequestDto(String sourceUri, String sourceType, String title, String sourceAgency,
+                                         List<String> hazards, String publishedDate, String license,
+                                         String checksum) {
 }

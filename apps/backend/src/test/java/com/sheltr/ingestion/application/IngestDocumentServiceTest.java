@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -20,6 +21,10 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class IngestDocumentServiceTest {
+
+    private static final SourceMetadata METADATA = new SourceMetadata(
+            "Test Document", "Test Agency", Set.of(DisasterType.FLOOD),
+            LocalDate.of(2021, 3, 15), "test-fixture-licence");
 
     @Test
     void ingestsAPdfEndToEndWithFakes() throws IOException {
@@ -35,7 +40,7 @@ class IngestDocumentServiceTest {
                 embeddingGenerator, sourceDocumentRepository, ingestionRunRepository,
                 knowledgeDocumentRepository, chunkRepository);
 
-        IngestionRun run = service.ingest("https://example.org/test.pdf", SourceType.PDF);
+        IngestionRun run = service.ingest("https://example.org/test.pdf", SourceType.PDF, METADATA, null);
 
         assertThat(run.status()).isEqualTo(RunStatus.SUCCEEDED);
         assertThat(knowledgeDocumentRepository.saved).hasSize(1);
@@ -56,12 +61,78 @@ class IngestDocumentServiceTest {
                 embeddingGenerator, sourceDocumentRepository, ingestionRunRepository,
                 knowledgeDocumentRepository, chunkRepository);
 
-        IngestionRun run = service.ingest("https://example.org/test.pdf", SourceType.PDF);
+        IngestionRun run = service.ingest("https://example.org/test.pdf", SourceType.PDF, METADATA, null);
 
         assertThat(run.status()).isEqualTo(RunStatus.FAILED);
         assertThat(run.errorMessage()).isPresent();
         assertThat(sourceDocumentRepository.lastSaved().status()).isEqualTo(IngestionStatus.FAILED);
         assertThat(knowledgeDocumentRepository.saved).isEmpty();
+    }
+
+    @Test
+    void savesManifestMetadataOnTheKnowledgeDocument() throws IOException {
+        FakeKnowledgeDocumentRepository knowledgeDocumentRepository = new FakeKnowledgeDocumentRepository();
+        IngestDocumentService service = serviceWith(new FakeSourceConnector(buildTestPdf()),
+                knowledgeDocumentRepository, new FakeSourceDocumentRepository());
+
+        service.ingest("https://example.org/test.pdf", SourceType.PDF, METADATA, null);
+
+        KnowledgeDocument saved = knowledgeDocumentRepository.saved.get(0);
+        assertThat(saved.title()).isEqualTo("Test Document");
+        assertThat(saved.sourceAgency()).isEqualTo("Test Agency");
+        assertThat(saved.publishedDate()).isEqualTo(LocalDate.of(2021, 3, 15));
+        assertThat(saved.license()).contains("test-fixture-licence");
+    }
+
+    @Test
+    void failsTheRunWhenTheDownloadedChecksumDiffersFromTheApprovedOne() throws IOException {
+        FakeKnowledgeDocumentRepository knowledgeDocumentRepository = new FakeKnowledgeDocumentRepository();
+        IngestDocumentService service = serviceWith(new FakeSourceConnector(buildTestPdf()),
+                knowledgeDocumentRepository, new FakeSourceDocumentRepository());
+
+        IngestionRun run = service.ingest("https://example.org/test.pdf", SourceType.PDF, METADATA, "approved000");
+
+        assertThat(run.status()).isEqualTo(RunStatus.FAILED);
+        assertThat(run.errorMessage().orElseThrow()).contains("Checksum mismatch").contains("approved000");
+        assertThat(knowledgeDocumentRepository.saved).isEmpty();
+    }
+
+    @Test
+    void failsTheRunWhenThePdfHasNoExtractableText() throws IOException {
+        FakeKnowledgeDocumentRepository knowledgeDocumentRepository = new FakeKnowledgeDocumentRepository();
+        IngestDocumentService service = serviceWith(new FakeSourceConnector(buildBlankPdf()),
+                knowledgeDocumentRepository, new FakeSourceDocumentRepository());
+
+        IngestionRun run = service.ingest("https://example.org/scan.pdf", SourceType.PDF, METADATA, null);
+
+        assertThat(run.status()).isEqualTo(RunStatus.FAILED);
+        assertThat(run.errorMessage().orElseThrow()).contains("No extractable text");
+        assertThat(knowledgeDocumentRepository.saved).isEmpty();
+    }
+
+    @Test
+    void rejectsMetadataWithoutALicence() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> new SourceMetadata(
+                        "Test Document", "Test Agency", Set.of(DisasterType.FLOOD), LocalDate.of(2021, 3, 15), " "))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("license");
+    }
+
+    private static IngestDocumentService serviceWith(FakeSourceConnector connector,
+                                                     FakeKnowledgeDocumentRepository knowledgeDocumentRepository,
+                                                     FakeSourceDocumentRepository sourceDocumentRepository) {
+        return new IngestDocumentService(connector, new PdfContentExtractor(), new FakeEmbeddingGenerator(),
+                sourceDocumentRepository, new FakeIngestionRunRepository(), knowledgeDocumentRepository,
+                new FakeChunkRepository());
+    }
+
+    private static byte[] buildBlankPdf() throws IOException {
+        try (PDDocument document = new PDDocument()) {
+            document.addPage(new PDPage());
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            document.save(out);
+            return out.toByteArray();
+        }
     }
 
     private static byte[] buildTestPdf() throws IOException {
@@ -94,10 +165,6 @@ class IngestDocumentServiceTest {
             return new RawContent(pdfBytes, new Checksum("fakechecksum123"));
         }
 
-        @Override
-        public SourceMetadata metadata() {
-            return new SourceMetadata("Test Document", "FEMA", Set.of(DisasterType.FLOOD));
-        }
     }
 
     private static class FakeEmbeddingGenerator implements EmbeddingGenerator {
