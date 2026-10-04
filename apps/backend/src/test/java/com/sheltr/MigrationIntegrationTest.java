@@ -43,6 +43,7 @@ class MigrationIntegrationTest {
         assertThat(tables).containsExactlyInAnyOrder(
                 "knowledge.documents",
                 "knowledge.chunks",
+                "knowledge.related_hazards",
                 "ingestion.source_documents",
                 "ingestion.ingestion_runs",
                 "ai.conversations",

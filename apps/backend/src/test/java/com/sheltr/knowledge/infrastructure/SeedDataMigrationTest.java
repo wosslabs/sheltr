@@ -52,7 +52,7 @@ class SeedDataMigrationTest {
                 }
             }
             assertThat(disasterTypesCovered).containsExactlyInAnyOrder(
-                    "EARTHQUAKE", "FLOOD", "HURRICANE", "TORNADO", "TSUNAMI", "WILDFIRE",
+                    "EARTHQUAKE", "FLOOD", "TROPICAL_CYCLONE", "TORNADO", "TSUNAMI", "WILDFIRE",
                     "EXTREME_HEAT", "WINTER_STORM");
         }
     }
