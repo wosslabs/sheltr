@@ -24,7 +24,7 @@ Out of scope (later phases): async ingestion (X4), conversation concurrency (X5)
 
 - Add `spring-boot-starter-security`. Justification: the only defensible way to protect the admin surface is a filter chain; hand-rolled checks would be weaker.
 - `/api/v1/admin/**` requires HTTP Basic authentication with role `ADMIN`. All other `/api/**` routes stay public: they are the citizen API.
-- Credentials come from the environment in every profile, including local: `SHELTR_ADMIN_PASSWORD` (plaintext) or `SHELTR_ADMIN_PASSWORD_HASH` (bcrypt), never both. Neither set fails startup, naming both variables. No password is ever written to a YAML file.
+- Credentials come from the environment in every profile, including local: `SHELTR_ADMIN_PASSWORD` (plaintext) or `SHELTR_ADMIN_PASSWORD_HASH` (bcrypt), never both. Neither set fails startup, naming both variables. No admin password is ever written to a YAML file. Carve-out (ruling): the database credential in `application.yml` uses `${SHELTR_DB_PASSWORD:sheltr}`, whose default is the local Postgres container credential only; it is not the admin credential and is documented as such.
 - Ruling (plaintext handling): a plaintext `SHELTR_ADMIN_PASSWORD` is bcrypt-encoded in memory at startup and the plaintext is discarded; a hash is used as given. Plaintext is never logged.
 - Local developers export a value (documented in the README). Tests supply their own password through test properties.
 - Responses for unauthenticated admin calls are `401`; authenticated but not admin is `403`.
