@@ -24,3 +24,6 @@ dist/
 
 # Git worktrees
 .worktrees/
+
+# Eval run output; chosen reports are copied to docs/eval/
+eval/reports/
