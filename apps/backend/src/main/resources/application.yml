@@ -23,6 +23,22 @@ management:
         include: health,info
 
 sheltr:
+  security:
+    admin:
+      # Admin routes (/api/v1/admin/**) use HTTP Basic with role ADMIN.
+      username: admin
+      # Set SHELTR_ADMIN_PASSWORD (plain or {noop}) or SHELTR_ADMIN_PASSWORD_HASH (bcrypt), never both.
+      # Outside the local profile, startup fails when neither is set.
+      password: ${SHELTR_ADMIN_PASSWORD:}
+      password-hash: ${SHELTR_ADMIN_PASSWORD_HASH:}
+  limits:
+    # Per-client-IP requests per minute on POST /api/v1/conversations/*/ask. Exceeding returns 429.
+    ask-per-minute: 10
+    # Daily cap on user questions (UTC day), checked before the LLM call. Exceeding returns 429.
+    max-asks-per-day: 1000
+  ingestion:
+    # Hostnames the ingestion connector may fetch. Empty denies all. Checked before any network call.
+    allowed-hosts: [www.ready.gov]
   search:
     # Document statuses retrieval may return. SEED rows are test fixtures and are never listed here.
     statuses: ACTIVE

@@ -31,7 +31,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("gemini")
 @AutoConfigureTestRestTemplate
 @SpringBootTest(classes = SheltrBackendApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "spring.ai.google.genai.chat.options.temperature=0.0")
+        properties = {"spring.ai.google.genai.chat.options.temperature=0.0",
+                "sheltr.security.admin.password={noop}test-only"})
 class ConversationControllerGeminiAskIntegrationTest {
 
     @Container
