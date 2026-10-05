@@ -1,5 +1,7 @@
 # ADR-0014: Admin authentication and request limits
 
+Status: Superseded by ADR-0015 where it describes the server (see that ADR).
+
 ## Status
 Accepted (Phase 0 hardening, 2026-10-04)
 

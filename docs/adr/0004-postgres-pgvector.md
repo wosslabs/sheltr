@@ -1,5 +1,7 @@
 # ADR-0004: PostgreSQL + pgvector for the vector store
 
+Status: Superseded by ADR-0015 where it describes the server (see that ADR).
+
 ## Status
 Accepted
 

@@ -1,5 +1,7 @@
 # Sheltr — Phase 2 (Sub-project 1): MVP RAG Loop Design
 
+Superseded in part by ADR-0015.
+
 Status: Approved
 Date: 2026-07-04
 

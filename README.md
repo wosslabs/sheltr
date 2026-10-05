@@ -1,132 +1,101 @@
-# Sheltr — Disaster Response Knowledge Assistant
+# Sheltr
 
-Sheltr is an open-source RAG platform that answers disaster-response
-questions (earthquake, flood, tropical cyclone, tornado, tsunami, wildfire,
-extreme heat, winter storm, landslide, glacial lake flood, volcano, drought)
-with citation-grounded answers. Sheltr answers only from official documents listed in `corpus/manifest.yaml`, and every answer cites the passages it used.
+Sheltr is a free, non-profit, offline-first guide to disaster preparedness and response. The app is designed to work with no network connection once the approved content is on the phone, and to sync updates whenever a network is available.
+
+Every answer is designed to show the official source it came from: the agency, the document title, the date and a link to the original. Sheltr answers only from approved official documents. It refuses when no source passes its relevance check, rather than inventing guidance.
+
+Sheltr is not an official warning system. Follow official alerts from your local authorities.
+
+The approved corpus covers earthquake, flood, tropical cyclone, tornado, tsunami, wildfire, extreme heat, winter storm, landslide, glacial lake flood, volcano and drought.
+
+There is no account, no analytics and no server in production. Location, if used, stays on the device and is used only to choose a country.
 
 ## Status
 
-Phase 1 (foundation), Phase 2 (RAG MVP), and Phase 3 (ingestion MVP) are
-complete:
+Work in progress. Only what is listed under "Built" has code and tests in this repository. The implementation plan has the full task list.
 
-- **Phase 1** — repo scaffold, architecture decision records, C4 diagrams,
-  domain model, database schema, and OpenAPI contract. See
-  `docs/superpowers/specs/2026-07-04-phase1-foundation-design.md` and
-  `docs/superpowers/plans/2026-07-04-phase1-foundation.md`.
-- **Phase 2** — pgvector semantic search, citation-grounded answer
-  generation (ADR-0008), and conversation/document REST APIs. See
-  `docs/superpowers/specs/2026-07-04-phase2-rag-mvp-design.md` and
-  `docs/superpowers/plans/2026-07-05-phase2-rag-mvp.md`.
-- **Phase 3** — document ingestion pipeline (FEMA PDF connector, text
-  cleaning/chunking, embedding backfill) wired end-to-end into the RAG
-  loop via admin REST endpoints. See
-  `docs/superpowers/specs/2026-07-13-ingestion-mvp-design.md` and
-  `docs/superpowers/plans/2026-07-13-ingestion-mvp.md`.
+Built:
 
-Local/CPU model migration complete: the default Spring profile now runs fully
-offline after initial setup, on a local Ollama-backed provider
-(`qwen2.5:3b-instruct` for generation, `nomic-embed-text` for embedding) —
-no API key or cloud dependency required to try Sheltr. Gemini remains
-available as an opt-in profile for self-hosters who want cloud-hosted
-answer quality. See `docs/adr/0011-local-ollama-default-provider.md` and
-`docs/superpowers/specs/2026-08-03-local-model-migration-design.md` for
-the full spec and `docs/superpowers/plans/2026-08-04-local-model-migration.md`
-for how it was built.
+- **Publisher** (`tools/publisher`): manifest parsing, PDF and HTML extraction, text cleaning, chunking, bundle building, Ed25519 signing, the `publish` command, and a check that refuses a signing key inside the repository. `gradle :tools:publisher:test` passed on 2026-10-05 (125 tests).
+- **Shared module** (`apps/mobile/shared`): bundle parsing, signature verification, SQLite store with FTS5 and atomic swap, keyword retrieval with country and hazard boosts, citation selection and refusal, sync engine with retry policy, and the settings model. `gradle :apps:mobile:shared:jvmTest` passed on 2026-10-05 (96 tests).
+- **Corpus**: two approved entries in `corpus/manifest.yaml`.
+- **Clean-up**: the server, the chat UI and their infrastructure were removed in commit `116a0e7`.
 
-Mobile app, admin curation UI, and deployment are future phases.
+Not done:
 
-The rows seeded by migration V5 are test fixtures, not official text. They have status `SEED` and are never returned to users.
+- **Android app** (Jetpack Compose): not created. The shared module does not declare an Android target yet.
+- **iOS app** (SwiftUI): not created. The iOS targets are declared in the shared module, but they have not been built or tested.
+- **Bundle hosting**: no hosting location is configured in this repository, and no bundle has been published from it.
+- **On-device model** (LiteRT-LM): not started. Version 1 search is keyword only.
+- **Search evaluation on the phone**: not started.
+- **About screen, privacy statement and store listings**: not started.
 
-`corpus/manifest.yaml` is the approved corpus. It currently lists no documents: no entry has been approved yet. See `docs/adr/0013-corpus-manifest.md`. Retrieval, reranking, and the relevance judge are staged behind ports; the default for each is not yet chosen by the eval. See `docs/adr/0012-hybrid-retrieval-and-relevance-judge.md`.
+## Repository layout
 
-## Repo layout
+- `apps/mobile/shared`: Kotlin Multiplatform module shared by both apps (bundle, store, retrieval, sync, settings).
+- `apps/mobile`: the app projects (Android and iOS are planned; see `apps/mobile/README.md`).
+- `tools/publisher`: Kotlin/JVM command-line publisher.
+- `corpus/manifest.yaml`: the approved corpus.
+- `docs/adr`: architecture decision records. ADR-0015 is the current design; older ADRs are marked where the server parts are superseded.
+- `docs/architecture/mobile-design.md`: diagram of the mobile and publisher design.
+- `docs/superpowers/specs`: design specs. `docs/superpowers/plans`: the current implementation plan.
+- `.github/workflows`: CI workflows (not yet built).
 
-- `apps/backend` — Spring Boot backend (Java 25, hexagonal architecture)
-- `apps/mobile` — Flutter mobile app (placeholder, Phase 3)
-- `apps/admin-web` — admin curation UI (placeholder)
-- `packages/` — shared code across apps (placeholder until a second app exists)
-- `docs/adr` — architecture decision records
-- `docs/architecture` — C4 diagrams and domain model
-- `docs/openapi` — API contract
-- `infra/podman` — local development environment (Postgres + pgvector + Ollama)
-- `infra/k8s` — Kubernetes manifests (placeholder)
+## The publisher
 
-## Local development
-
-Requires [Podman Desktop](https://podman-desktop.io/) (or the Podman CLI with a running
-machine) — this project targets Podman only, not Docker Desktop.
+The publisher reads the approved manifest, fetches each source over HTTPS (only from hosts named in the manifest), checks it against the approved checksum, extracts and cleans the text, splits it into chunks, and writes a bundle signed with an Ed25519 key.
 
 ```bash
-make up       # start Postgres + pgvector + Ollama (podman compose), then pull
-              # qwen2.5:3b-instruct + nomic-embed-text (~2.5GB total, one-time
-              # on first run — requires network access; cached locally after that)
-make migrate  # apply Flyway migrations directly, without booting the app
-make ingest-corpus  # load the approved corpus from corpus/manifest.yaml
-make build    # build the backend
-make test     # run backend tests (includes Testcontainers migration test — needs Podman)
-make eval CONFIG=name   # run the eval question set; see docs/superpowers/specs/2026-10-04-corpus-eval-retrieval-design.md
-make down     # stop Postgres + Ollama
+publish --manifest <file> --out <dir> --key <path> [--public-key <path>]
 ```
 
-### Providers: `local` vs `gemini`
+- `--manifest`: the approved manifest, `corpus/manifest.yaml`.
+- `--out`: the directory for the bundle. It must not exist yet.
+- `--key`: the Ed25519 private key (PKCS#8, DER or PEM).
+- `--public-key`: optional. If given, the bundle is verified with this public key (X.509, DER or PEM).
 
-Sheltr supports two interchangeable AI providers, selected via the
-`SPRING_PROFILES_ACTIVE` Spring profile:
+The output directory contains `bundle.json` (the manifest, with each document's checksum and chunks), `bundle.json.sig` (its signature) and `documents/`. If an entry fails, it is listed as `FAILED`, left out of the bundle, and the command exits with status 1. If no bundle can be built, nothing is left at the output path.
 
-- **`local` (default)** — uses the Ollama sidecar started by `make up`
-  (`qwen2.5:3b-instruct` for generation, `nomic-embed-text` for embedding).
-  No API key needed. Runs on CPU; no GPU required. Plan for roughly 8-16GB
-  of available RAM. After the one-time model pull, answer generation makes
-  no outbound network calls.
-- **`gemini` (opt-in)** — uses Google's Gemini models for better answer
-  quality and lower latency at the cost of a cloud dependency. Requires a
-  `GEMINI_API_KEY` environment variable. Enable with
-  `SPRING_PROFILES_ACTIVE=gemini`.
+There is no Gradle run task for the publisher yet. Run `com.sheltr.publisher.MainKt` from the IDE with the arguments above, or compile it and run it with `java` on a classpath that includes its dependencies.
 
-The backend will not start without an admin password in every profile.
-Export one of these before running it (`SHELTR_ADMIN_PASSWORD` for a plain
-value, or `SHELTR_ADMIN_PASSWORD_HASH` for a bcrypt hash, never both):
+### Signing key
+
+Create the key outside the repository:
 
 ```bash
-export SHELTR_ADMIN_PASSWORD='choose-a-local-password'
+mkdir -p ~/sheltr-keys && chmod 700 ~/sheltr-keys
+openssl genpkey -algorithm ed25519 -out ~/sheltr-keys/sheltr-publisher.key.pem
+chmod 600 ~/sheltr-keys/sheltr-publisher.key.pem
+openssl pkey -in ~/sheltr-keys/sheltr-publisher.key.pem -pubout -out ~/sheltr-keys/sheltr-publisher.pub.pem
 ```
 
-There is no default admin password. Admin routes (`/api/v1/admin/**`) use HTTP
-Basic with user `admin`.
+- The private key must stay outside this repository. The publisher finds the repository root (the nearest parent of its working directory that contains `settings.gradle.kts`) and refuses to read a key from inside it, following symlinks. Pass the key's path with `--key`.
+- Never commit the key, copy it to the phone or upload it to hosting. The `.gitignore` patterns for key files are a backstop, not the control.
+- Keep an offline backup. A lost key means no new signed bundles can be trusted by the apps. A leaked key lets anyone sign content the apps accept.
+- The apps verify against the public key they ship with, so rotating the key requires an app update.
 
-#### Limits, ingestion and timeouts
+## Building and testing
 
-Defaults are in `apps/backend/src/main/resources/application.yml`; each can be
-overridden with the usual Spring environment variables (for example
-`SHELTR_LIMITS_ASK_PER_MINUTE`).
-
-| Setting | Default | Meaning |
-| --- | --- | --- |
-| `sheltr.limits.ask-per-minute` | `10` | Requests per minute per client address on `/ask`; excess gets `429` with `Retry-After`. Per instance: behind a proxy, the proxy limit is primary. |
-| `sheltr.limits.max-asks-per-day` | `1000` | Questions per UTC day, counted from the database; excess gets `429` before any LLM call. |
-| `sheltr.ingestion.allowed-hosts` | `www.ready.gov` | Hosts the ingestion connector may fetch, over https on the default port. Empty denies all. Redirects are never followed. |
-| `sheltr.ingestion.connect-timeout` | `10s` | Source fetch connect timeout. |
-| `sheltr.ingestion.request-timeout` | `60s` | Source fetch wait for response headers. |
-| `spring.http.clients.connect-timeout` | `5s` | Connect timeout for Boot-built HTTP clients, including Ollama. |
-| `spring.http.clients.read-timeout` | `120s` | Read timeout for Boot-built HTTP clients, including Ollama. The Gemini SDK does not use it. |
-
-See `docs/adr/0014-admin-auth-and-request-limits.md` for the decisions and
-residual risks.
-
-If you only plan to use `gemini`, skip the local model pull (which needs
-network access and ~2.5GB of download) with:
+Requirements: JDK 25 and Gradle 9.2.0. No Gradle wrapper is committed yet, so install Gradle 9.2.0 and run it from the repository root.
 
 ```bash
-SHELTR_PROVIDER=gemini make up
+gradle :tools:publisher:test          # publisher tests (JVM)
+gradle :apps:mobile:shared:jvmTest    # shared module tests (JVM)
 ```
 
-See `docs/adr/0011-local-ollama-default-provider.md` for the full rationale.
+Both commands passed on 2026-10-05 with Gradle 9.2.0 on JDK 25.0.4. The iOS targets and the Android app are not covered by these commands.
 
-#### Switching between `local` and `gemini`
+## Licence and attribution
 
-Each chunk records the embedding model that produced its vector. If you switch to a profile with a different embedding model, Sheltr refuses to answer questions (HTTP 503) until you run `make seed-embeddings` under the new profile, which re-embeds every chunk.
+- **Code**: Apache License 2.0. See `LICENSE` and ADR-0009.
+- **Content**: each source document keeps its own licence and attribution. The licence and the attribution are recorded per document in `corpus/manifest.yaml` and carried into the bundle. The apps will show them on the About screen.
+  - "Prepare" (UK Government): Open Government Licence v3.0.
+  - IFRC, "Public awareness and public education for disaster risk reduction: key messages (Short version)": copies may be made for non-commercial use with acknowledgement. Commercial reproduction needs IFRC permission. Sheltr is free and non-profit.
+- Sheltr is an independent project. It is not an official government or agency service.
 
-## License
+## Documentation
 
-Apache License 2.0 — see `LICENSE`.
+- Design: `docs/superpowers/specs/2026-10-05-offline-mobile-app-design.md`
+- Plan: `docs/superpowers/plans/2026-10-05-mobile-kotlin-mpp.md`
+- Decision: `docs/adr/0015-offline-mobile-publisher-no-server.md`
+- Diagram: `docs/architecture/mobile-design.md`

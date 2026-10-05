@@ -1,5 +1,7 @@
 # ADR-0001: Monorepo with no build orchestrator
 
+Status: Superseded by ADR-0015 where it describes the server (see that ADR).
+
 ## Status
 Accepted
 

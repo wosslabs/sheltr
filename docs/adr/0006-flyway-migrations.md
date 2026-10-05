@@ -1,5 +1,7 @@
 # ADR-0006: Flyway for schema migration and versioning
 
+Status: Superseded by ADR-0015 where it describes the server (see that ADR).
+
 ## Status
 Accepted
 

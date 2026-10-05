@@ -1,5 +1,7 @@
 # ADR-0010: Podman (not Docker) as the supported container runtime
 
+Status: Superseded by ADR-0015 where it describes the server (see that ADR).
+
 ## Status
 Accepted
 

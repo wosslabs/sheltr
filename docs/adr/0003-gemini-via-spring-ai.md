@@ -1,5 +1,7 @@
 # ADR-0003: Google Gemini and Ollama, both accessed exclusively through Spring AI
 
+Status: Superseded by ADR-0015 where it describes the server (see that ADR).
+
 ## Status
 Amended by ADR-0011 — see that ADR for the current default-provider decision. The core rule
 below (no vendor SDK type outside `infrastructure`) is unchanged and now applies to both

@@ -1,5 +1,7 @@
 # ADR-0012: Staged retrieval behind ports, with the default chosen by eval
 
+Status: Superseded by ADR-0015 where it describes the server (see that ADR).
+
 Status: Accepted (mechanism). The default implementation for each stage is not yet chosen; see Decision.
 Date: 2026-10-04
 

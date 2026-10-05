@@ -1,5 +1,7 @@
 # Sheltr — Real Corpus, Eval Harness, and Retrieval Quality Design
 
+Superseded in part by ADR-0015.
+
 Status: Draft — awaiting review
 Date: 2026-10-04
 
