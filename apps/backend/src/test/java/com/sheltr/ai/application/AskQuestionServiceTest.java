@@ -9,6 +9,8 @@ import com.sheltr.search.domain.Retriever;
 import com.sheltr.search.domain.SearchQuery;
 import org.junit.jupiter.api.Test;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -21,7 +23,8 @@ class AskQuestionServiceTest {
     private static AskQuestionService service(Retriever retriever, AnswerGenerator answerGenerator,
                                               ConversationRepository conversations) {
         return new AskQuestionService(new AnswerPipeline(retriever, new NoOpReranker(),
-                new ThresholdRelevanceJudge(THRESHOLD), answerGenerator), conversations);
+                new ThresholdRelevanceJudge(THRESHOLD), answerGenerator), conversations,
+                Integer.MAX_VALUE, Clock.systemUTC());
     }
 
     @Test
@@ -109,5 +112,8 @@ class AskQuestionServiceTest {
 
         @Override
         public List<Citation> findCitationsByDocumentId(DocumentId documentId) { return List.of(); }
+
+        @Override
+        public long countUserMessagesSince(Instant since) { return 0; }
     }
 }

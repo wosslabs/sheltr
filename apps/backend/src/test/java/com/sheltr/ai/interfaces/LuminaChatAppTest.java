@@ -258,6 +258,11 @@ class LuminaChatAppTest {
         public List<Citation> findCitationsByDocumentId(DocumentId documentId) {
             return List.of();
         }
+
+        @Override
+        public long countUserMessagesSince(java.time.Instant since) {
+            return 0;
+        }
     }
 
     private static final class MapStateStore implements StateStore {
