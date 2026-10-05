@@ -40,7 +40,11 @@ class AskRateLimitFilterTest {
     private final AskRateLimitFilter filter = new AskRateLimitFilter(limiter, JsonMapper.builder().build());
 
     private static MockHttpServletRequest post(String remoteAddr) {
-        var request = new MockHttpServletRequest("POST", ASK_URI);
+        return post(ASK_URI, remoteAddr);
+    }
+
+    private static MockHttpServletRequest post(String uri, String remoteAddr) {
+        var request = new MockHttpServletRequest("POST", uri);
         request.setRemoteAddr(remoteAddr);
         return request;
     }
@@ -117,5 +121,43 @@ class AskRateLimitFilterTest {
             filter.doFilter(request, new MockHttpServletResponse(), chain);
         }
         assertThat(chain.calls).isEqualTo(15);
+    }
+
+    @Test
+    void postsToOtherConversationPathsAreNotCounted() throws Exception {
+        CountingChain chain = new CountingChain();
+        String[] otherPaths = {
+                "/api/v1/conversations/7b0f5a52-3f0e-4c1b-9d0e-0a1b2c3d4e5f",
+                "/api/v1/conversations/7b0f5a52-3f0e-4c1b-9d0e-0a1b2c3d4e5f/messages",
+                "/api/v1/conversations/7b0f5a52/ask/extra",
+                "/api/v1/conversations//ask",
+                "/api/v1/askings/7b0f5a52/ask"
+        };
+        for (int i = 0; i < 15; i++) {
+            for (String path : otherPaths) {
+                filter.doFilter(post(path, "203.0.113.5"), new MockHttpServletResponse(), chain);
+            }
+        }
+        assertThat(chain.calls).isEqualTo(15 * otherPaths.length);
+    }
+
+    @Test
+    void askPathIsMatchedBelowContextPath() throws Exception {
+        CountingChain chain = new CountingChain();
+        for (int i = 0; i < 10; i++) {
+            var request = post("203.0.113.5");
+            request.setContextPath("/sheltr");
+            request.setRequestURI("/sheltr" + ASK_URI);
+            filter.doFilter(request, new MockHttpServletResponse(), chain);
+        }
+
+        var request = post("203.0.113.5");
+        request.setContextPath("/sheltr");
+        request.setRequestURI("/sheltr" + ASK_URI);
+        var response = new MockHttpServletResponse();
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(429);
+        assertThat(chain.calls).isEqualTo(10);
     }
 }

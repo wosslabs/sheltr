@@ -2,30 +2,41 @@ package com.sheltr.interfaces;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Fixed-window request counter keyed by client identity.
  *
  * <p>Each key gets {@code limitPerWindow} acquisitions per window, counted from the first
  * acquisition after the previous window ended. The map never holds more than {@code maxKeys}
- * entries: when a new key arrives at the cap, windows that have already expired are dropped
- * first, and if every tracked window is still live the oldest one is dropped. Each key's update
- * is atomic through {@link ConcurrentHashMap#compute}; inserts and evictions are serialised so the
- * size bound holds under concurrent callers.
+ * entries. When the map is full and a new key arrives, expired windows are swept, but only once
+ * per window length. If no slot is free after that, the new key is refused (fail closed). A live
+ * window is never evicted to make room.
  */
 public final class FixedWindowLimiter {
 
+    /**
+     * Outcome of one acquisition. {@code retryAfterSeconds} is a whole-second hint (at least 1)
+     * for a refused call and 0 for an allowed one.
+     */
+    public record Acquisition(boolean allowed, long retryAfterSeconds) {
+    }
+
     private record Window(long startMillis, int count) {
     }
+
+    private static final long NEVER = Long.MIN_VALUE;
 
     private final int limitPerWindow;
     private final long windowMillis;
     private final Clock clock;
     private final int maxKeys;
-    private final Map<String, Window> windows = new ConcurrentHashMap<>();
+
+    // Every access goes through `lock`; the HashMap needs no concurrent-map semantics of its own.
     private final Object lock = new Object();
+    private final Map<String, Window> windows = new HashMap<>();
+    private long lastSweepMillis = NEVER;
 
     public FixedWindowLimiter(int limitPerWindow, Duration window, Clock clock, int maxKeys) {
         if (limitPerWindow < 1) {
@@ -43,53 +54,66 @@ public final class FixedWindowLimiter {
         this.maxKeys = maxKeys;
     }
 
-    /** Records one acquisition for {@code key}. Returns false when the key is over its limit. */
+    /** Records one acquisition for {@code key}. Returns false when the key is refused. */
     public boolean tryAcquire(String key) {
-        long now = clock.millis();
-        synchronized (lock) {
-            if (!windows.containsKey(key) && windows.size() >= maxKeys) {
-                evictStale(now);
-                if (windows.size() >= maxKeys) {
-                    evictOldest();
-                }
-            }
-            boolean[] allowed = {false};
-            windows.compute(key, (k, w) -> {
-                if (w == null || now - w.startMillis() >= windowMillis) {
-                    allowed[0] = true;
-                    return new Window(now, 1);
-                }
-                if (w.count() < limitPerWindow) {
-                    allowed[0] = true;
-                    return new Window(w.startMillis(), w.count() + 1);
-                }
-                return w;
-            });
-            return allowed[0];
-        }
+        return acquire(key).allowed();
     }
 
-    /** Whole seconds until {@code key}'s current window ends, at least 1. */
-    public long retryAfterSeconds(String key) {
-        Window w = windows.get(key);
-        if (w == null) {
-            return 1L;
+    /**
+     * Records one acquisition and, when refused, the retry hint. The hint is computed inside the
+     * same lock as the decision, so it describes the state that produced the refusal.
+     */
+    public Acquisition acquire(String key) {
+        long now = clock.millis();
+        // One lock for the whole call. The size cap, the sweep timestamp and the per-key window
+        // update must change together: with per-key locking alone, two new keys could both pass
+        // the size check and push the map past maxKeys, and a sweep could race an insert.
+        synchronized (lock) {
+            if (!windows.containsKey(key) && windows.size() >= maxKeys) {
+                if (sweepDue(now)) {
+                    windows.values().removeIf(w -> now - w.startMillis() >= windowMillis);
+                    lastSweepMillis = now;
+                }
+                if (windows.size() >= maxKeys) {
+                    return new Acquisition(false, secondsUntil(retryAtCapMillis(now), now));
+                }
+            }
+            Window current = windows.get(key);
+            if (current == null || now - current.startMillis() >= windowMillis) {
+                windows.put(key, new Window(now, 1));
+                return new Acquisition(true, 0L);
+            }
+            if (current.count() < limitPerWindow) {
+                windows.put(key, new Window(current.startMillis(), current.count() + 1));
+                return new Acquisition(true, 0L);
+            }
+            return new Acquisition(false, secondsUntil(current.startMillis() + windowMillis, now));
         }
-        long remainingMillis = w.startMillis() + windowMillis - clock.millis();
-        return Math.max(1L, (remainingMillis + 999L) / 1000L);
     }
 
     int size() {
-        return windows.size();
+        synchronized (lock) {
+            return windows.size();
+        }
     }
 
-    private void evictStale(long now) {
-        windows.entrySet().removeIf(e -> now - e.getValue().startMillis() >= windowMillis);
+    private boolean sweepDue(long now) {
+        return lastSweepMillis == NEVER || now - lastSweepMillis >= windowMillis;
     }
 
-    private void evictOldest() {
-        windows.entrySet().stream()
-                .min((a, b) -> Long.compare(a.getValue().startMillis(), b.getValue().startMillis()))
-                .ifPresent(e -> windows.remove(e.getKey()));
+    /**
+     * When a slot can next free up: the earliest live window end, but not before the next sweep
+     * is allowed, since expired windows are only removed by a sweep.
+     */
+    private long retryAtCapMillis(long now) {
+        long earliestEnd = Long.MAX_VALUE;
+        for (Window w : windows.values()) {
+            earliestEnd = Math.min(earliestEnd, w.startMillis() + windowMillis);
+        }
+        return Math.max(earliestEnd, lastSweepMillis + windowMillis);
+    }
+
+    private static long secondsUntil(long endMillis, long now) {
+        return Math.max(1L, (endMillis - now + 999L) / 1000L);
     }
 }
