@@ -9,8 +9,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 
 public class HttpPdfConnector implements SourceConnector {
@@ -60,23 +58,9 @@ public class HttpPdfConnector implements SourceConnector {
                 throw new RuntimeException("Failed to download " + sourceUri + ": HTTP " + response.statusCode());
             }
             byte[] bytes = response.body();
-            return new RawContent(bytes, new Checksum(sha256Hex(bytes)));
+            return new RawContent(bytes, new Checksum(Sha256Hex.of(bytes)));
         } catch (IOException | InterruptedException e) {
             throw new RuntimeException("Failed to download " + sourceUri, e);
-        }
-    }
-
-    private static String sha256Hex(byte[] bytes) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(bytes);
-            StringBuilder sb = new StringBuilder();
-            for (byte b : hash) {
-                sb.append(String.format("%02x", b));
-            }
-            return sb.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
         }
     }
 }
