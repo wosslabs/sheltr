@@ -3,6 +3,7 @@ package com.sheltr.ai.interfaces;
 import com.sheltr.ai.application.AnswerContext;
 import com.sheltr.ai.application.AnswerContextBuilder;
 import com.sheltr.ai.application.AnswerPipeline;
+import com.sheltr.ai.application.DailyAskCap;
 import com.sheltr.ai.domain.AnswerConfidence;
 import com.sheltr.ai.domain.Citation;
 import com.sheltr.ai.domain.Conversation;
@@ -23,6 +24,9 @@ import io.lumina.ui.Ui;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +45,13 @@ import static org.mockito.Mockito.when;
 class LuminaChatAppTest {
 
     private static final double THRESHOLD = 0.75;
+
+    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-04T12:00:00Z"), ZoneOffset.UTC);
+    private static final int MAX_ASKS_PER_DAY = 5;
+
+    private static DailyAskCap dailyCap(ConversationRepository conversations) {
+        return new DailyAskCap(conversations, MAX_ASKS_PER_DAY, CLOCK);
+    }
 
     private static AnswerPipeline pipeline(Retriever retriever) {
         return new AnswerPipeline(retriever, new NoOpReranker(), new ThresholdRelevanceJudge(THRESHOLD),
@@ -61,7 +72,7 @@ class LuminaChatAppTest {
         when(retriever.retrieve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()))
                 .thenReturn(List.of(irrelevant));
 
-        new LuminaChatApp(conversations, pipeline(retriever), contextBuilder, chatClient).build(ui);
+        new LuminaChatApp(conversations, pipeline(retriever), contextBuilder, chatClient, dailyCap(conversations)).build(ui);
 
         assertThat(conversations.saved.messages())
                 .extracting(message -> message.role(), message -> message.content().value())
@@ -91,7 +102,7 @@ class LuminaChatAppTest {
         when(chatClient.stream("grounded prompt"))
                 .thenThrow(new IllegalStateException("provider-secret: model unavailable"));
 
-        new LuminaChatApp(conversations, pipeline(retriever), contextBuilder, chatClient).build(ui);
+        new LuminaChatApp(conversations, pipeline(retriever), contextBuilder, chatClient, dailyCap(conversations)).build(ui);
 
         assertThat(conversations.saved.messages())
                 .singleElement()
@@ -116,7 +127,7 @@ class LuminaChatAppTest {
         when(retriever.retrieve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()))
                 .thenThrow(new com.sheltr.knowledge.domain.StaleEmbeddingsException(3, "secret-model"));
 
-        new LuminaChatApp(conversations, pipeline(retriever), contextBuilder, chatClient).build(ui);
+        new LuminaChatApp(conversations, pipeline(retriever), contextBuilder, chatClient, dailyCap(conversations)).build(ui);
 
         assertThat(conversations.saved.messages()).singleElement()
                 .satisfies(message -> assertThat(message.role()).isEqualTo(MessageRole.USER));
@@ -148,7 +159,7 @@ class LuminaChatAppTest {
         when(chatClient.stream("grounded prompt"))
                 .thenReturn(TokenStream.fromIterable(List.of("Do not drink ", "flood water [1].")));
 
-        new LuminaChatApp(conversations, pipeline(retriever), contextBuilder, chatClient).build(ui);
+        new LuminaChatApp(conversations, pipeline(retriever), contextBuilder, chatClient, dailyCap(conversations)).build(ui);
 
         ArgumentCaptor<TokenStream> shown = ArgumentCaptor.forClass(TokenStream.class);
         verify(ui).ai(shown.capture());
@@ -179,7 +190,7 @@ class LuminaChatAppTest {
         when(chatClient.stream("grounded prompt"))
                 .thenReturn(TokenStream.fromIterable(List.of("Go to a public shelter. [2]")));
 
-        new LuminaChatApp(conversations, pipeline(retriever), contextBuilder, chatClient).build(ui);
+        new LuminaChatApp(conversations, pipeline(retriever), contextBuilder, chatClient, dailyCap(conversations)).build(ui);
 
         ArgumentCaptor<List<Map<String, Object>>> sources = ArgumentCaptor.forClass(List.class);
         verify(ui).ragSources(sources.capture());
@@ -205,7 +216,7 @@ class LuminaChatAppTest {
         when(chatClient.stream("grounded prompt"))
                 .thenReturn(TokenStream.fromIterable(List.of("Uncited claim.")));
 
-        new LuminaChatApp(conversations, pipeline(retriever), contextBuilder, chatClient).build(ui);
+        new LuminaChatApp(conversations, pipeline(retriever), contextBuilder, chatClient, dailyCap(conversations)).build(ui);
 
         ArgumentCaptor<TokenStream> shown = ArgumentCaptor.forClass(TokenStream.class);
         verify(ui).ai(shown.capture());
@@ -217,6 +228,26 @@ class LuminaChatAppTest {
                     assertThat(message.content().value()).isEqualTo(NoAnswerAvailable.MESSAGE);
                     assertThat(message.citations()).isEmpty();
                 });
+    }
+
+    @Test
+    void refusesWithoutRetrievalGenerationOrSavingWhenDailyCapIsReached() {
+        Conversation conversation = new Conversation(new ConversationId(UUID.randomUUID()), null);
+        FakeConversationRepository conversations = new FakeConversationRepository(conversation);
+        conversations.userMessagesToday = MAX_ASKS_PER_DAY;
+        Retriever retriever = mock(Retriever.class);
+        AnswerContextBuilder contextBuilder = mock(AnswerContextBuilder.class);
+        ChatClient chatClient = mock(ChatClient.class);
+        Ui ui = uiFor(conversation.id(), "Is flood water safe to drink?");
+
+        new LuminaChatApp(conversations, pipeline(retriever), contextBuilder, chatClient, dailyCap(conversations))
+                .build(ui);
+
+        verify(ui).text("Daily question limit reached. Try again tomorrow.");
+        verify(retriever, never()).retrieve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt());
+        verify(chatClient, never()).stream(anyString());
+        assertThat(conversations.saved).isNull();
+        verify(ui, never()).user(anyString());
     }
 
     private static Ui uiFor(ConversationId conversationId, String prompt) {
@@ -239,6 +270,7 @@ class LuminaChatAppTest {
     private static final class FakeConversationRepository implements ConversationRepository {
         private final Conversation stored;
         private Conversation saved;
+        private long userMessagesToday;
 
         private FakeConversationRepository(Conversation stored) {
             this.stored = stored;
@@ -261,7 +293,7 @@ class LuminaChatAppTest {
 
         @Override
         public long countUserMessagesSince(java.time.Instant since) {
-            return 0;
+            return userMessagesToday;
         }
     }
 
