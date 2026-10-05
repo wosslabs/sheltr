@@ -88,3 +88,19 @@ Out of scope (later phases): async ingestion (X4), conversation concurrency (X5)
 - The Lumina server on port 8090 has no authorisation layer of its own.
 - Spring AI provider timeouts depend on what the provider exposes.
 - Admin credentials are a single shared account; there are no per-person identities.
+
+### Recorded residuals (Task 8)
+
+Recorded in ADR-0014 as well. Items 1 to 11 are the complete residual list after Phase 0.
+
+1. The Spring `Environment` property source still holds the admin plaintext (not a bean; documented in `AdminCredentials.load` Javadoc).
+2. An authenticated admin calling a denied actuator path gets `403` with "Admin role required." (cosmetic).
+3. No edge proxy exists in the repository; the in-app limiter is a backstop and is per instance, so N replicas give N budgets. Behind a proxy, the proxy limit is primary. The limiter trusts the socket address only.
+4. The in-app limiter evicts nothing live: at 10000 tracked clients it refuses new clients until windows expire (fail closed).
+5. The daily cap is a soft cap under concurrency (check-then-act), and it counts failed generations.
+6. Gemini (Spring AI google-genai) has no application-level request timeout; Ollama is bounded by `spring.http.clients.read-timeout` (120 s), which applies to every Boot RestClient.
+7. The `HttpRequest` timeout bounds the wait for response headers, not a slow body stream.
+8. The Lumina chat server on port 8090 has no authorisation layer of its own.
+9. The local development admin password must be exported (`SHELTR_ADMIN_PASSWORD`) before running the app; there is no default.
+10. The database default password in `application.yml` is the local Postgres container credential (spec §2.1 carve-out).
+11. Gated tests (`GEMINI_API_KEY`, `OLLAMA_AVAILABLE`, Docker) are skipped in CI-less runs; Phase 0 endpoints were verified by the non-gated suite only for the Gemini-gated admin calls.

@@ -3,10 +3,10 @@ info:
   title: Sheltr Disaster Response Knowledge Assistant API
   version: "1.0"
   description: >
-    Core RAG endpoints for Phase 1. Admin endpoints are unsecured in this
-    phase (no auth yet — see docs/adr, Security phase closes this gap);
-    they are already path-namespaced under /admin so authorization can
-    attach later without breaking clients.
+    Core RAG endpoints. Admin endpoints under /admin/ require HTTP Basic
+    authentication with the ADMIN role (see docs/adr/0014). Every error
+    response uses the ApiError body. Some operations are rate limited;
+    see the 429 responses.
 servers:
   - url: /api/v1
 paths:
@@ -55,6 +55,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Message"
+        "400":
+          description: >
+            Validation failed: question blank or longer than 2000 characters,
+            or activeHazards over 12 entries or containing an unknown hazard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: >
+            Rate or cap exceeded. LIMIT_EXCEEDED is returned for the per-client
+            per-minute limit (sheltr.limits.ask-per-minute, with Retry-After) and
+            for the daily question cap (sheltr.limits.max-asks-per-day).
+          headers:
+            Retry-After:
+              description: Seconds until the per-minute window reopens. Sent for the per-minute limit.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /conversations/{id}/ask/stream:
     post:
       summary: Ask a question in this conversation (streaming, SSE)
@@ -108,6 +130,8 @@ paths:
     post:
       summary: Trigger ingestion for a source
       operationId: triggerIngestionRun
+      security:
+        - basicAuth: []
       requestBody:
         required: true
         content:
@@ -121,10 +145,32 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/IngestionRun"
+        "400":
+          description: >
+            Validation failed, including a sourceUri whose host is not in
+            sheltr.ingestion.allowed-hosts (rejected before any network call)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Authenticated user does not have the ADMIN role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /admin/ingestion/runs/{id}:
     get:
       summary: Get ingestion run status
       operationId: getIngestionRun
+      security:
+        - basicAuth: []
       parameters:
         - name: id
           in: path
@@ -139,9 +185,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/IngestionRun"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Authenticated user does not have the ADMIN role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
         "404":
           description: Ingestion run not found
 components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: Admin role only. Username admin; password from SHELTR_ADMIN_PASSWORD.
   parameters:
     ConversationId:
       name: id
@@ -158,6 +221,19 @@ components:
         type: string
         format: uuid
   schemas:
+    ApiError:
+      type: object
+      required: [error, message, timestamp]
+      properties:
+        error:
+          type: string
+          description: Stable machine-readable code, such as VALIDATION_FAILED, LIMIT_EXCEEDED, UNAUTHORIZED or FORBIDDEN
+        message:
+          type: string
+          description: Client-safe description
+        timestamp:
+          type: string
+          format: date-time
     AskRequest:
       type: object
       required: [question]

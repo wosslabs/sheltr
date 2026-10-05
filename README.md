@@ -89,6 +89,28 @@ value, or `SHELTR_ADMIN_PASSWORD_HASH` for a bcrypt hash, never both):
 export SHELTR_ADMIN_PASSWORD='choose-a-local-password'
 ```
 
+There is no default admin password. Admin routes (`/api/v1/admin/**`) use HTTP
+Basic with user `admin`.
+
+#### Limits, ingestion and timeouts
+
+Defaults are in `apps/backend/src/main/resources/application.yml`; each can be
+overridden with the usual Spring environment variables (for example
+`SHELTR_LIMITS_ASK_PER_MINUTE`).
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `sheltr.limits.ask-per-minute` | `10` | Requests per minute per client address on `/ask`; excess gets `429` with `Retry-After`. Per instance: behind a proxy, the proxy limit is primary. |
+| `sheltr.limits.max-asks-per-day` | `1000` | Questions per UTC day, counted from the database; excess gets `429` before any LLM call. |
+| `sheltr.ingestion.allowed-hosts` | `www.ready.gov` | Hosts the ingestion connector may fetch, over https on the default port. Empty denies all. Redirects are never followed. |
+| `sheltr.ingestion.connect-timeout` | `10s` | Source fetch connect timeout. |
+| `sheltr.ingestion.request-timeout` | `60s` | Source fetch wait for response headers. |
+| `spring.http.clients.connect-timeout` | `5s` | Connect timeout for Boot-built HTTP clients, including Ollama. |
+| `spring.http.clients.read-timeout` | `120s` | Read timeout for Boot-built HTTP clients, including Ollama. The Gemini SDK does not use it. |
+
+See `docs/adr/0014-admin-auth-and-request-limits.md` for the decisions and
+residual risks.
+
 If you only plan to use `gemini`, skip the local model pull (which needs
 network access and ~2.5GB of download) with:
 
