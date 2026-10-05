@@ -4,12 +4,14 @@ import com.sheltr.ingestion.domain.*;
 import com.sheltr.ingestion.infrastructure.PdfContentExtractor;
 import com.sheltr.knowledge.domain.*;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public class IngestDocumentService {
 
-    private final SourceConnector connector;
+    private final Map<SourceType, SourceConnector> connectors;
     private final PdfContentExtractor pdfContentExtractor;
     private final EmbeddingGenerator embeddingGenerator;
     private final SourceDocumentRepository sourceDocumentRepository;
@@ -18,13 +20,16 @@ public class IngestDocumentService {
     private final ChunkRepository chunkRepository;
     private final SourcePolicy sourcePolicy;
 
-    public IngestDocumentService(SourceConnector connector, PdfContentExtractor pdfContentExtractor,
+    /**
+     * @param connectors the connector for each supported source type; a manifest entry selects one by its type
+     */
+    public IngestDocumentService(Map<SourceType, SourceConnector> connectors, PdfContentExtractor pdfContentExtractor,
                                   EmbeddingGenerator embeddingGenerator,
                                   SourceDocumentRepository sourceDocumentRepository,
                                   IngestionRunRepository ingestionRunRepository,
                                   KnowledgeDocumentRepository knowledgeDocumentRepository,
                                   ChunkRepository chunkRepository, SourcePolicy sourcePolicy) {
-        this.connector = connector;
+        this.connectors = Map.copyOf(connectors);
         this.pdfContentExtractor = pdfContentExtractor;
         this.embeddingGenerator = embeddingGenerator;
         this.sourceDocumentRepository = sourceDocumentRepository;
@@ -48,9 +53,10 @@ public class IngestDocumentService {
             if (!sourcePolicy.allows(sourceUri)) {
                 throw new IllegalArgumentException(SourcePolicy.rejectionMessage(sourceUri));
             }
-            if (sourceType != SourceType.PDF) {
+            SourceConnector connector = connectors.get(sourceType);
+            if (connector == null) {
                 throw new UnsupportedOperationException(
-                        "Only PDF ingestion is supported in this slice, got " + sourceType);
+                        "Unsupported source type " + sourceType + ", supported: " + connectors.keySet());
             }
 
             RawContent raw = connector.fetch(sourceUri);
@@ -59,23 +65,27 @@ public class IngestDocumentService {
                         + expectedChecksum + " but downloaded " + raw.checksum().hex()
                         + ". The document changed since approval and needs re-approval.");
             }
+            if (sourceType == SourceType.HTML && Chunker.chunk(cleanPages(htmlPages(raw))).isEmpty()) {
+                // Checked before any checksum is recorded, so an empty page leaves no downloaded trace.
+                throw noExtractableText(sourceUri, sourceType);
+            }
             sourceDocument.markDownloaded(raw.checksum());
             sourceDocumentRepository.save(sourceDocument);
 
-            List<PageText> pages = pdfContentExtractor.extract(raw.bytes());
+            // The PDF path extracts text here. The HTML connector already returns extracted text.
+            List<PageText> pages = sourceType == SourceType.PDF
+                    ? pdfContentExtractor.extract(raw.bytes())
+                    : htmlPages(raw);
             sourceDocument.markExtracted();
             sourceDocumentRepository.save(sourceDocument);
 
-            List<PageText> cleanedPages = pages.stream()
-                    .map(page -> new PageText(page.pageNumber(), TextCleaner.clean(page.text())))
-                    .toList();
+            List<PageText> cleanedPages = cleanPages(pages);
             sourceDocument.markCleaned();
             sourceDocumentRepository.save(sourceDocument);
 
             List<ChunkDraft> chunkDrafts = Chunker.chunk(cleanedPages);
             if (chunkDrafts.isEmpty()) {
-                throw new IllegalStateException("No extractable text in " + sourceUri
-                        + ". Scanned or image-only PDFs are not supported.");
+                throw noExtractableText(sourceUri, sourceType);
             }
             sourceDocument.markChunked();
             sourceDocumentRepository.save(sourceDocument);
@@ -83,7 +93,7 @@ public class IngestDocumentService {
             KnowledgeDocument knowledgeDocument = new KnowledgeDocument(
                     documentId, metadata.title(), metadata.sourceAgency(), sourceUri, metadata.disasterTypes(),
                     metadata.publishedDate(), new DocumentVersion(1), raw.checksum(), null,
-                    DocumentStatus.ACTIVE, metadata.license(), metadata.country());
+                    DocumentStatus.ACTIVE, metadata.license(), metadata.country(), sourceType.name());
             knowledgeDocumentRepository.save(knowledgeDocument);
 
             int chunkIndex = 0;
@@ -109,5 +119,22 @@ public class IngestDocumentService {
         }
 
         return run;
+    }
+
+    private static List<PageText> htmlPages(RawContent raw) {
+        return List.of(new PageText(1, new String(raw.bytes(), StandardCharsets.UTF_8)));
+    }
+
+    private static List<PageText> cleanPages(List<PageText> pages) {
+        return pages.stream()
+                .map(page -> new PageText(page.pageNumber(), TextCleaner.clean(page.text())))
+                .toList();
+    }
+
+    private static IllegalStateException noExtractableText(String sourceUri, SourceType sourceType) {
+        String hint = sourceType == SourceType.PDF
+                ? " Scanned or image-only PDFs are not supported."
+                : " The page has no main text.";
+        return new IllegalStateException("No extractable text in " + sourceUri + "." + hint);
     }
 }

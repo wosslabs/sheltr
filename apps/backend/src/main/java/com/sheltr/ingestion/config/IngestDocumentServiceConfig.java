@@ -5,12 +5,17 @@ import com.sheltr.ingestion.domain.IngestionRunRepository;
 import com.sheltr.ingestion.domain.SourceConnector;
 import com.sheltr.ingestion.domain.SourcePolicy;
 import com.sheltr.ingestion.domain.SourceDocumentRepository;
+import com.sheltr.ingestion.domain.SourceType;
+import com.sheltr.ingestion.infrastructure.HtmlPageConnector;
+import com.sheltr.ingestion.infrastructure.HttpPdfConnector;
 import com.sheltr.ingestion.infrastructure.PdfContentExtractor;
 import com.sheltr.knowledge.domain.ChunkRepository;
 import com.sheltr.knowledge.domain.EmbeddingGenerator;
 import com.sheltr.knowledge.domain.KnowledgeDocumentRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.Map;
 
 @Configuration
 public class IngestDocumentServiceConfig {
@@ -27,11 +32,15 @@ public class IngestDocumentServiceConfig {
 
     @Bean
     public IngestDocumentService ingestDocumentService(
-            SourceConnector sourceConnector, PdfContentExtractor pdfContentExtractor,
+            HttpPdfConnector httpPdfConnector, HtmlPageConnector htmlPageConnector,
+            PdfContentExtractor pdfContentExtractor,
             EmbeddingGenerator embeddingGenerator, SourceDocumentRepository sourceDocumentRepository,
             IngestionRunRepository ingestionRunRepository, KnowledgeDocumentRepository knowledgeDocumentRepository,
             ChunkRepository chunkRepository, SourcePolicy sourcePolicy) {
-        return new IngestDocumentService(sourceConnector, pdfContentExtractor, embeddingGenerator,
+        Map<SourceType, SourceConnector> connectors = Map.of(
+                SourceType.PDF, httpPdfConnector,
+                SourceType.HTML, htmlPageConnector);
+        return new IngestDocumentService(connectors, pdfContentExtractor, embeddingGenerator,
                 sourceDocumentRepository, ingestionRunRepository, knowledgeDocumentRepository, chunkRepository,
                 sourcePolicy);
     }

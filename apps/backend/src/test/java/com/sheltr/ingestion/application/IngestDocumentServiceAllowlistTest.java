@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -64,7 +65,7 @@ class IngestDocumentServiceAllowlistTest {
     private static IngestDocumentService serviceWith(CountingConnector connector,
             IngestDocumentServiceTest.FakeSourceDocumentRepository sourceDocuments,
             IngestDocumentServiceTest.FakeKnowledgeDocumentRepository knowledgeDocuments) {
-        return new IngestDocumentService(connector, new PdfContentExtractor(),
+        return new IngestDocumentService(Map.of(SourceType.PDF, connector), new PdfContentExtractor(),
                 new IngestDocumentServiceTest.FakeEmbeddingGenerator(), sourceDocuments,
                 new IngestDocumentServiceTest.FakeIngestionRunRepository(), knowledgeDocuments,
                 new IngestDocumentServiceTest.FakeChunkRepository(),

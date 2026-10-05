@@ -17,6 +17,7 @@ public final class KnowledgeDocument {
     private final DocumentStatus status;
     private final String license;
     private final String country;
+    private final String sourceType;
 
     public KnowledgeDocument(DocumentId id, String title, String sourceAgency, String sourceUri,
                               Set<DisasterType> disasterTypes, LocalDate publishedDate, DocumentVersion version,
@@ -37,6 +38,18 @@ public final class KnowledgeDocument {
                               Set<DisasterType> disasterTypes, LocalDate publishedDate, DocumentVersion version,
                               Checksum checksum, DocumentId supersedes, DocumentStatus status, String license,
                               String country) {
+        this(id, title, sourceAgency, sourceUri, disasterTypes, publishedDate, version, checksum, supersedes,
+                status, license, country, null);
+    }
+
+    /**
+     * @param country    ISO 3166-1 alpha-2 code, or null for global guidance
+     * @param sourceType the document's actual type, "PDF" or "HTML"; null means "PDF"
+     */
+    public KnowledgeDocument(DocumentId id, String title, String sourceAgency, String sourceUri,
+                              Set<DisasterType> disasterTypes, LocalDate publishedDate, DocumentVersion version,
+                              Checksum checksum, DocumentId supersedes, DocumentStatus status, String license,
+                              String country, String sourceType) {
         this.id = id;
         this.title = title;
         this.sourceAgency = sourceAgency;
@@ -49,6 +62,7 @@ public final class KnowledgeDocument {
         this.status = status;
         this.license = license;
         this.country = country;
+        this.sourceType = sourceType == null ? "PDF" : sourceType;
     }
 
     public DocumentId id() { return id; }
@@ -63,4 +77,5 @@ public final class KnowledgeDocument {
     public DocumentStatus status() { return status; }
     public Optional<String> license() { return Optional.ofNullable(license); }
     public Optional<String> country() { return Optional.ofNullable(country); }
+    public String sourceType() { return sourceType; }
 }

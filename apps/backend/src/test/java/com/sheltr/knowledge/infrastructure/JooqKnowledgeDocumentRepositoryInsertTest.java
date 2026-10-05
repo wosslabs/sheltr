@@ -76,4 +76,31 @@ class JooqKnowledgeDocumentRepositoryInsertTest {
 
         assertThat(repository.findById(id).orElseThrow().country()).contains("GB");
     }
+
+    @Test
+    void savesAndReadsBackAnHtmlSourceType() {
+        Flyway.configure()
+                .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
+                .load()
+                .migrate();
+
+        org.postgresql.ds.PGSimpleDataSource dataSource = new org.postgresql.ds.PGSimpleDataSource();
+        dataSource.setURL(postgres.getJdbcUrl());
+        dataSource.setUser(postgres.getUsername());
+        dataSource.setPassword(postgres.getPassword());
+
+        JooqKnowledgeDocumentRepository repository = new JooqKnowledgeDocumentRepository(dataSource);
+        DocumentId id = new DocumentId(UUID.randomUUID());
+        KnowledgeDocument document = new KnowledgeDocument(
+                id, "Prepare for a flood", "Environment Agency",
+                "https://www.gov.uk/guidance/prepare-for-a-flood", Set.of(DisasterType.FLOOD), LocalDate.now(),
+                new DocumentVersion(1), new Checksum("html123"), null, DocumentStatus.ACTIVE,
+                "Open Government Licence", "GB", "HTML");
+
+        repository.save(document);
+
+        KnowledgeDocument reloaded = repository.findById(id).orElseThrow();
+        assertThat(reloaded.sourceType()).isEqualTo("HTML");
+        assertThat(reloaded.country()).contains("GB");
+    }
 }
