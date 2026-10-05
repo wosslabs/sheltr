@@ -28,7 +28,7 @@ Out of scope (later phases): async ingestion (X4), conversation concurrency (X5)
 - Ruling (plaintext handling): a plaintext `SHELTR_ADMIN_PASSWORD` is bcrypt-encoded in memory at startup and the plaintext is discarded; a hash is used as given. Plaintext is never logged.
 - Local developers export a value (documented in the README). Tests supply their own password through test properties.
 - Responses for unauthenticated admin calls are `401`; authenticated but not admin is `403`.
-- The Lumina UI on port 8090 is a separate server and is not covered by this filter chain. It exposes only the chat UI, which calls `/ask` logic; no admin action is reachable from it. Recorded as a residual risk: a future Lumina admin page must add its own authorisation.
+- The Lumina UI on port 8090 is a separate server and is not covered by this filter chain. The Lumina chat is a separate adapter, not the REST `/ask` endpoint. It shares the daily cap (`DailyAskCap`, `sheltr.limits.max-asks-per-day`) and is not covered by the per-minute ask limit. It exposes only the chat UI; no admin action is reachable from it. Recorded as a residual risk: a future Lumina admin page must add its own authorisation.
 
 ### 2.2 Ingestion fetch allowlist (X1, second part)
 
@@ -100,7 +100,7 @@ Recorded in ADR-0014 as well. Items 1 to 11 are the complete residual list after
 5. The daily cap is a soft cap under concurrency (check-then-act), and it counts failed generations.
 6. Gemini (Spring AI google-genai) has no application-level request timeout; Ollama is bounded by `spring.http.clients.read-timeout` (120 s), which applies to every Boot RestClient.
 7. The `HttpRequest` timeout bounds the wait for response headers, not a slow body stream.
-8. The Lumina chat server on port 8090 has no authorisation layer of its own.
+8. The Lumina chat on port 8090 has no authorisation layer of its own and is not covered by the per-minute ask limit (the daily cap does apply).
 9. The local development admin password must be exported (`SHELTR_ADMIN_PASSWORD`) before running the app; there is no default.
 10. The database default password in `application.yml` is the local Postgres container credential (spec §2.1 carve-out).
 11. Gated tests (`GEMINI_API_KEY`, `OLLAMA_AVAILABLE`, Docker) are skipped in CI-less runs; Phase 0 endpoints were verified by the non-gated suite only for the Gemini-gated admin calls.
