@@ -50,7 +50,7 @@ public class IngestCorpusService {
                 }
                 continue;
             }
-            IngestionRun run = ingestor.ingest(document.sourceUri(), SourceType.PDF, document.metadata(),
+            IngestionRun run = ingestor.ingest(document.sourceUri(), document.sourceType(), document.metadata(),
                     document.checksum());
             if (run.status() == RunStatus.SUCCEEDED) {
                 ingested.add(document.sourceUri());

@@ -6,7 +6,13 @@ import java.time.LocalDate;
 import java.util.Set;
 
 public record SourceMetadata(String title, String sourceAgency, Set<DisasterType> disasterTypes,
-                             LocalDate publishedDate, String license) {
+                             LocalDate publishedDate, String license, String country) {
+
+    public SourceMetadata(String title, String sourceAgency, Set<DisasterType> disasterTypes,
+                          LocalDate publishedDate, String license) {
+        this(title, sourceAgency, disasterTypes, publishedDate, license, null);
+    }
+
     public SourceMetadata {
         requireText(title, "title");
         requireText(sourceAgency, "sourceAgency");

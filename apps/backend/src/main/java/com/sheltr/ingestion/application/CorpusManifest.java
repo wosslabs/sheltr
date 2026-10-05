@@ -1,6 +1,7 @@
 package com.sheltr.ingestion.application;
 
 import com.sheltr.ingestion.domain.SourceMetadata;
+import com.sheltr.ingestion.domain.SourceType;
 import com.sheltr.knowledge.domain.DisasterType;
 import org.yaml.snakeyaml.Yaml;
 
@@ -13,13 +14,26 @@ import java.util.Date;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
 /** The approved corpus, as written in corpus/manifest.yaml. */
 public record CorpusManifest(List<Document> documents, List<RelatedHazard> relatedHazards) {
 
-    public record Document(String sourceUri, SourceMetadata metadata, String checksum) {
+    private static final String GLOBAL = "GLOBAL";
+    private static final Set<String> ISO_COUNTRY_CODES = Set.of(Locale.getISOCountries());
+
+    public record Document(String sourceUri, SourceMetadata metadata, String checksum, SourceType sourceType) {
+
+        public Document(String sourceUri, SourceMetadata metadata, String checksum) {
+            this(sourceUri, metadata, checksum, SourceType.PDF);
+        }
+
+        /** The ISO 3166-1 alpha-2 country, or null for global guidance. */
+        public String country() {
+            return metadata.country();
+        }
     }
 
     public record RelatedHazard(DisasterType hazard, DisasterType relatedHazard, String sourceUri, String note) {
@@ -44,15 +58,16 @@ public record CorpusManifest(List<Document> documents, List<RelatedHazard> relat
                 throw new IllegalArgumentException("Duplicate source_uri in manifest: " + uri);
             }
             SourceMetadata metadata;
+            SourceType sourceType = sourceType(entry.get("source_type"), uri);
             try {
                 metadata = new SourceMetadata(text(entry, "title", uri), text(entry, "source_agency", uri),
                         hazards(entry.get("hazards"), uri), date(entry.get("published_date"), uri),
-                        text(entry, "license", uri));
+                        text(entry, "license", uri), country(entry.get("country"), uri));
             } catch (IllegalArgumentException e) {
                 throw e.getMessage().contains(uri) ? e
                         : new IllegalArgumentException("Manifest entry " + uri + ": " + e.getMessage(), e);
             }
-            documents.add(new Document(uri, metadata, text(entry, "checksum", uri)));
+            documents.add(new Document(uri, metadata, text(entry, "checksum", uri), sourceType));
         }
 
         List<RelatedHazard> relatedHazards = new ArrayList<>();
@@ -103,6 +118,39 @@ public record CorpusManifest(List<Document> documents, List<RelatedHazard> relat
             hazards.add(hazard(String.valueOf(item), uri));
         }
         return hazards;
+    }
+
+    // Absent means global guidance. The literal GLOBAL also maps to null.
+    private static String country(Object value, String uri) {
+        if (value == null) {
+            return null;
+        }
+        if (!(value instanceof String code)) {
+            throw new IllegalArgumentException("Manifest entry " + uri + " has country '" + value
+                    + "'; quote the code (for example \"NO\") so YAML keeps it as text");
+        }
+        if (GLOBAL.equals(code)) {
+            return null;
+        }
+        if (ISO_COUNTRY_CODES.contains(code)) {
+            return code;
+        }
+        throw new IllegalArgumentException("Manifest entry " + uri + " has country '" + code
+                + "', expected an uppercase ISO 3166-1 alpha-2 code or GLOBAL");
+    }
+
+    private static SourceType sourceType(Object value, String uri) {
+        if (value == null) {
+            return SourceType.PDF;
+        }
+        if ("pdf".equals(value)) {
+            return SourceType.PDF;
+        }
+        if ("html".equals(value)) {
+            return SourceType.HTML;
+        }
+        throw new IllegalArgumentException("Manifest entry " + uri + " has source_type '" + value
+                + "', expected pdf or html");
     }
 
     private static DisasterType hazard(String name, String uri) {

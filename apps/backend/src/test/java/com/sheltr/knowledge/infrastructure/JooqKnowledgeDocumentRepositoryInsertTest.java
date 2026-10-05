@@ -51,4 +51,29 @@ class JooqKnowledgeDocumentRepositoryInsertTest {
         assertThat(reloaded.get().disasterTypes()).containsExactlyInAnyOrder(DisasterType.FLOOD, DisasterType.WILDFIRE);
         assertThat(reloaded.get().checksum()).isEqualTo(new Checksum("abc123def456"));
     }
+
+    @Test
+    void savesAndReadsBackTheCountryCode() {
+        Flyway.configure()
+                .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
+                .load()
+                .migrate();
+
+        org.postgresql.ds.PGSimpleDataSource dataSource = new org.postgresql.ds.PGSimpleDataSource();
+        dataSource.setURL(postgres.getJdbcUrl());
+        dataSource.setUser(postgres.getUsername());
+        dataSource.setPassword(postgres.getPassword());
+
+        JooqKnowledgeDocumentRepository repository = new JooqKnowledgeDocumentRepository(dataSource);
+        DocumentId id = new DocumentId(UUID.randomUUID());
+        KnowledgeDocument document = new KnowledgeDocument(
+                id, "Flood guidance for the UK", "Environment Agency",
+                "https://www.gov.uk/guidance/prepare-for-a-flood", Set.of(DisasterType.FLOOD), LocalDate.now(),
+                new DocumentVersion(1), new Checksum("uk123"), null, DocumentStatus.ACTIVE, "Open Government Licence",
+                "GB");
+
+        repository.save(document);
+
+        assertThat(repository.findById(id).orElseThrow().country()).contains("GB");
+    }
 }
