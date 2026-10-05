@@ -1,7 +1,10 @@
 package com.sheltr.ingestion.application;
 
+import com.sheltr.ingestion.domain.SourceType;
 import com.sheltr.knowledge.domain.DisasterType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -104,6 +107,66 @@ class CorpusManifestTest {
         assertThatThrownBy(() -> parse(dangling))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("https://example.org/missing.pdf");
+    }
+
+    @Test
+    void parsesACountryCodeAndAnHtmlSourceType() {
+        CorpusManifest.Document page = parse(VALID.replace("    license: Example licence, https://example.org/terms\n    checksum: abc123",
+                "    license: Example licence, https://example.org/terms\n    country: GB\n    source_type: html\n    checksum: abc123"))
+                .documents().get(0);
+
+        assertThat(page.country()).isEqualTo("GB");
+        assertThat(page.metadata().country()).isEqualTo("GB");
+        assertThat(page.sourceType()).isEqualTo(SourceType.HTML);
+    }
+
+    @Test
+    void treatsGlobalAsNoCountryAndDefaultsToPdf() {
+        CorpusManifest.Document guide = parse(VALID.replace("    checksum: abc123",
+                "    country: GLOBAL\n    checksum: abc123")).documents().get(0);
+
+        assertThat(guide.country()).isNull();
+        assertThat(guide.metadata().country()).isNull();
+        assertThat(guide.sourceType()).isEqualTo(SourceType.PDF);
+    }
+
+    @Test
+    void entriesWithoutCountryOrSourceTypeStillParse() {
+        CorpusManifest.Document flood = parse(VALID).documents().get(0);
+
+        assertThat(flood.country()).isNull();
+        assertThat(flood.sourceType()).isEqualTo(SourceType.PDF);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"gbr", "1A", "gb", "XX"})
+    void rejectsAMalformedOrUnknownCountryAndNamesTheEntry(String country) {
+        String bad = VALID.replace("    checksum: abc123", "    country: " + country + "\n    checksum: abc123");
+
+        assertThatThrownBy(() -> parse(bad))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(country)
+                .hasMessageContaining("https://example.org/flood.pdf");
+    }
+
+    @Test
+    void rejectsAnUnquotedNorwayCodeWhichYamlReadsAsBoolean() {
+        String bad = VALID.replace("    checksum: abc123", "    country: NO\n    checksum: abc123");
+
+        assertThatThrownBy(() -> parse(bad))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("https://example.org/flood.pdf");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"docx", "HTML", "txt"})
+    void rejectsAnUnsupportedSourceTypeAndNamesTheEntry(String sourceType) {
+        String bad = VALID.replace("    checksum: abc123", "    source_type: " + sourceType + "\n    checksum: abc123");
+
+        assertThatThrownBy(() -> parse(bad))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(sourceType)
+                .hasMessageContaining("https://example.org/flood.pdf");
     }
 
     private static CorpusManifest parse(String yaml) {

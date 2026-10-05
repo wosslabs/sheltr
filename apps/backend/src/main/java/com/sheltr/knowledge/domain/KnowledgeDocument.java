@@ -16,6 +16,7 @@ public final class KnowledgeDocument {
     private final DocumentId supersedes;
     private final DocumentStatus status;
     private final String license;
+    private final String country;
 
     public KnowledgeDocument(DocumentId id, String title, String sourceAgency, String sourceUri,
                               Set<DisasterType> disasterTypes, LocalDate publishedDate, DocumentVersion version,
@@ -27,6 +28,15 @@ public final class KnowledgeDocument {
     public KnowledgeDocument(DocumentId id, String title, String sourceAgency, String sourceUri,
                               Set<DisasterType> disasterTypes, LocalDate publishedDate, DocumentVersion version,
                               Checksum checksum, DocumentId supersedes, DocumentStatus status, String license) {
+        this(id, title, sourceAgency, sourceUri, disasterTypes, publishedDate, version, checksum, supersedes,
+                status, license, null);
+    }
+
+    /** @param country ISO 3166-1 alpha-2 code, or null for global guidance */
+    public KnowledgeDocument(DocumentId id, String title, String sourceAgency, String sourceUri,
+                              Set<DisasterType> disasterTypes, LocalDate publishedDate, DocumentVersion version,
+                              Checksum checksum, DocumentId supersedes, DocumentStatus status, String license,
+                              String country) {
         this.id = id;
         this.title = title;
         this.sourceAgency = sourceAgency;
@@ -38,6 +48,7 @@ public final class KnowledgeDocument {
         this.supersedes = supersedes;
         this.status = status;
         this.license = license;
+        this.country = country;
     }
 
     public DocumentId id() { return id; }
@@ -51,4 +62,5 @@ public final class KnowledgeDocument {
     public Optional<DocumentId> supersedes() { return Optional.ofNullable(supersedes); }
     public DocumentStatus status() { return status; }
     public Optional<String> license() { return Optional.ofNullable(license); }
+    public Optional<String> country() { return Optional.ofNullable(country); }
 }

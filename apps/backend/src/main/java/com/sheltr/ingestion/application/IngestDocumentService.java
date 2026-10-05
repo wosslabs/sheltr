@@ -83,7 +83,7 @@ public class IngestDocumentService {
             KnowledgeDocument knowledgeDocument = new KnowledgeDocument(
                     documentId, metadata.title(), metadata.sourceAgency(), sourceUri, metadata.disasterTypes(),
                     metadata.publishedDate(), new DocumentVersion(1), raw.checksum(), null,
-                    DocumentStatus.ACTIVE, metadata.license());
+                    DocumentStatus.ACTIVE, metadata.license(), metadata.country());
             knowledgeDocumentRepository.save(knowledgeDocument);
 
             int chunkIndex = 0;
