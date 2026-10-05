@@ -74,4 +74,55 @@ class MainContentExtractorTest {
     void returnsEmptyStringWhenNoTextContent() {
         assertThat(extractor.extract("<html><body><nav>Only navigation</nav></body></html>")).isEmpty();
     }
+
+    @Test
+    void dropsCookieNavAndHeaderInsideMainAndArticle() throws Exception {
+        String text = extractor.extract(fixture("chrome-inside-main.html"));
+
+        assertThat(text).contains("Prepare for floods").contains("Move valuables to an upper floor.");
+        assertThat(text).contains("Article paragraph kept.");
+        assertThat(text).doesNotContain("We use cookies to track you.");
+        assertThat(text).doesNotContain("Accept all cookies.");
+        assertThat(text).doesNotContain("Cookie settings.");
+        assertThat(text).doesNotContain("Site header inside main.");
+        assertThat(text).doesNotContain("Article header.");
+        assertThat(text).doesNotContain("Main navigation links.");
+        assertThat(text).doesNotContain("Related links.");
+    }
+
+    @Test
+    void dropsCookieNavAndHeaderInsideArticle() throws Exception {
+        String text = extractor.extract(fixture("chrome-inside-article.html"));
+
+        assertThat(text).isEqualTo("Winter storms\nCheck the forecast before you travel.");
+    }
+
+    @Test
+    void fallsThroughToArticleWhenMainHasNoTextAfterCleaning() {
+        String text = extractor.extract("<html><body>"
+                + "<main><nav>Menu only</nav></main>"
+                + "<article><p>Article text</p></article>"
+                + "</body></html>");
+
+        assertThat(text).isEqualTo("Article text");
+    }
+
+    @Test
+    void fallsThroughToBodyWhenMainAndArticleHaveNoTextAfterCleaning() {
+        String text = extractor.extract("<html><body>"
+                + "<main><nav>Menu only</nav></main>"
+                + "<article><header>Site header</header></article>"
+                + "<p>Body text</p>"
+                + "</body></html>");
+
+        assertThat(text).isEqualTo("Body text");
+    }
+
+    @Test
+    void cookieClassedBodyAndMainAreNotRemovedThemselves() {
+        assertThat(extractor.extract("<html><body class=\"cookie-page\"><p>Body text</p></body></html>"))
+                .isEqualTo("Body text");
+        assertThat(extractor.extract("<html><body><main class=\"cookie-wall\"><p>Kept text</p></main></body></html>"))
+                .isEqualTo("Kept text");
+    }
 }

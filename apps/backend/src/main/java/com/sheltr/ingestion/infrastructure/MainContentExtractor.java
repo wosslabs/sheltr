@@ -10,13 +10,17 @@ import org.jsoup.select.NodeVisitor;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Stream;
 
 /**
- * Extracts the main readable text of an HTML page. Selects {@code main}, else {@code article}, else
- * {@code body}, then removes navigation, header, footer, scripts, styles and cookie-consent elements inside
- * that root. Block elements become line breaks, whitespace is collapsed, and blank lines are dropped, so the
- * same HTML always yields the same text.
+ * Extracts the main readable text of an HTML page. The first of {@code main}, {@code article} and
+ * {@code body} whose text is non-empty after cleaning is used; a candidate that is missing or empty is skipped.
+ * Within the chosen root, descendants that are navigation, header, footer, scripts, styles or cookie-consent
+ * elements are removed. The root itself is never removed. Block elements become line breaks, whitespace is
+ * collapsed, and blank lines are dropped, so the same HTML always yields the same text. Returns an empty
+ * string when no candidate has text.
  */
 public class MainContentExtractor {
 
@@ -32,24 +36,33 @@ public class MainContentExtractor {
 
     public String extract(String html) {
         Document document = Jsoup.parse(html);
+        List<Element> candidates = Stream.of(
+                        document.selectFirst("main"), document.selectFirst("article"), document.body())
+                .filter(Objects::nonNull)
+                .toList();
+        for (Element candidate : candidates) {
+            // Clean a copy so a candidate that turns out empty leaves the document intact for the next one.
+            String text = textOf(candidate.clone());
+            if (!text.isEmpty()) {
+                return text;
+            }
+        }
+        return "";
+    }
 
-        Element root = document.selectFirst("main");
-        if (root == null) {
-            root = document.selectFirst("article");
-        }
-        if (root == null) {
-            root = document.body();
-        }
+    private static String textOf(Element root) {
         removeUnwanted(root);
-
         StringBuilder raw = new StringBuilder();
         NodeTraversor.traverse(new LineBuilder(raw), root);
         return normalise(raw);
     }
 
     private static void removeUnwanted(Element root) {
-        // Collect first, then remove, so the traversal is not modified while iterating.
+        // Descendants only. select("*") includes the root itself, so the root is excluded explicitly: a
+        // cookie-classed <body> or <main> must not blank the whole page. Collect first, then remove, so the
+        // traversal is not modified while iterating.
         List<Element> unwanted = root.select("*").stream()
+                .filter(element -> element != root)
                 .filter(MainContentExtractor::isUnwanted)
                 .toList();
         unwanted.forEach(Element::remove);
