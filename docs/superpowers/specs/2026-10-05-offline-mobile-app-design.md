@@ -1,6 +1,6 @@
 # Sheltr Mobile — Offline-First App Design
 
-Status: Approved on platform (KMP with native UI) and on the open decisions in section 11 except where noted. On-device model: LiteRT-LM (user request, 2026-10-05). No code yet.
+Status: Revised 2026-10-05: no server; the Spring backend is removed and its ingestion logic moves to the Kotlin publisher. Approved on platform (KMP with native UI) and on the open decisions in section 11 except where noted. On-device model: LiteRT-LM (user request, 2026-10-05). No code yet.
 Date: 2026-10-05
 
 ## 1. Goal
@@ -34,11 +34,11 @@ Android (Compose)            iOS (SwiftUI)
   UI, WorkManager sync         UI, BGTaskScheduler sync
   on-device model (optional)   on-device model (optional)
 
-Publishing side (existing Java/Spring server, unchanged)
-  Approved corpus -> signed bundle + manifest -> static hosting (CDN or release assets)
+Publisher (Kotlin/JVM command-line tool, run by the maintainer)
+  Approved manifest -> fetch and extract -> chunk -> signed bundle + manifest -> static hosting
 ```
 
-The phone never talks to the Spring backend. The backend's role becomes publishing: it builds a signed corpus bundle from the approved manifest and publishes it to free static hosting.
+No server runs in production. The phone never talks to a backend. A command-line publisher (Kotlin/JVM, module tools/publisher) builds a signed corpus bundle from the approved manifest and the maintainer uploads it to free static hosting. The publisher is run by the maintainer, not by the phone.
 
 ## 4. Corpus bundle and sync
 
