@@ -32,3 +32,5 @@ eval/reports/
 /.gradle/
 tools/publisher/build/
 tools/publisher/.gradle/
+apps/mobile/shared/build/
+apps/mobile/shared/.gradle/
