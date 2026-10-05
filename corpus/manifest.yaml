@@ -32,5 +32,16 @@ documents:
     published_date: 2024-02-02
     license: Open Government Licence v3.0 (https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/)
     checksum: 26cddb02185cc4ac98ddf7730cbe62ed603431d33d5d7629742e4b0fa8a0a506
+  # The URL is a regional mirror (rcrc-resilience-southeastasia.org) of the IFRC guide. The canonical
+  # ifrc.org copy was not verified. Checksum: SHA-256 of the PDF file (edition 01/2013), verified 2026-10-05.
+  - source_uri: https://www.rcrc-resilience-southeastasia.org/wp-content/uploads/2016/09/IFRC_Key-Messages-Short-Version_Public-Awareness-Public-Education-for-DRR-2013.pdf
+    source_type: pdf
+    title: "Public awareness and public education for disaster risk reduction: key messages (Short version)"
+    source_agency: International Federation of Red Cross and Red Crescent Societies (IFRC)
+    hazards: [EARTHQUAKE, FLOOD, TROPICAL_CYCLONE, DROUGHT, WILDFIRE]
+    country: GLOBAL
+    published_date: 2013-01-01
+    license: "Copies of all or part of this guide may be made for noncommercial use, providing the source is acknowledged. The IFRC would appreciate receiving details of its use. Requests for commercial reproduction should be directed to the IFRC at secretariat@ifrc.org (quoted from page 1 of the guide)."
+    checksum: 3a45f812c779a276df89b07b72caf4ed4373871595d13095709caa194df3d4be
 
 related_hazards: []
