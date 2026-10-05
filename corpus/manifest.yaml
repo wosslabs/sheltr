@@ -3,10 +3,13 @@
 # Load with `make ingest-corpus`.
 #
 # documents:
-#   - source_uri: direct URL of the PDF
+#   - source_uri: direct URL of the PDF, or of the HTML page when source_type is html
+#     source_type: pdf (default) or html. An html entry's text is the main content extracted by the
+#       HTML connector; its checksum is the SHA-256 of that extracted UTF-8 text, not of the raw page.
 #     title: title as printed on the document
 #     source_agency: publishing organisation
 #     hazards: [FLOOD, LANDSLIDE]
+#     country: ISO 3166-1 alpha-2 code, or GLOBAL
 #     published_date: 2021-03-15
 #     license: reuse terms, plus the URL where they are stated
 #     checksum: SHA-256 of the file when it was approved
@@ -16,5 +19,18 @@
 #     related_hazard: LANDSLIDE
 #     source_uri: a document above that states the relationship
 #     note: where in the document it is stated
-documents: []
+documents:
+  # published_date: 2024-02-02 is the datePublished in the page's schema.org metadata (the visible page
+  # shows no date; dateModified there is 2025-09-05). Checksum: SHA-256 of the main text extracted by
+  # HtmlPageConnector on 2026-10-05 (2375 bytes). Approved as the first government guide.
+  - source_uri: https://prepare.campaign.gov.uk/
+    source_type: html
+    title: Prepare
+    source_agency: UK Government (GOV.UK campaign site)
+    hazards: [FLOOD, WILDFIRE, WINTER_STORM]
+    country: GB
+    published_date: 2024-02-02
+    license: Open Government Licence v3.0 (https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/)
+    checksum: 26cddb02185cc4ac98ddf7730cbe62ed603431d33d5d7629742e4b0fa8a0a506
+
 related_hazards: []
