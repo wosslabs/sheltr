@@ -1,5 +1,7 @@
 # ADR-0007: Bounded context boundaries and Phase 1 scope
 
+Status: Superseded by ADR-0015 where it describes the server (see that ADR).
+
 ## Status
 Accepted
 

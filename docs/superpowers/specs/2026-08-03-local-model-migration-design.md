@@ -1,5 +1,7 @@
 # Sheltr — Local/CPU-Capable Model Migration Design
 
+Superseded in part by ADR-0015.
+
 Status: Approved
 Date: 2026-08-03
 

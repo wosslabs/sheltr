@@ -1,5 +1,7 @@
 # ADR-0011: Local (Ollama) is the default provider; Gemini is opt-in
 
+Status: Superseded by ADR-0015 where it describes the server (see that ADR).
+
 ## Status
 Accepted
 

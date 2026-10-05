@@ -1,5 +1,7 @@
 # Sheltr — Phase 1: Foundation Design (Repo, ADRs, C4, Domain Model, DB Schema, API Contracts)
 
+Superseded in part by ADR-0015.
+
 Status: Approved
 Date: 2026-07-04
 

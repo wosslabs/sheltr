@@ -1,6 +1,10 @@
 # CI workflows (placeholder)
 
-GitHub Actions pipelines (formatting, linting, unit/integration tests,
-security scan, dependency scan, SBOM, container build, deployment). Built
-in the CI/CD phase per the product brief. Phase 1 verification is manual
-(`make build`, `make test`, `make up`). Empty until then.
+No GitHub Actions workflows exist yet. Verification is manual until pipelines are built.
+
+Run these from the repository root with Gradle 9.2.0 on JDK 25:
+
+```bash
+gradle :tools:publisher:test          # publisher tests (JVM)
+gradle :apps:mobile:shared:jvmTest    # shared module tests (JVM)
+```

@@ -1,5 +1,7 @@
 # ADR-0013: Corpus defined by an approved manifest of official documents
 
+Status: Superseded by ADR-0015 where it describes the server (see that ADR).
+
 Status: Accepted
 Date: 2026-10-04
 

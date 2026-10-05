@@ -1,5 +1,7 @@
 # Sheltr — Phase 0 Hardening Design
 
+Superseded in part by ADR-0015.
+
 Status: Approved in direction (2026-10-04). Rulings below are the controller's decisions where the approved list left a choice open.
 Date: 2026-10-04
 

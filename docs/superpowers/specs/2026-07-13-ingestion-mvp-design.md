@@ -1,5 +1,7 @@
 # Sheltr — Phase 2 (Sub-project 2): MVP Ingestion Pipeline Design
 
+Superseded in part by ADR-0015.
+
 Status: Approved
 Date: 2026-07-13
 

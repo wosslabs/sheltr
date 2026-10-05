@@ -1,36 +1,33 @@
-# Java / Maven
-target/
+# Java compiled output
 *.class
 
 # IDE
 .idea/
 *.iml
 .vscode/
+.kotlin/
 
 # OS
 .DS_Store
 
-# Flutter (placeholder for Phase 3)
-apps/mobile/.dart_tool/
-apps/mobile/build/
+# Gradle build output (root, publisher and shared module)
+build/
+.gradle/
 
-# Node (placeholder for admin-web)
-node_modules/
-dist/
-
-# Env
+# Env files and secrets
 .env
 .env.local
+local.properties
+keystore.properties
+*.pem
+*.key
+*.p8
+*.p12
+*.jks
+*.keystore
 
 # Git worktrees
 .worktrees/
 
 # Eval run output; chosen reports are copied to docs/eval/
 eval/reports/
-
-# Gradle build output for the publisher and root settings
-/.gradle/
-tools/publisher/build/
-tools/publisher/.gradle/
-apps/mobile/shared/build/
-apps/mobile/shared/.gradle/

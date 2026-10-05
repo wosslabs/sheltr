@@ -1,5 +1,7 @@
 # ADR-0008: Citation-grounded generation is mandatory and structurally enforced
 
+Status: Superseded by ADR-0015 where it describes the server (see that ADR).
+
 ## Status
 Accepted
 

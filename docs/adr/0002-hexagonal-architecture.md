@@ -1,5 +1,7 @@
 # ADR-0002: Hexagonal architecture for the backend
 
+Status: Superseded by ADR-0015 where it describes the server (see that ADR).
+
 ## Status
 Accepted
 

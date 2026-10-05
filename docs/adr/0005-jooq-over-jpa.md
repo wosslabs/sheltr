@@ -1,5 +1,7 @@
 # ADR-0005: jOOQ over JPA/Hibernate for persistence
 
+Status: Superseded by ADR-0015 where it describes the server (see that ADR).
+
 ## Status
 Accepted
 
