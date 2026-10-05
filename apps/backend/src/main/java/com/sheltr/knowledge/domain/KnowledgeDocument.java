@@ -33,23 +33,25 @@ public final class KnowledgeDocument {
                 status, license, null);
     }
 
-    /** @param country ISO 3166-1 alpha-2 code, or null for global guidance */
+    /** Legacy constructor: the document is a PDF. @param country ISO 3166-1 alpha-2 code, or null for global guidance */
     public KnowledgeDocument(DocumentId id, String title, String sourceAgency, String sourceUri,
                               Set<DisasterType> disasterTypes, LocalDate publishedDate, DocumentVersion version,
                               Checksum checksum, DocumentId supersedes, DocumentStatus status, String license,
                               String country) {
         this(id, title, sourceAgency, sourceUri, disasterTypes, publishedDate, version, checksum, supersedes,
-                status, license, country, null);
+                status, license, country, "PDF");
     }
 
     /**
      * @param country    ISO 3166-1 alpha-2 code, or null for global guidance
-     * @param sourceType the document's actual type, "PDF" or "HTML"; null means "PDF"
+     * @param sourceType the document's actual type, "PDF" or "HTML"; must not be null
+     * @throws IllegalArgumentException if sourceType is null
      */
     public KnowledgeDocument(DocumentId id, String title, String sourceAgency, String sourceUri,
                               Set<DisasterType> disasterTypes, LocalDate publishedDate, DocumentVersion version,
                               Checksum checksum, DocumentId supersedes, DocumentStatus status, String license,
                               String country, String sourceType) {
+        if (sourceType == null) throw new IllegalArgumentException("sourceType is required");
         this.id = id;
         this.title = title;
         this.sourceAgency = sourceAgency;
@@ -62,7 +64,7 @@ public final class KnowledgeDocument {
         this.status = status;
         this.license = license;
         this.country = country;
-        this.sourceType = sourceType == null ? "PDF" : sourceType;
+        this.sourceType = sourceType;
     }
 
     public DocumentId id() { return id; }

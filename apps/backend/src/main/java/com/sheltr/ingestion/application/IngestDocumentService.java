@@ -7,6 +7,7 @@ import com.sheltr.knowledge.domain.*;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 public class IngestDocumentService {
@@ -41,6 +42,8 @@ public class IngestDocumentService {
 
     public IngestionRun ingest(String sourceUri, SourceType sourceType, SourceMetadata metadata,
                                String expectedChecksum) {
+        // Checked before the first save: the source document's source_type column is NOT NULL.
+        Objects.requireNonNull(sourceType, "source type is required");
         DocumentId documentId = new DocumentId(UUID.randomUUID());
         SourceDocument sourceDocument = new SourceDocument(documentId, sourceUri, sourceType);
         // Persist DISCOVERED source document first so ingestion_runs FK is satisfiable.
@@ -65,27 +68,37 @@ public class IngestDocumentService {
                         + expectedChecksum + " but downloaded " + raw.checksum().hex()
                         + ". The document changed since approval and needs re-approval.");
             }
-            if (sourceType == SourceType.HTML && Chunker.chunk(cleanPages(htmlPages(raw))).isEmpty()) {
+            List<ChunkDraft> chunkDrafts;
+            if (sourceType == SourceType.HTML) {
+                // The HTML connector already returns extracted text, so it is cleaned and chunked once here.
                 // Checked before any checksum is recorded, so an empty page leaves no downloaded trace.
-                throw noExtractableText(sourceUri, sourceType);
-            }
-            sourceDocument.markDownloaded(raw.checksum());
-            sourceDocumentRepository.save(sourceDocument);
+                // HTML has no pages, so its chunks carry no page number.
+                chunkDrafts = Chunker.chunkUnpaged(TextCleaner.clean(htmlText(raw)));
+                if (chunkDrafts.isEmpty()) {
+                    throw noExtractableText(sourceUri, sourceType);
+                }
+                sourceDocument.markDownloaded(raw.checksum());
+                sourceDocumentRepository.save(sourceDocument);
+                sourceDocument.markExtracted();
+                sourceDocumentRepository.save(sourceDocument);
+                sourceDocument.markCleaned();
+                sourceDocumentRepository.save(sourceDocument);
+            } else {
+                sourceDocument.markDownloaded(raw.checksum());
+                sourceDocumentRepository.save(sourceDocument);
 
-            // The PDF path extracts text here. The HTML connector already returns extracted text.
-            List<PageText> pages = sourceType == SourceType.PDF
-                    ? pdfContentExtractor.extract(raw.bytes())
-                    : htmlPages(raw);
-            sourceDocument.markExtracted();
-            sourceDocumentRepository.save(sourceDocument);
+                List<PageText> pages = pdfContentExtractor.extract(raw.bytes());
+                sourceDocument.markExtracted();
+                sourceDocumentRepository.save(sourceDocument);
 
-            List<PageText> cleanedPages = cleanPages(pages);
-            sourceDocument.markCleaned();
-            sourceDocumentRepository.save(sourceDocument);
+                List<PageText> cleanedPages = cleanPages(pages);
+                sourceDocument.markCleaned();
+                sourceDocumentRepository.save(sourceDocument);
 
-            List<ChunkDraft> chunkDrafts = Chunker.chunk(cleanedPages);
-            if (chunkDrafts.isEmpty()) {
-                throw noExtractableText(sourceUri, sourceType);
+                chunkDrafts = Chunker.chunk(cleanedPages);
+                if (chunkDrafts.isEmpty()) {
+                    throw noExtractableText(sourceUri, sourceType);
+                }
             }
             sourceDocument.markChunked();
             sourceDocumentRepository.save(sourceDocument);
@@ -121,8 +134,8 @@ public class IngestDocumentService {
         return run;
     }
 
-    private static List<PageText> htmlPages(RawContent raw) {
-        return List.of(new PageText(1, new String(raw.bytes(), StandardCharsets.UTF_8)));
+    private static String htmlText(RawContent raw) {
+        return new String(raw.bytes(), StandardCharsets.UTF_8);
     }
 
     private static List<PageText> cleanPages(List<PageText> pages) {
