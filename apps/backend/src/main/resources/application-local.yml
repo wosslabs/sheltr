@@ -19,11 +19,10 @@ spring:
 
 sheltr:
   search:
-    # Derived by RelevanceThresholdEvalTest against nomic-embed-text: threshold=0.65 was the
-    # lowest candidate with falseAccepts=0 (falseRejects=1), swept 0.30-0.90 in 0.05 steps
-    # over a 40-case labeled fixture spanning all 8 disaster types. See ADR-0008, ADR-0011.
-    # Calibrated against the pinned nomic-embed-text:v1.5 tag (see infra/podman/compose.yaml
-    # and Makefile) — re-run RelevanceThresholdEvalTest before changing the pinned tag.
+    # Used by the threshold judge. The eval has not yet chosen the default judge or threshold;
+    # see docs/adr/0012-hybrid-retrieval-and-relevance-judge.md. Calibrated against the pinned
+    # nomic-embed-text:v1.5 tag (see infra/podman/compose.yaml and Makefile): re-check before
+    # changing that tag.
     relevance-threshold: 0.65
   embedding:
     # Recorded on every chunk. Change this name whenever the model tag or a prefix changes,

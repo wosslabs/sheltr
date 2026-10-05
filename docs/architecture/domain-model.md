@@ -31,7 +31,8 @@ full-document context is needed.
 
 **Value objects**: `DocumentId`, `ChunkId`, `ChunkContent`, `Embedding`, `PageNumber`,
 `ChunkMetadata`, `DocumentVersion`, `Checksum`, `DisasterType` (enum: EARTHQUAKE, FLOOD,
-HURRICANE, TORNADO, TSUNAMI, WILDFIRE, EXTREME_HEAT, WINTER_STORM)
+TROPICAL_CYCLONE, TORNADO, TSUNAMI, WILDFIRE, EXTREME_HEAT, WINTER_STORM, LANDSLIDE,
+GLACIAL_LAKE_FLOOD, VOLCANO, DROUGHT)
 
 **Repositories (ports)**: `KnowledgeDocumentRepository`, `ChunkRepository`
 

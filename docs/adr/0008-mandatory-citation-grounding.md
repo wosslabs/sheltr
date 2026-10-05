@@ -33,3 +33,15 @@ result and never invokes the LLM to produce a free-form answer. Every
 - **Prompt-only grounding instruction**: rejected as the sole mechanism —
   not verifiable/testable, and not a strong enough guarantee for
   safety-critical content.
+
+## Amendment (2026-10-04): cite only the passages an answer uses
+
+Passages are numbered in the prompt, `[1]` to `[n]`, and the model marks the passages it
+relies on with those numbers in its answer. Citations list only the marked passages. An
+answer that marks no retrieved passage is not shown; the user gets the standard refusal
+(`NoAnswerAvailable`). Previously every retrieved passage was listed as a citation whether
+the answer used it or not.
+
+The check is in `SpringAiAnswerGeneratorAdapter` and `CitationSelector`. It confirms that
+each citation points at a passage the answer marked. It does not check that the marked
+passage supports each sentence, so a marker is a pointer, not a proof.

@@ -1,10 +1,9 @@
 # Sheltr — Disaster Response Knowledge Assistant
 
 Sheltr is an open-source RAG platform that answers disaster-response
-questions (earthquake, flood, hurricane, tornado, tsunami, wildfire,
-extreme heat, winter storm) with citation-grounded answers sourced from
-government and NGO guidance (FEMA, American Red Cross, WHO, UNOCHA).
-Sheltr never invents emergency guidance — every answer cites its source.
+questions (earthquake, flood, tropical cyclone, tornado, tsunami, wildfire,
+extreme heat, winter storm, landslide, glacial lake flood, volcano, drought)
+with citation-grounded answers. Sheltr answers only from official documents listed in `corpus/manifest.yaml`, and every answer cites the passages it used.
 
 ## Status
 
@@ -37,6 +36,10 @@ for how it was built.
 
 Mobile app, admin curation UI, and deployment are future phases.
 
+The rows seeded by migration V5 are test fixtures, not official text. They have status `SEED` and are never returned to users.
+
+`corpus/manifest.yaml` is the approved corpus. It currently lists no documents: no entry has been approved yet. See `docs/adr/0013-corpus-manifest.md`. Retrieval, reranking, and the relevance judge are staged behind ports; the default for each is not yet chosen by the eval. See `docs/adr/0012-hybrid-retrieval-and-relevance-judge.md`.
+
 ## Repo layout
 
 - `apps/backend` — Spring Boot backend (Java 25, hexagonal architecture)
@@ -59,8 +62,10 @@ make up       # start Postgres + pgvector + Ollama (podman compose), then pull
               # qwen2.5:3b-instruct + nomic-embed-text (~2.5GB total, one-time
               # on first run — requires network access; cached locally after that)
 make migrate  # apply Flyway migrations directly, without booting the app
+make ingest-corpus  # load the approved corpus from corpus/manifest.yaml
 make build    # build the backend
 make test     # run backend tests (includes Testcontainers migration test — needs Podman)
+make eval CONFIG=name   # run the eval question set; see docs/superpowers/specs/2026-10-04-corpus-eval-retrieval-design.md
 make down     # stop Postgres + Ollama
 ```
 
@@ -122,22 +127,7 @@ See `docs/adr/0011-local-ollama-default-provider.md` for the full rationale.
 
 #### Switching between `local` and `gemini`
 
-Embeddings from the two providers are **not interchangeable** — both happen
-to produce 768-dimensional vectors, so switching `SPRING_PROFILES_ACTIVE`
-against a database that already has embeddings from the other provider will
-not raise any error. Retrieval will simply, silently degrade, since the mixed
-embedding space no longer clusters meaningfully (everything falls below the
-relevance threshold). `make seed-embeddings`/backfill only fills rows where
-`embedding IS NULL`, so it will not fix already-populated stale vectors on
-its own.
-
-If you switch profiles against an existing database, recompute every chunk's
-embedding under the newly active profile:
-
-```bash
-psql "postgresql://sheltr:sheltr@localhost:5432/sheltr" -c "UPDATE knowledge.chunks SET embedding = NULL;"
-make seed-embeddings
-```
+Each chunk records the embedding model that produced its vector. If you switch to a profile with a different embedding model, Sheltr refuses to answer questions (HTTP 503) until you run `make seed-embeddings` under the new profile, which re-embeds every chunk.
 
 ## License
 
