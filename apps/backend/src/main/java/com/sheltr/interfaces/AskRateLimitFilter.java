@@ -6,11 +6,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.server.RequestPath;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.pattern.PathPattern;
+import org.springframework.web.util.pattern.PathPatternParser;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
-import java.util.regex.Pattern;
 
 /**
  * Rejects {@code POST /api/v1/conversations/{id}/ask} from a client address once it exceeds the
@@ -28,7 +30,12 @@ public class AskRateLimitFilter extends OncePerRequestFilter {
 
     static final String LIMIT_MESSAGE = "Too many questions. Try again shortly.";
 
-    static final Pattern ASK_PATH = Pattern.compile("^/api/v1/conversations/[^/]+/ask$");
+    /**
+     * Matched with the parser Spring MVC routes with, so the filter sees the path the handler sees:
+     * each segment percent-decoded once and matrix parameters ({@code ;x=1}) removed. A raw regex
+     * over {@code getRequestURI()} missed {@code /%61sk}, which MVC routes to ask.
+     */
+    static final PathPattern ASK_PATH = PathPatternParser.defaultInstance.parse("/api/v1/conversations/{id}/ask");
 
     private final FixedWindowLimiter limiter;
     private final JsonMapper mapper;
@@ -57,11 +64,13 @@ public class AskRateLimitFilter extends OncePerRequestFilter {
         mapper.writeValue(response.getOutputStream(), ApiError.of("LIMIT_EXCEEDED", LIMIT_MESSAGE));
     }
 
-    /** Matches against the path below the context path, so the check holds under any deployment prefix. */
+    /**
+     * Matches the path below the context path, parsed as Spring MVC parses it, so the check holds
+     * under any deployment prefix and any encoding MVC would still route to ask. Double encoding
+     * ({@code %2561sk}) is decoded once, as MVC does, so it neither routes to ask nor is counted.
+     */
     private static boolean isAskPath(HttpServletRequest request) {
-        String uri = request.getRequestURI();
-        String contextPath = request.getContextPath();
-        String path = uri.substring(contextPath.length());
-        return ASK_PATH.matcher(path).matches();
+        RequestPath path = RequestPath.parse(request.getRequestURI(), request.getContextPath());
+        return ASK_PATH.matches(path.pathWithinApplication());
     }
 }
