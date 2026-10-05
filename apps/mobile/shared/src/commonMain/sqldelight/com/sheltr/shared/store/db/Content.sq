@@ -46,10 +46,13 @@ CREATE TRIGGER chunks_fts_delete AFTER DELETE ON chunks BEGIN
 END;
 
 -- The bundle version of the content in this file. Exactly one row (id = 1).
+-- last_sync_epoch_seconds: UTC time of the last sync that ended Updated or UpToDate (SyncEngine), null until then.
+-- It is written to the active file after an install, so a new file starts with null and is set right after the swap.
 CREATE TABLE schema_version (
     id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
     bundle_version TEXT NOT NULL,
-    format_version INTEGER NOT NULL
+    format_version INTEGER NOT NULL,
+    last_sync_epoch_seconds INTEGER
 );
 
 insertDocument:
@@ -68,6 +71,12 @@ INSERT OR REPLACE INTO schema_version(id, bundle_version, format_version) VALUES
 
 bundleVersion:
 SELECT bundle_version FROM schema_version WHERE id = 1;
+
+setLastSync:
+UPDATE schema_version SET last_sync_epoch_seconds = ? WHERE id = 1;
+
+lastSync:
+SELECT last_sync_epoch_seconds FROM schema_version WHERE id = 1;
 
 countDocuments:
 SELECT count(*) FROM documents;

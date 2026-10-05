@@ -187,6 +187,22 @@ class ContentStoreTest {
     }
 
     /** Everything a reader can see, for before/after comparison. */
+    @Test
+    fun lastSyncTimeIsStoredWithTheActiveContent() {
+        assertNull(store.lastSyncEpochSeconds())
+        assertFailsWith<StoreUpdateException> { store.recordSync(10) }
+
+        store.install(V1.manifest, V1.source)
+        assertNull(store.lastSyncEpochSeconds(), "a fresh install has no sync time until one is recorded")
+        store.recordSync(1_700_000_000)
+        assertEquals(1_700_000_000, store.lastSyncEpochSeconds())
+
+        store.close()
+        store = ContentStore(dir.toString(), JdbcStoreDriverFactory)
+        assertEquals(1_700_000_000, store.lastSyncEpochSeconds(), "survives reopen")
+        assertEquals("2026-10-01T00:00:00Z", store.bundleVersion(), "recording a sync does not change the version")
+    }
+
     private fun snapshot(): List<Any?> {
         val ids = listOf("doc-a", "doc-b", "doc-c")
         return listOf(
