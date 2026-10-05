@@ -21,6 +21,14 @@ class ConversationControllerHazardTest {
     }
 
     @Test
+    void rejectsAMalformedCountryWithBadRequest() {
+        var response = controller.ask(UUID.randomUUID(),
+                new AskRequestDto("What should I do?", List.of(), "gb"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
     void rejectsABlankQuestionWithBadRequest() {
         var response = controller.ask(UUID.randomUUID(), new AskRequestDto("  ", List.of("FLOOD")));
 

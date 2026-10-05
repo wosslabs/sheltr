@@ -28,6 +28,11 @@ public class AskQuestionService {
     }
 
     public Message ask(ConversationId conversationId, String questionText, Set<DisasterType> activeHazards) {
+        return ask(conversationId, questionText, activeHazards, null);
+    }
+
+    public Message ask(ConversationId conversationId, String questionText, Set<DisasterType> activeHazards,
+                       String country) {
         Conversation conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new ConversationNotFoundException(conversationId));
 
@@ -40,7 +45,7 @@ public class AskQuestionService {
                 new MessageId(UUID.randomUUID()), MessageRole.USER, new MessageContent(questionText),
                 List.of(), null, List.of()));
 
-        AnswerOutcome outcome = pipeline.answer(new SearchQuery(questionText, activeHazards)).outcome();
+        AnswerOutcome outcome = pipeline.answer(new SearchQuery(questionText, activeHazards, country)).outcome();
         if (outcome instanceof AnswerGenerationFailed failed) {
             // Persist the user's question even though generation failed, so conversation
             // history reflects what was actually asked; do not persist a fabricated

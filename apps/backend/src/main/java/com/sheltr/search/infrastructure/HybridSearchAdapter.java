@@ -22,11 +22,11 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-/** Vector search plus English keyword search, fused by rank and boosted for active hazards. */
+/** Vector search plus English keyword search, fused by rank and boosted for active hazards and country. */
 public class HybridSearchAdapter implements Retriever {
 
     private static final String COLUMNS =
-            "SELECT c.id, c.document_id, c.content, d.disaster_types, "
+            "SELECT c.id, c.document_id, c.content, d.disaster_types, d.country_code, "
                     + "1 - (c.embedding <=> ?::vector) AS similarity ";
     private static final String FILTER =
             "WHERE c.embedding IS NOT NULL AND c.embedding_model = ? AND d.status = ANY(?::text[]) ";
@@ -71,7 +71,7 @@ public class HybridSearchAdapter implements Retriever {
                 query.text(), vector, model, statusesLiteral, candidatesPerList));
 
         Set<DisasterType> active = query.activeHazards();
-        return ranker.rank(vectorHits, keywordHits, active, relatedHazards.relatedTo(active), topK);
+        return ranker.rank(vectorHits, keywordHits, active, relatedHazards.relatedTo(active), query.country(), topK);
     }
 
     private static List<HybridRanker.Candidate> candidates(Iterable<? extends Record> rows) {
@@ -85,7 +85,8 @@ public class HybridSearchAdapter implements Retriever {
                     new DocumentId((UUID) row.get("document_id")),
                     row.get("content", String.class),
                     row.get("similarity", Double.class),
-                    hazards));
+                    hazards,
+                    row.get("country_code", String.class)));
         }
         return candidates;
     }

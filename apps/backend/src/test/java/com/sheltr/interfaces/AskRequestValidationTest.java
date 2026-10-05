@@ -24,6 +24,19 @@ class AskRequestValidationTest {
     }
 
     @Test
+    void acceptsAnAbsentOrTwoUppercaseLetterCountry() {
+        assertThat(validator.validate(new AskRequestDto("q", List.of(), null))).isEmpty();
+        assertThat(validator.validate(new AskRequestDto("q", List.of(), "GB"))).isEmpty();
+    }
+
+    @Test
+    void rejectsACountryThatIsNotTwoUppercaseLetters() {
+        assertThat(validator.validate(new AskRequestDto("q", List.of(), "gb"))).isNotEmpty();
+        assertThat(validator.validate(new AskRequestDto("q", List.of(), "GBR"))).isNotEmpty();
+        assertThat(validator.validate(new AskRequestDto("q", List.of(), "G1"))).isNotEmpty();
+    }
+
+    @Test
     void acceptsQuestionOf2000Characters() {
         assertThat(validator.validate(new AskRequestDto("x".repeat(2000), List.of()))).isEmpty();
     }

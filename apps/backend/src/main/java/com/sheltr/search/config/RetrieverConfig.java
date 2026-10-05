@@ -2,6 +2,7 @@ package com.sheltr.search.config;
 
 import com.sheltr.knowledge.domain.ChunkRepository;
 import com.sheltr.knowledge.domain.EmbeddingGenerator;
+import com.sheltr.search.domain.CountryBoost;
 import com.sheltr.search.domain.HazardBoost;
 import com.sheltr.search.domain.HybridRanker;
 import com.sheltr.search.domain.RelatedHazards;
@@ -34,11 +35,14 @@ public class RetrieverConfig {
                                @Value("${sheltr.search.mode}") String mode,
                                @Value("${sheltr.search.candidates-per-list}") int candidatesPerList,
                                @Value("${sheltr.search.hazard-boost}") double hazardBoost,
-                               @Value("${sheltr.search.related-hazard-boost}") double relatedHazardBoost) {
+                               @Value("${sheltr.search.related-hazard-boost}") double relatedHazardBoost,
+                               @Value("${sheltr.search.country-boost}") double countryBoost) {
         Retriever search = switch (mode) {
-            case "vector" -> new PgvectorSemanticSearchAdapter(dataSource, embeddingGenerator, statuses);
+            case "vector" -> new PgvectorSemanticSearchAdapter(dataSource, embeddingGenerator, statuses,
+                    new CountryBoost(countryBoost));
             case "hybrid" -> new HybridSearchAdapter(dataSource, embeddingGenerator, statuses, relatedHazards,
-                    new HybridRanker(new HazardBoost(hazardBoost, relatedHazardBoost)), candidatesPerList);
+                    new HybridRanker(new HazardBoost(hazardBoost, relatedHazardBoost), new CountryBoost(countryBoost)),
+                    candidatesPerList);
             default -> throw new IllegalArgumentException(
                     "sheltr.search.mode must be 'vector' or 'hybrid', got '" + mode + "'");
         };

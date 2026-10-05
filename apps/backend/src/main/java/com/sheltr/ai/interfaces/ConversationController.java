@@ -56,7 +56,12 @@ public class ConversationController {
             return ResponseEntity.badRequest()
                     .body(ApiError.of("VALIDATION_FAILED", "activeHazards: contains an unknown hazard"));
         }
-        Message message = askQuestionService.ask(new ConversationId(id), request.question(), activeHazards);
+        String country = request.country();
+        if (country != null && !country.matches("[A-Z]{2}")) {
+            return ResponseEntity.badRequest()
+                    .body(ApiError.of("VALIDATION_FAILED", "country: must be two uppercase letters (ISO 3166-1 alpha-2)"));
+        }
+        Message message = askQuestionService.ask(new ConversationId(id), request.question(), activeHazards, country);
         return ResponseEntity.ok(toDto(message));
     }
 
