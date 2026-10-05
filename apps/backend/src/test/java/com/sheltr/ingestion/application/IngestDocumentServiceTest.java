@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -41,7 +42,7 @@ class IngestDocumentServiceTest {
         FakeKnowledgeDocumentRepository knowledgeDocumentRepository = new FakeKnowledgeDocumentRepository();
         FakeChunkRepository chunkRepository = new FakeChunkRepository();
 
-        IngestDocumentService service = new IngestDocumentService(connector, new PdfContentExtractor(),
+        IngestDocumentService service = new IngestDocumentService(Map.of(SourceType.PDF, connector), new PdfContentExtractor(),
                 embeddingGenerator, sourceDocumentRepository, ingestionRunRepository,
                 knowledgeDocumentRepository, chunkRepository, EXAMPLE_ORG_POLICY);
 
@@ -62,7 +63,7 @@ class IngestDocumentServiceTest {
         FakeKnowledgeDocumentRepository knowledgeDocumentRepository = new FakeKnowledgeDocumentRepository();
         FakeChunkRepository chunkRepository = new FakeChunkRepository();
 
-        IngestDocumentService service = new IngestDocumentService(connector, new PdfContentExtractor(),
+        IngestDocumentService service = new IngestDocumentService(Map.of(SourceType.PDF, connector), new PdfContentExtractor(),
                 embeddingGenerator, sourceDocumentRepository, ingestionRunRepository,
                 knowledgeDocumentRepository, chunkRepository, EXAMPLE_ORG_POLICY);
 
@@ -126,7 +127,7 @@ class IngestDocumentServiceTest {
     private static IngestDocumentService serviceWith(FakeSourceConnector connector,
                                                      FakeKnowledgeDocumentRepository knowledgeDocumentRepository,
                                                      FakeSourceDocumentRepository sourceDocumentRepository) {
-        return new IngestDocumentService(connector, new PdfContentExtractor(), new FakeEmbeddingGenerator(),
+        return new IngestDocumentService(Map.of(SourceType.PDF, connector), new PdfContentExtractor(), new FakeEmbeddingGenerator(),
                 sourceDocumentRepository, new FakeIngestionRunRepository(), knowledgeDocumentRepository,
                 new FakeChunkRepository(), EXAMPLE_ORG_POLICY);
     }
@@ -140,7 +141,7 @@ class IngestDocumentServiceTest {
         }
     }
 
-    private static byte[] buildTestPdf() throws IOException {
+    static byte[] buildTestPdf() throws IOException {
         try (PDDocument document = new PDDocument()) {
             PDPage page = new PDPage();
             document.addPage(page);
