@@ -31,6 +31,18 @@ interface StoreUpdater {
     fun install(manifest: BundleManifest, documents: DocumentSource)
 }
 
+/** When the content was last confirmed current by a sync. */
+interface SyncStateStore {
+    /** UTC epoch seconds of the last sync that ended Updated or UpToDate, or null if none has (or no content). */
+    fun lastSyncEpochSeconds(): Long?
+
+    /**
+     * Records a successful sync at [epochSeconds] in the active content. Throws [StoreUpdateException] if no
+     * content is installed: the time belongs to an installed bundle.
+     */
+    fun recordSync(epochSeconds: Long)
+}
+
 class StoreUpdateException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /**
@@ -45,7 +57,7 @@ class StoreUpdateException(message: String, cause: Throwable? = null) : Exceptio
 class ContentStore(
     directory: String,
     private val drivers: StoreDriverFactory,
-) : StoreReader, StoreUpdater, AutoCloseable {
+) : StoreReader, StoreUpdater, SyncStateStore, AutoCloseable {
 
     val activePath: String = "$directory/$ACTIVE_FILE"
     val stagingPath: String = "$directory/$ACTIVE_FILE.staging"
@@ -80,6 +92,14 @@ class ContentStore(
         return db.contentQueries.search(match, limit.toLong()) { id, documentId, content, pageNumber, position, score ->
             SearchHit(storedChunk(id, documentId, content, pageNumber, position), score)
         }.executeAsList()
+    }
+
+    override fun lastSyncEpochSeconds(): Long? =
+        active?.contentQueries?.lastSync()?.executeAsOneOrNull()?.last_sync_epoch_seconds
+
+    override fun recordSync(epochSeconds: Long) {
+        val queries = active?.contentQueries ?: throw StoreUpdateException("no content installed to record a sync on")
+        queries.setLastSync(epochSeconds)
     }
 
     override fun install(manifest: BundleManifest, documents: DocumentSource) {

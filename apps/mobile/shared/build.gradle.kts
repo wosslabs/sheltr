@@ -31,18 +31,31 @@ kotlin {
             implementation("dev.whyoleg.cryptography:cryptography-core:0.6.0")
             implementation("dev.whyoleg.cryptography:cryptography-provider-optimal:0.6.0")
             implementation("app.cash.sqldelight:runtime:2.4.0")
+            // Ktor 3.6.0 (Apache-2.0, https://github.com/ktorio/ktor): HTTP client for bundle sync. Only the core
+            // client: the bundle files are fetched as raw bytes (signature and checksums cover exact bytes), so no
+            // content negotiation. HttpClient() with no engine picks the one engine on each target's classpath.
+            // Keep every io.ktor artifact on the same version.
+            implementation("io.ktor:ktor-client-core:3.6.0")
         }
         jvmMain.dependencies {
             // JDBC driver over xerial sqlite-jdbc (bundled SQLite, built with FTS5). Used by jvmTest and the eval runner.
             implementation("app.cash.sqldelight:sqlite-driver:2.4.0")
+            // JDK java.net.http client engine: no extra dependency beyond the JDK.
+            implementation("io.ktor:ktor-client-java:3.6.0")
         }
         iosMain.dependencies {
             // Links the system libsqlite3 on iOS (FTS5 is enabled in the iOS system SQLite).
             implementation("app.cash.sqldelight:native-driver:2.4.0")
+            // NSURLSession engine.
+            implementation("io.ktor:ktor-client-darwin:3.6.0")
         }
-        // Android: add app.cash.sqldelight:android-driver:2.4.0 to androidMain when androidTarget() is declared.
+        // Android: add app.cash.sqldelight:android-driver:2.4.0 and io.ktor:ktor-client-okhttp:3.6.0 to androidMain
+        // when androidTarget() is declared.
         commonTest.dependencies {
             implementation(kotlin("test"))
+        }
+        jvmTest.dependencies {
+            implementation("io.ktor:ktor-client-mock:3.6.0")
         }
     }
 }
