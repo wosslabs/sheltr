@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class IngestDocumentServiceSourceTypeTest {
 
@@ -120,6 +121,46 @@ class IngestDocumentServiceSourceTypeTest {
         assertThat(run.status()).isEqualTo(RunStatus.FAILED);
         assertThat(run.errorMessage().orElseThrow()).isEqualTo("Source host not allowed: evil.example");
         assertThat(fixture.knowledgeDocuments.saved).isEmpty();
+    }
+
+    @Test
+    void htmlChunksAreStoredWithNoPageNumber() {
+        CountingConnector html = new CountingConnector(PAGE_TEXT.getBytes(StandardCharsets.UTF_8), "html-sum");
+        Fixture fixture = new Fixture(new CountingConnector(new byte[0], "x"), html, POLICY);
+
+        IngestionRun run = fixture.service.ingest(HTML_URI, SourceType.HTML, metadata("GB"), null);
+
+        assertThat(run.status()).isEqualTo(RunStatus.SUCCEEDED);
+        assertThat(fixture.chunks.inserted).isNotEmpty();
+        assertThat(fixture.chunks.inserted).allMatch(chunk -> chunk.pageNumber().isEmpty());
+    }
+
+    @Test
+    void nullSourceTypeIsRejectedBeforeAnythingIsSaved() {
+        CountingConnector html = new CountingConnector(PAGE_TEXT.getBytes(StandardCharsets.UTF_8), "html-sum");
+        Fixture fixture = new Fixture(new CountingConnector(new byte[0], "x"), html, POLICY);
+
+        assertThatThrownBy(() -> fixture.service.ingest(HTML_URI, null, metadata("GB"), null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("source type is required");
+        assertThat(html.fetchCount).isZero();
+        assertThat(fixture.sourceDocuments.saved).isEmpty();
+    }
+
+    @Test
+    void sourceTypeWithoutAConnectorFailsWithTheUnsupportedMessage() {
+        CountingConnector pdf = new CountingConnector(new byte[0], "pdf-sum");
+        IngestDocumentService service = new IngestDocumentService(Map.of(SourceType.PDF, pdf),
+                new PdfContentExtractor(), new IngestDocumentServiceTest.FakeEmbeddingGenerator(),
+                new IngestDocumentServiceTest.FakeSourceDocumentRepository(),
+                new IngestDocumentServiceTest.FakeIngestionRunRepository(),
+                new IngestDocumentServiceTest.FakeKnowledgeDocumentRepository(),
+                new IngestDocumentServiceTest.FakeChunkRepository(), POLICY);
+
+        IngestionRun run = service.ingest(HTML_URI, SourceType.HTML, metadata("GB"), null);
+
+        assertThat(run.status()).isEqualTo(RunStatus.FAILED);
+        assertThat(run.errorMessage().orElseThrow()).startsWith("Unsupported source type HTML, supported: ");
     }
 
     private static SourceMetadata metadata(String country) {
