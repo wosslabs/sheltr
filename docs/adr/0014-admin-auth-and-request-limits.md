@@ -111,5 +111,5 @@ messages are logged, never returned.
    app runs. There is no default.
 10. The database default password in `application.yml` is the local Postgres container
     credential (spec §2.1 carve-out). It is not the admin credential.
-11. Gated tests (`GEMINI_API_KEY`, `OLLAMA_AVAILABLE`, Docker) are skipped in CI-less runs.
+11. Gated tests (`GEMINI_API_KEY`, `OLLAMA_AVAILABLE`, Podman) are skipped in CI-less runs.
     Phase 0 endpoints were verified by the non-gated suite only for the Gemini-gated admin calls.
