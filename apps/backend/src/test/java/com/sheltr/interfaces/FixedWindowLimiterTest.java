@@ -79,11 +79,14 @@ class FixedWindowLimiterTest {
         limiter.tryAcquire("a");
         clock.advance(Duration.ofMillis(20_500));
 
-        assertThat(limiter.retryAfterSeconds("a")).isEqualTo(40L);
+        var refused = limiter.acquire("a");
+
+        assertThat(refused.allowed()).isFalse();
+        assertThat(refused.retryAfterSeconds()).isEqualTo(40L);
     }
 
     @Test
-    void mapNeverExceedsMaxKeysAndStaleEntriesAreEvicted() {
+    void expiredEntryIsSweptWhenMapIsFull() {
         var clock = new MutableClock(0);
         var limiter = new FixedWindowLimiter(10, WINDOW, clock, 2);
         limiter.tryAcquire("a");
@@ -93,22 +96,64 @@ class FixedWindowLimiterTest {
         clock.advance(WINDOW);
         assertThat(limiter.tryAcquire("c")).isTrue();
 
-        assertThat(limiter.size()).isLessThanOrEqualTo(2);
         assertThat(limiter.size()).isEqualTo(1);
     }
 
     @Test
-    void mapStaysAtCapWhenEveryTrackedWindowIsStillLive() {
+    void newKeyIsRefusedWhenFullOfLiveWindowsAndLiveKeysSurvive() {
         var clock = new MutableClock(0);
-        var limiter = new FixedWindowLimiter(10, WINDOW, clock, 2);
+        var limiter = new FixedWindowLimiter(1, WINDOW, clock, 2);
         limiter.tryAcquire("a");
         clock.advance(Duration.ofSeconds(1));
         limiter.tryAcquire("b");
         clock.advance(Duration.ofSeconds(1));
 
+        var refused = limiter.acquire("c");
+
+        assertThat(refused.allowed()).isFalse();
+        assertThat(refused.retryAfterSeconds()).isEqualTo(60L);
+        assertThat(limiter.size()).isEqualTo(2);
+        // "a" was not evicted: it is still inside its window at its limit of 1.
+        assertThat(limiter.tryAcquire("a")).isFalse();
+        assertThat(limiter.tryAcquire("b")).isFalse();
+    }
+
+    @Test
+    void expiredWindowIsEvictedAndLiveKeyKeepsItsCount() {
+        var clock = new MutableClock(0);
+        var limiter = new FixedWindowLimiter(2, WINDOW, clock, 2);
+        limiter.tryAcquire("a");
+        clock.advance(Duration.ofSeconds(30));
+        assertThat(limiter.tryAcquire("b")).isTrue();
+        assertThat(limiter.tryAcquire("b")).isTrue();
+        clock.advance(Duration.ofSeconds(30));
+
+        // "a" expired at 60 s; "b" is live with its full count of 2.
         assertThat(limiter.tryAcquire("c")).isTrue();
 
         assertThat(limiter.size()).isEqualTo(2);
+        assertThat(limiter.tryAcquire("b")).isFalse();
+    }
+
+    @Test
+    void sweepRunsAtMostOncePerWindowLength() {
+        var clock = new MutableClock(0);
+        var limiter = new FixedWindowLimiter(1, WINDOW, clock, 2);
+        limiter.tryAcquire("a");                       // window 0-60 s
+        clock.advance(Duration.ofSeconds(5));
+        limiter.tryAcquire("b");                       // window 5-65 s
+        clock.advance(Duration.ofSeconds(5));
+        assertThat(limiter.tryAcquire("c")).isFalse(); // at cap: sweep at 10 s, nothing expired
+
+        clock.advance(Duration.ofSeconds(51));         // 61 s: "a" expired, but last sweep was 51 s ago
+        var refused = limiter.acquire("c");
+        assertThat(refused.allowed()).isFalse();
+        assertThat(limiter.size()).isEqualTo(2);
+        assertThat(refused.retryAfterSeconds()).isEqualTo(9L); // next sweep allowed at 70 s
+
+        clock.advance(Duration.ofSeconds(9));          // 70 s: sweep due, "a" and "b" expired
+        assertThat(limiter.tryAcquire("c")).isTrue();
+        assertThat(limiter.size()).isEqualTo(1);
     }
 
     @Test

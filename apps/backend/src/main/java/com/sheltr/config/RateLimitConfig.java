@@ -13,13 +13,15 @@ import java.time.Clock;
 import java.time.Duration;
 
 /**
- * Per-client-address limit on {@code POST /api/v1/conversations/*}{@code /ask}, budget from
- * {@code sheltr.limits.ask-per-minute}.
+ * Per-client-address limit on {@code POST /api/v1/conversations/{id}/ask}, budget from
+ * {@code sheltr.limits.ask-per-minute}. The servlet mapping is the valid prefix pattern; the
+ * filter matches the ask path itself.
  */
 @Configuration(proxyBeanMethods = false)
 public class RateLimitConfig {
 
-    static final String ASK_PATH = "/api/v1/conversations/*/ask";
+    /** Servlet mapping. Servlet patterns allow a trailing {@code /*} only, so the ask suffix is matched in the filter. */
+    static final String FILTER_PATTERN = "/api/v1/conversations/*";
     static final int MAX_TRACKED_CLIENTS = 10_000;
 
     /** After Spring Security's chain (order -100), before the MVC dispatcher. */
@@ -37,7 +39,7 @@ public class RateLimitConfig {
         JsonMapper mapper = jsonMapper.getIfAvailable(() -> JsonMapper.builder().build());
         FilterRegistrationBean<AskRateLimitFilter> registration =
                 new FilterRegistrationBean<>(new AskRateLimitFilter(askLimiter, mapper));
-        registration.addUrlPatterns(ASK_PATH);
+        registration.addUrlPatterns(FILTER_PATTERN);
         registration.setOrder(FILTER_ORDER);
         return registration;
     }
