@@ -3,6 +3,7 @@ package com.sheltr.ai.interfaces;
 import com.sheltr.ai.application.AnswerContext;
 import com.sheltr.ai.application.AnswerPipeline;
 import com.sheltr.ai.application.AnswerContextBuilder;
+import com.sheltr.ai.application.DailyAskCap;
 import com.sheltr.ai.domain.*;
 import com.sheltr.knowledge.domain.StaleEmbeddingsException;
 import com.sheltr.search.domain.RankedResult;
@@ -26,13 +27,16 @@ public class LuminaChatApp implements LuminaApp {
     private final AnswerPipeline pipeline;
     private final AnswerContextBuilder answerContextBuilder;
     private final ChatClient chatClient;
+    private final DailyAskCap dailyAskCap;
 
     public LuminaChatApp(ConversationRepository conversationRepository, AnswerPipeline pipeline,
-                         AnswerContextBuilder answerContextBuilder, ChatClient chatClient) {
+                         AnswerContextBuilder answerContextBuilder, ChatClient chatClient,
+                         DailyAskCap dailyAskCap) {
         this.conversationRepository = conversationRepository;
         this.pipeline = pipeline;
         this.answerContextBuilder = answerContextBuilder;
         this.chatClient = chatClient;
+        this.dailyAskCap = dailyAskCap;
     }
 
     @Override
@@ -66,6 +70,12 @@ public class LuminaChatApp implements LuminaApp {
 
         String prompt = ui.chatInput();
         if (prompt == null || prompt.isBlank()) {
+            return;
+        }
+
+        // Same daily cap as REST, checked before the question is persisted, retrieved or generated.
+        if (!dailyAskCap.allows()) {
+            ui.text(DailyAskCap.LIMIT_MESSAGE);
             return;
         }
 
