@@ -42,7 +42,7 @@ The publisher ports the ingestion logic (PDF, HTML, manifest, checksum, chunking
 - [ ] **M4:** Local store with SQLDelight and FTS5. Atomic swap: stage a database, verify counts, replace. Interrupted write keeps the previous content.
 - [ ] **M5:** Retrieval, citation selection and refusal. Port the rules and test vectors from the server (`CitationSelectorTest`, `RelevanceGateTest`, `HazardBoostTest`, `RankFusionTest` where they apply to keyword search). Country boost; global passages never removed.
 - [ ] **M6:** Sync: fetch the manifest, verify the signature, diff by checksum, download changed documents only, remove deleted ones, retry policy. Tests with Ktor MockEngine: invalid signature keeps old content; interrupted download keeps old content; one changed checksum re-downloads only that document.
-- [ ] **M7:** Settings model: sync frequency (manual, daily, weekly, monthly; default weekly), mobile-data permission (default off), country, text size.
+- [x] **M7:** Settings model: sync frequency (manual, daily, weekly, monthly; default weekly), mobile-data permission (default off), country, text size.
 - [ ] **M8:** Spike: LiteRT-LM Kotlin API on Android JVM target is not used; keep the model behind an interface with a no-op implementation for now.
 
 ## Phase A — Android app (Compose)
