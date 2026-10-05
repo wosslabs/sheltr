@@ -111,6 +111,14 @@ public class JooqConversationRepository implements ConversationRepository {
     }
 
     @Override
+    public long countUserMessagesSince(Instant since) {
+        Long count = dsl.fetchOne(
+                "SELECT count(*) FROM ai.messages WHERE role = ? AND created_at >= ?",
+                MessageRole.USER.name(), Timestamp.from(since)).into(Long.class);
+        return count == null ? 0 : count;
+    }
+
+    @Override
     public List<Citation> findCitationsByDocumentId(DocumentId documentId) {
         var rows = dsl.fetch(
                 "SELECT c.chunk_id, ch.document_id, c.source_title, c.source_url, c.page_number "
