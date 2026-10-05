@@ -8,6 +8,7 @@ repositories {
 
 dependencies {
     implementation("org.yaml:snakeyaml:2.6")
+    implementation("org.apache.pdfbox:pdfbox:3.0.3")
 
     testImplementation(kotlin("test"))
 }
