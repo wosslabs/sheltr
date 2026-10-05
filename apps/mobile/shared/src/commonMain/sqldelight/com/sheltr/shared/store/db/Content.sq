@@ -24,6 +24,13 @@ CREATE TABLE chunks (
 
 CREATE INDEX chunks_document_id ON chunks(document_id, position);
 
+-- Hazards a document covers (BundleDocument.hazards, DisasterType names). Used by the retrieval hazard boost.
+CREATE TABLE document_hazards (
+    document_id TEXT NOT NULL REFERENCES documents(id),
+    hazard TEXT NOT NULL,
+    PRIMARY KEY (document_id, hazard)
+);
+
 -- Keyword index over chunks.content. Kept in sync by the triggers below.
 CREATE VIRTUAL TABLE chunks_fts USING fts5(
     chunk_id UNINDEXED,
@@ -49,6 +56,9 @@ insertDocument:
 INSERT INTO documents(id, title, agency, published_date, licence, country, source_uri, source_type, checksum, file_checksum)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
+insertDocumentHazard:
+INSERT INTO document_hazards(document_id, hazard) VALUES (?, ?);
+
 insertChunk:
 INSERT INTO chunks(id, document_id, content, page_number, position)
 VALUES (?, ?, ?, ?, ?);
@@ -65,11 +75,17 @@ SELECT count(*) FROM documents;
 countChunks:
 SELECT count(*) FROM chunks;
 
+countDocumentHazards:
+SELECT count(*) FROM document_hazards;
+
 countIndexedChunks:
 SELECT count(*) FROM chunks_fts;
 
 documentById:
 SELECT * FROM documents WHERE id = ?;
+
+hazardsForDocument:
+SELECT hazard FROM document_hazards WHERE document_id = ? ORDER BY hazard;
 
 chunksForDocument:
 SELECT * FROM chunks WHERE document_id = ? ORDER BY position;

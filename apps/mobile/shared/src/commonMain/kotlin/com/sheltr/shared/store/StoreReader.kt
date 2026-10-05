@@ -24,6 +24,8 @@ data class StoredDocument(
     val publishedDate: String,
     val licence: String,
     val country: String?,
+    /** DisasterType names the document covers, sorted. Empty if the bundle lists none. */
+    val hazards: List<String>,
     val sourceUri: String,
     val sourceType: String,
     val checksum: String,

@@ -159,6 +159,28 @@ class ContentStoreTest {
     }
 
     @Test
+    fun hazardsRoundTripThroughInstall() {
+        store.install(V1.manifest, V1.source)
+        assertEquals(listOf("FLOOD"), assertNotNull(store.document("doc-a")).hazards)
+
+        store.install(V2.manifest, V2.source)
+
+        // Stored once each (the manifest lists WILDFIRE twice) and read back sorted.
+        assertEquals(listOf("HEATWAVE", "WILDFIRE"), assertNotNull(store.document("doc-c")).hazards)
+        assertEquals(listOf("FLOOD"), assertNotNull(store.document("doc-b")).hazards)
+        store.close()
+        store = ContentStore(dir.toString(), JdbcStoreDriverFactory)
+        assertEquals(listOf("HEATWAVE", "WILDFIRE"), assertNotNull(store.document("doc-c")).hazards, "survives reopen")
+    }
+
+    @Test
+    fun documentWithoutHazardsHasEmptyList() {
+        val (entry, file) = doc("doc-x", "No hazards", null, listOf("Keep a kit." to null), hazards = emptyList())
+        store.install(BundleManifest(BUNDLE_FORMAT_VERSION, "2026-10-06T00:00:00Z", listOf(entry))) { file }
+        assertEquals(emptyList(), assertNotNull(store.document("doc-x")).hazards)
+    }
+
+    @Test
     fun ftsQueryQuotesEveryWord() {
         assertEquals("\"flood\" OR \"water\"", ftsQueryFor("Flood? water* flood".lowercase()))
         assertNull(ftsQueryFor("\"\" ( ) *"))
@@ -181,11 +203,17 @@ class ContentStoreTest {
     }
 
     private companion object {
-        fun doc(id: String, title: String, country: String?, chunks: List<Pair<String, Int?>>): Pair<BundleDocument, DocumentFile> {
+        fun doc(
+            id: String,
+            title: String,
+            country: String?,
+            chunks: List<Pair<String, Int?>>,
+            hazards: List<String> = listOf("FLOOD"),
+        ): Pair<BundleDocument, DocumentFile> {
             val file = DocumentFile(id, chunks.mapIndexed { i, (text, page) -> DocumentChunk("$id-$i", text, page) })
             val entry = BundleDocument(
                 id = id, title = title, agency = "Example Agency", publishedDate = "2024-03-15", licence = "CC-BY-4.0",
-                country = country, hazards = listOf("FLOOD"), sourceUri = "https://example.org/$id",
+                country = country, hazards = hazards, sourceUri = "https://example.org/$id",
                 sourceType = "pdf", checksum = "0".repeat(64), fileChecksum = "1".repeat(64),
                 chunks = file.chunks.map { BundleChunkRef(it.id, "2".repeat(64)) },
             )
@@ -204,7 +232,10 @@ class ContentStoreTest {
         val V2 = bundle(
             "2026-10-05T12:00:00Z",
             doc("doc-b", "Evacuation", null, listOf("Follow the evacuation route." to null)),
-            doc("doc-c", "Wildfire smoke", "CA", listOf("Stay indoors." to 1, "Wear a respirator outside." to 1)),
+            doc(
+                "doc-c", "Wildfire smoke", "CA", listOf("Stay indoors." to 1, "Wear a respirator outside." to 1),
+                hazards = listOf("WILDFIRE", "HEATWAVE", "WILDFIRE"),
+            ),
         )
     }
 }
