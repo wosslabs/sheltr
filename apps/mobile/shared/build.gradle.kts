@@ -1,5 +1,6 @@
 plugins {
     kotlin("multiplatform")
+    kotlin("plugin.serialization")
 }
 
 // Android target is intentionally not declared yet: no Android SDK is installed
@@ -17,6 +18,10 @@ kotlin {
     iosSimulatorArm64()
 
     sourceSets {
+        commonMain.dependencies {
+            // Same version as the publisher (tools/publisher/build.gradle.kts).
+            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
+        }
         commonTest.dependencies {
             implementation(kotlin("test"))
         }
