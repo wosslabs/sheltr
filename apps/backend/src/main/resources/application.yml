@@ -47,7 +47,7 @@ sheltr:
     max-asks-per-day: 1000
   ingestion:
     # Hostnames the ingestion connector may fetch. Empty denies all. Checked before any network call.
-    allowed-hosts: [www.ready.gov, prepare.campaign.gov.uk]
+    allowed-hosts: [www.ready.gov, prepare.campaign.gov.uk, www.rcrc-resilience-southeastasia.org]
     # Source fetch timeouts (spec 2.4). Positive durations; redirects are always refused.
     # connect-timeout: TCP/TLS connect. request-timeout: bounds the wait for response headers, not a slow body.
     connect-timeout: 10s
