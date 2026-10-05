@@ -60,10 +60,15 @@ class ContentStore(
 
     override fun bundleVersion(): String? = active?.contentQueries?.bundleVersion()?.executeAsOneOrNull()
 
-    override fun document(id: String): StoredDocument? =
-        active?.contentQueries?.documentById(id) { docId, title, agency, publishedDate, licence, country, sourceUri, sourceType, checksum, fileChecksum ->
-            StoredDocument(docId, title, agency, publishedDate, licence, country, sourceUri, sourceType, checksum, fileChecksum)
-        }?.executeAsOneOrNull()
+    override fun document(id: String): StoredDocument? {
+        val queries = active?.contentQueries ?: return null
+        // Two queries, not one nested in the other's mapper: the JDBC driver closes the cursor's connection per query.
+        val row = queries.documentById(id).executeAsOneOrNull() ?: return null
+        val hazards = queries.hazardsForDocument(id).executeAsList()
+        return with(row) {
+            StoredDocument(this.id, title, agency, published_date, licence, country, hazards, source_uri, source_type, checksum, file_checksum)
+        }
+    }
 
     override fun chunks(documentId: String): List<StoredChunk> =
         active?.contentQueries?.chunksForDocument(documentId, ::storedChunk)?.executeAsList().orEmpty()
@@ -110,6 +115,7 @@ class ContentStore(
                         doc.id, doc.title, doc.agency, doc.publishedDate, doc.licence, doc.country,
                         doc.sourceUri, doc.sourceType, doc.checksum, doc.fileChecksum,
                     )
+                    for (hazard in doc.hazards.distinct()) queries.insertDocumentHazard(doc.id, hazard)
                     file.chunks.forEachIndexed { position, chunk ->
                         queries.insertChunk(chunk.id, doc.id, chunk.content, chunk.pageNumber?.toLong(), position.toLong())
                     }
@@ -125,18 +131,23 @@ class ContentStore(
     private fun verifyStaged(manifest: BundleManifest) {
         val expectedDocuments = manifest.documents.size.toLong()
         val expectedChunks = manifest.documents.sumOf { it.chunks.size }.toLong()
+        val expectedHazards = manifest.documents.sumOf { it.hazards.distinct().size }.toLong()
         val driver = drivers.open(stagingPath, create = false)
         try {
             val queries = SheltrDatabase(driver).contentQueries
             val documents = queries.countDocuments().executeAsOne()
             val chunks = queries.countChunks().executeAsOne()
             val indexed = queries.countIndexedChunks().executeAsOne()
+            val hazards = queries.countDocumentHazards().executeAsOne()
             val version = queries.bundleVersion().executeAsOneOrNull()
             if (documents != expectedDocuments) {
                 throw StoreUpdateException("staged $documents documents, manifest lists $expectedDocuments")
             }
             if (chunks != expectedChunks) {
                 throw StoreUpdateException("staged $chunks chunks, manifest lists $expectedChunks")
+            }
+            if (hazards != expectedHazards) {
+                throw StoreUpdateException("staged $hazards document hazards, manifest lists $expectedHazards")
             }
             if (indexed != chunks) {
                 throw StoreUpdateException("keyword index has $indexed rows for $chunks chunks")
