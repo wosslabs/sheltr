@@ -104,8 +104,9 @@ messages are logged, never returned.
 6. Gemini (Spring AI google-genai) has no application-level request timeout. Ollama is bounded by
    `spring.http.clients.read-timeout` (120 s), which applies to every Boot RestClient.
 7. The `HttpRequest` timeout bounds the wait for response headers, not a slow body stream.
-8. The Lumina chat server on port 8090 has no authorisation layer of its own. A future Lumina
-   admin page must add its own authorisation.
+8. The Lumina chat on port 8090 has no authorisation layer of its own and is not covered by the
+   per-minute ask limit (the daily cap does apply). A future Lumina admin page must add its own
+   authorisation.
 9. The local development admin password must be exported (`SHELTR_ADMIN_PASSWORD`) before the
    app runs. There is no default.
 10. The database default password in `application.yml` is the local Postgres container
