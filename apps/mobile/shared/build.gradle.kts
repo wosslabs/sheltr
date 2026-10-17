@@ -4,18 +4,39 @@ plugins {
     // SQLDelight 2.4.0 (Apache-2.0, https://github.com/sqldelight/sqldelight): on-device store with FTS5.
     // Keep the plugin and the driver artifacts below on the same version.
     id("app.cash.sqldelight") version "2.4.0"
+    id("com.android.library")
 }
 
-// Android target is intentionally not declared yet: no Android SDK is installed
-// on the build machine (ANDROID_HOME unset, no local.properties). Add
-// androidTarget() with the Android library plugin once the SDK is available (Phase A).
-
 repositories {
+    google()
     mavenCentral()
+    // requery/sqlite-android (androidMain dependency below) ships a current SQLite build with FTS5, which
+    // Android's own bundled SQLite lacks; it is not published to Maven Central, only to JitPack.
+    maven { url = uri("https://jitpack.io") }
+}
+
+android {
+    namespace = "com.sheltr.shared"
+    compileSdk = 34
+
+    defaultConfig {
+        minSdk = 24
+        // Needed for the androidInstrumentedTest source set (connectedAndroidTest), run on a device/emulator.
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
 }
 
 kotlin {
     jvm()
+
+    androidTarget {
+        // Without an explicit target, Kotlin compiles to the class file version of the JDK running Gradle. On a
+        // JDK newer than Robolectric's bundled ASM supports, that breaks androidUnitTest with "Unsupported class
+        // file major version" before any test runs. 17 matches Android's own toolchain expectations.
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
+    }
 
     iosArm64()
     iosSimulatorArm64()
@@ -49,13 +70,33 @@ kotlin {
             // NSURLSession engine.
             implementation("io.ktor:ktor-client-darwin:3.6.0")
         }
-        // Android: add app.cash.sqldelight:android-driver:2.4.0 and io.ktor:ktor-client-okhttp:3.6.0 to androidMain
-        // when androidTarget() is declared.
+        androidMain.dependencies {
+            // SQLDelight's Android driver, backed by androidx.sqlite's SupportSQLiteOpenHelper abstraction.
+            implementation("app.cash.sqldelight:android-driver:2.4.0")
+            // Android's own bundled SQLite does not compile in FTS5 (confirmed against AOSP's
+            // external/sqlite/dist/Android.bp: SQLITE_ENABLE_FTS3/FTS4 are set, FTS5 is not, on every branch
+            // checked), but this app's schema needs it (see the sqlite-3-38-dialect comment below). requery's
+            // sqlite-android (Apache-2.0, https://github.com/requery/sqlite-android) bundles its own current
+            // SQLite build with FTS5 and implements SupportSQLiteOpenHelper via RequerySQLiteOpenHelperFactory,
+            // a drop-in factory for AndroidSqliteDriver -- the standard fix for SQLDelight + FTS5 on Android.
+            // Distributed only via JitPack, not Maven Central (see the repositories block above). Adds a
+            // per-ABI native library (~1.2-1.8 MB each) to the APK; ABI-split packaging to shrink that is a
+            // separate concern.
+            implementation("com.github.requery:sqlite-android:3.49.0")
+            // OkHttp engine.
+            implementation("io.ktor:ktor-client-okhttp:3.6.0")
+        }
         commonTest.dependencies {
             implementation(kotlin("test"))
         }
         jvmTest.dependencies {
             implementation("io.ktor:ktor-client-mock:3.6.0")
+        }
+        androidInstrumentedTest.dependencies {
+            // Only used by AndroidStoreDriverFactoryInstrumentedTest, run via connectedAndroidTest on a real
+            // device/emulator -- not executed by testDebugUnitTest.
+            implementation("androidx.test:runner:1.7.0")
+            implementation("androidx.test.ext:junit:1.3.0")
         }
     }
 }
