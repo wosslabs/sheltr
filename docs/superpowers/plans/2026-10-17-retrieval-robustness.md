@@ -138,7 +138,7 @@ Tokenize the same way `ftsQueryFor` in `StoreReader.kt` does (split on non-lette
 
 `expandWithSynonyms`: for each word in `text`, if its lowercase form is a key in `SYNONYMS` and the mapped canonical term is not already a word in `text` (case-insensitive), append the canonical term once at the end (collect all expansions, append space-joined, each canonical term appended at most once even if two different synonym words map to the same term).
 
-`correctTypos`: for each word of length ≥ 4 whose lowercase form is not already in `TERMS` or a key of `SYNONYMS`, compute `levenshtein` against every entry in `TERMS`; if exactly one term has the minimum distance and that minimum is ≤ 2, replace the word with that term (preserve the word's original case pattern is not required — tests above use lower-case fixtures); otherwise leave the word unchanged.
+`correctTypos`: for each word of length ≥ 4 whose lowercase form is not already in `TERMS` or a key of `SYNONYMS`, compute `levenshtein` against every entry in `TERMS`; if exactly one term has the minimum distance and that minimum is ≤ 1, replace the word with that term (preserve the word's original case pattern is not required — tests above use lower-case fixtures); otherwise leave the word unchanged.
 
 - [ ] **Step 4: Run — expect PASS**
 
@@ -181,7 +181,7 @@ Add to `RetrieverTest.kt` a `FakeStore` variant (or extend the existing one with
 }
 
 @Test fun noRetryWhenCorrectionDoesNotChangeTheQuery() {
-    // "water" has no vocabulary term within distance 2, so correctTypos("water") == "water": the
+    // "water" has no vocabulary term within distance 1, so correctTypos("water") == "water": the
     // fallback must not call store.search a second time with the same text. Use a FakeStore whose
     // respondTo map has no entry for "water" and assert Refusal (proves it did not loop or throw).
     val store = FakeStore(documents = emptyList(), respondTo = emptyMap())
