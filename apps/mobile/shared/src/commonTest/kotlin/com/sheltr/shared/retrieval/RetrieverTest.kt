@@ -121,6 +121,19 @@ class RetrieverTest {
     }
 
     @Test
+    fun rankSearchesTheSynonymExpandedText() {
+        // respondTo has no entry for the raw query "quake": if rank() searched that text verbatim (skipping
+        // expandWithSynonyms), search would return empty and no hit would be found. Only the expanded text
+        // "quake earthquake" has a hit registered, so a result here proves rank() actually expands before searching.
+        val store = FakeStore(
+            documents = listOf(document("d", country = null, hazards = listOf("EARTHQUAKE"))),
+            respondTo = mapOf("quake earthquake" to listOf(hit("a", "d", -5.0))),
+        )
+        val result = Retriever(store).rank(RetrievalQuery("quake"))
+        assertEquals(listOf("a"), result.map { it.chunk.id })
+    }
+
+    @Test
     fun noRetryWhenCorrectionDoesNotChangeTheQuery() {
         // "water" has no vocabulary term within distance 1, so correctTypos("water") == "water": the fallback must
         // not call store.search a second time with the same text. The respondTo map has no entry for "water", so a

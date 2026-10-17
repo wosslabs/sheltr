@@ -4,9 +4,11 @@ package com.sheltr.shared.retrieval
  * Hazard words the keyword retriever recognises, and colloquial synonyms that map onto them. Lets a query such as
  * "quake safety" match documents about earthquakes.
  *
- * The phone module is JVM-only and cannot import the publisher's enum, so [TERMS] is copied by hand. The source of
- * truth is the `DisasterType` enum in tools/publisher/src/main/kotlin/com/sheltr/publisher/DisasterType.kt; each
- * entry name is lower-cased and split on '_'.
+ * This module (apps/mobile/shared) is Kotlin Multiplatform (jvm, iosArm64, iosSimulatorArm64), while
+ * tools/publisher, where the real `DisasterType` enum lives, is JVM-only — a multiplatform module cannot depend on a
+ * JVM-only sibling, so [TERMS] is copied by hand instead of importing it. The source of truth is the `DisasterType`
+ * enum in tools/publisher/src/main/kotlin/com/sheltr/publisher/DisasterType.kt; each entry name is lower-cased and
+ * split on '_'.
  */
 object HazardVocabulary {
 
