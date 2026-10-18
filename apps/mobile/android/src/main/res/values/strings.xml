@@ -39,4 +39,26 @@
          RetrievalResult.Refusal.MESSAGE (an internal constant shared with the server, not a localizable UI
          string): this is the only text AnswerScreen is allowed to show for a refusal. -->
     <string name="answer_refusal_body">Sheltr doesn\'t have reliable guidance on this yet. Try different search words, or contact local emergency services for urgent help.</string>
+
+    <!-- Settings screen (Task 5). -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_country_label">Country</string>
+    <string name="settings_country_not_set">Not set</string>
+    <string name="settings_language_label">Language</string>
+    <!-- "System default" is the only language-picker option this app actually translates; the other three
+         (English/Español/Français) are deliberately shown as literal, untranslated strings in SettingsScreen.kt,
+         since each one names its own language and must not be translated into the viewer's current UI language. -->
+    <string name="settings_language_system_default">System default</string>
+    <!-- States plainly that this setting only changes menus/labels, not guidance content (spec requirement). -->
+    <string name="settings_language_notice">Language only changes menus and labels in this app. Disaster guidance content stays in its original language.</string>
+    <string name="settings_text_size_label">Text size</string>
+    <string name="settings_text_size_normal">Normal</string>
+    <string name="settings_text_size_large">Large</string>
+    <string name="settings_text_size_extra_large">Extra large</string>
+    <string name="settings_high_contrast_label">High contrast</string>
+    <string name="settings_sync_now_label">Sync now</string>
+    <string name="settings_last_sync_label">Last synced: %1$s</string>
+    <string name="settings_last_sync_never">Never</string>
+    <string name="settings_sync_unavailable_message">Sync isn\'t available in this build.</string>
+    <string name="settings_sync_dismiss_message_description">Dismiss message</string>
 </resources>

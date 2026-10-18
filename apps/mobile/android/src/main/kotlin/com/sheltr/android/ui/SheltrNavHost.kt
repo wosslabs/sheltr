@@ -22,6 +22,8 @@ import com.sheltr.android.ui.home.HomeScreen
 import com.sheltr.android.ui.search.RetrieverPort
 import com.sheltr.android.ui.search.SearchScreen
 import com.sheltr.android.ui.search.SearchViewModel
+import com.sheltr.android.ui.settings.SettingsScreen
+import com.sheltr.android.ui.settings.SettingsViewModel
 import com.sheltr.shared.retrieval.Retriever
 import com.sheltr.shared.settings.AppSettings
 import com.sheltr.shared.settings.SettingsStore
@@ -95,9 +97,8 @@ sealed class Route(val path: String) {
  * once in [com.sheltr.android.SheltrApplication.onCreate]), not re-fetched from a singleton inside each screen,
  * so screens stay testable with fakes (see SheltrNavHostTest).
  *
- * Home (Task 2), Search (Task 3) and Answer (Task 4) are now the real [HomeScreen]/`SearchScreen`/`AnswerScreen`;
- * Settings below remains a placeholder stub (a tagged, empty [Box]) until Task 5 of this plan replaces it with
- * its real screen, reading whichever of these dependencies that screen needs.
+ * Home (Task 2), Search (Task 3), Answer (Task 4) and Settings (Task 5) are now the real
+ * [HomeScreen]/`SearchScreen`/`AnswerScreen`/`SettingsScreen`.
  *
  * Search hands its [com.sheltr.shared.retrieval.RetrievalResult] to Answer via [RetrievalResultHolder]: the
  * Search composable below stores the result and navigates with the id [RetrievalResultHolder.put] returns,
@@ -195,7 +196,20 @@ fun SheltrNavHost(
             }
         }
         composable(Route.Settings.path) {
-            Box(Modifier.testTag("settings-screen"))
+            val viewModel: SettingsViewModel = viewModel(
+                factory = viewModelFactory {
+                    initializer {
+                        SettingsViewModel(
+                            settingsStore = settingsStore,
+                            syncEngine = syncEngine,
+                            store = contentStore,
+                            baseUrl = publisherBaseUrl,
+                            publicKey = publisherPublicKey,
+                        )
+                    }
+                },
+            )
+            SettingsScreen(viewModel = viewModel, onSettingsChanged = onSettingsChanged)
         }
     }
 }
