@@ -23,7 +23,7 @@ Built:
 
 Not done:
 
-- **Android app** (Jetpack Compose): not created. The shared module does not declare an Android target yet.
+- **Android app** (Jetpack Compose): not created. The shared module declares an Android target (file and SQLite driver actuals, a DataStore-backed settings store, and the offline sample content bundle installer), but no app has been built on top of it yet.
 - **iOS app** (SwiftUI): not created. The iOS targets are declared in the shared module, but they have not been built or tested.
 - **Bundle hosting**: no hosting location is configured in this repository, and no bundle has been published from it.
 - **On-device model** (LiteRT-LM): not started. Version 1 search is keyword only.
