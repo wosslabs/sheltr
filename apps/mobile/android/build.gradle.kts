@@ -49,6 +49,17 @@ android {
             isIncludeAndroidResources = true
         }
     }
+
+    sourceSets {
+        getByName("main") {
+            // Points directly at the repository's checksum-pinned apps/mobile/android-sample-bundle instead of
+            // a copy under src/main/assets: a copy could silently drift from that source (different bytes than
+            // what AssetBundleInstallerTest in :apps:mobile:shared actually verifies against). AGP packages this
+            // directory's own contents (bundle.json, documents/*.json) straight into assets/, so
+            // AndroidAssetBundleReader in SheltrApplication.kt reads them with no subdirectory prefix.
+            assets.srcDirs("../android-sample-bundle")
+        }
+    }
 }
 
 kotlin {

@@ -2,4 +2,6 @@
 <resources>
     <!-- Each later task (Home/Search/Answer/Settings) adds its own screen's entries to this same file. -->
     <string name="app_name">Sheltr</string>
+    <!-- Shown by MainActivity while it awaits the first-run sample bundle install, before any screen is composed. -->
+    <string name="preparing_offline_content">Preparing offline content…</string>
 </resources>
