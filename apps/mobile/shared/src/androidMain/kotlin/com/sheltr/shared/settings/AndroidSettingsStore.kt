@@ -2,10 +2,12 @@ package com.sheltr.shared.settings
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStoreFile
 import kotlinx.coroutines.flow.first
@@ -15,7 +17,10 @@ import kotlinx.coroutines.runBlocking
  * [SettingsStore] backed by AndroidX DataStore (Preferences). One [Preferences.Key][androidx.datastore.preferences.core.Preferences.Key]
  * per [AppSettings] field; a key missing from the preferences file (first run, or a file written before a field
  * such as [AppSettings.highContrast] existed) falls back to that field's [AppSettings] default rather than
- * failing, so partially-written preference files stay valid across app updates that add fields.
+ * failing, so partially-written preference files stay valid across app updates that add fields. A preferences
+ * file DataStore cannot even parse (on-disk corruption) is handled the same way: a `corruptionHandler` replaces
+ * it with an empty one instead of letting [get] throw, so this store keeps its "always returns valid settings"
+ * guarantee even then.
  *
  * [SettingsStore] is a synchronous port (see its doc comment); DataStore's API is suspend-based, so [get] and
  * [put] block with [runBlocking] to bridge the two. [context] is narrowed to [Context.getApplicationContext] on
@@ -25,6 +30,7 @@ import kotlinx.coroutines.runBlocking
 class AndroidSettingsStore(context: Context) : SettingsStore {
     private val appContext = context.applicationContext
     private val dataStore: DataStore<Preferences> = PreferenceDataStoreFactory.create(
+        corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
         produceFile = { appContext.preferencesDataStoreFile(PREFERENCES_FILE_NAME) },
     )
 
