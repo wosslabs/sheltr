@@ -2,6 +2,7 @@ package com.sheltr.android.ui.answer
 
 import android.app.Application
 import android.speech.tts.TextToSpeech
+import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
 import com.sheltr.android.ui.RetrievalResultHolder
 import com.sheltr.android.ui.search.RetrieverPort
@@ -47,8 +48,8 @@ private fun passageFixture(content: String = "Boil water for at least one minute
 /**
  * `@Config(application = Application::class)` + Robolectric: [AnswerViewModel] takes a real
  * [TextToSpeechController], which wraps a real (shadowed) `android.speech.tts.TextToSpeech` -- unlike
- * `SearchViewModelTest`, this cannot stay plain-JUnit. [retrieverFor]/[RetrieverPort] still keep retrieval
- * itself Android-free, same as `SearchViewModelTest`.
+ * `SearchViewModelTest`, this cannot stay plain-JUnit. [RetrieverPort] still keeps retrieval itself
+ * Android-free, same as `SearchViewModelTest`.
  *
  * Robolectric's own simulated main `Looper` is enough to back `viewModelScope`'s `Dispatchers.Main.immediate`
  * hop (no `MainDispatcherRule` needed, same as `SearchScreenTest`); `ioDispatcher` is still injected explicitly
@@ -206,5 +207,45 @@ class AnswerViewModelTest {
         vm.onReadAloudTapped()
 
         assertNull(shadowEngine.lastSpokenText)
+    }
+
+    @Test
+    fun onClearedShutsDownTheTtsController() {
+        // ViewModelStore.clear() is the standard, documented way to invoke a ViewModel's protected onCleared()
+        // from a test without a subclass or reflection: it is exactly what Navigation Compose itself calls
+        // when a back-stack entry (and the ViewModelStore scoped to it) is popped, so this exercises the real
+        // mechanism, not a stand-in for it.
+        val controller = ttsController()
+        val shadowEngine = shadowOf(ShadowTextToSpeech.getLastTextToSpeechInstance())
+        val vm = AnswerViewModel(
+            resultId = RetrievalResultHolder.put(RetrievalResult.Refusal),
+            text = "x",
+            hazard = null,
+            retriever = RetrieverPort { error("not expected") },
+            country = null,
+            ttsController = controller,
+        )
+        val store = ViewModelStore()
+        store.put("answer", vm)
+
+        assertTrue(!shadowEngine.isShutdown)
+        store.clear()
+
+        assertTrue(shadowEngine.isShutdown)
+    }
+
+    @Test(expected = IllegalStateException::class)
+    fun throwsRatherThanSilentlyRefusingWhenNeitherTakeNorTextCanProduceAResult() {
+        // Route.Answer's one caller always supplies text (see its doc comment); resultId/text both missing
+        // would mean that contract broke. AnswerViewModel must fail loudly here, not quietly show a Refusal
+        // that would look to the user like a deliberate "no answer" rather than a bug.
+        AnswerViewModel(
+            resultId = "unknown",
+            text = null,
+            hazard = null,
+            retriever = RetrieverPort { error("not expected") },
+            country = null,
+            ttsController = ttsController(),
+        )
     }
 }
