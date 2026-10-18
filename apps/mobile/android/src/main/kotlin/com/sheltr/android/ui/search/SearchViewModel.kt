@@ -69,20 +69,31 @@ class SearchViewModel(
      * shared module's FTS5-backed search has no well-defined relevance score to gate on.
      *
      * Otherwise runs [retriever] on [ioDispatcher] inside [viewModelScope] and, once it completes, invokes
-     * [onNavigateToAnswer] back on the main thread with the [RetrievalResult]. This ViewModel only knows it ran
-     * a query; the caller (`SearchScreen`, wired up by `SheltrNavHost`) decides what "navigate to Answer" means.
+     * [onNavigateToAnswer] back on the main thread with the [RetrievalResult] *and* the exact `submittedText`/
+     * `submittedHazard` that produced it. This ViewModel only knows it ran a query; the caller (`SearchScreen`,
+     * wired up by `SheltrNavHost`) decides what "navigate to Answer" means -- but it needs those two values,
+     * not just the result, because `Route.Answer` carries them as nav arguments so Answer can re-run the same
+     * retrieval if its process is recreated before it ever reads the in-memory
+     * [com.sheltr.android.ui.RetrievalResultHolder] (see that class's doc comment for why this is necessary,
+     * not optional).
+     *
+     * `submittedText`/`submittedHazard` are captured into local `val`s *before* the dispatcher hop, not read
+     * back from [query]/[activeHazard] after it: those [StateFlow]s could have changed (the user kept typing)
+     * while retrieval was in flight, and the values that must reach `Route.Answer` are the ones that actually
+     * produced this [RetrievalResult], not whatever is in the text field by the time the callback fires.
      */
-    fun onSubmit(onNavigateToAnswer: (RetrievalResult) -> Unit) {
+    fun onSubmit(onNavigateToAnswer: (result: RetrievalResult, submittedText: String, submittedHazard: String?) -> Unit) {
         val text = query.value.trim()
         if (text.isEmpty()) return
+        val hazard = activeHazard.value
         val request = RetrievalQuery(
             text = text,
             country = country,
-            activeHazards = activeHazard.value?.let { setOf(it) } ?: emptySet(),
+            activeHazards = hazard?.let { setOf(it) } ?: emptySet(),
         )
         viewModelScope.launch {
             val result = withContext(ioDispatcher) { retriever.retrieve(request) }
-            onNavigateToAnswer(result)
+            onNavigateToAnswer(result, text, hazard)
         }
     }
 }
