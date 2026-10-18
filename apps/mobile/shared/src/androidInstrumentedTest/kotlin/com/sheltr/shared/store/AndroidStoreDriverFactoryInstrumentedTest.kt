@@ -9,10 +9,7 @@ import com.sheltr.shared.bundle.BundleDocument
 import com.sheltr.shared.bundle.BundleManifest
 import com.sheltr.shared.bundle.DocumentChunk
 import com.sheltr.shared.bundle.DocumentFile
-import java.nio.file.Files
-import java.nio.file.Path
-import kotlin.io.path.ExperimentalPathApi
-import kotlin.io.path.deleteRecursively
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -26,9 +23,10 @@ import org.junit.runner.RunWith
  * It is the only test that can actually prove AndroidStoreDriverFactory works end to end: requery's native
  * SQLite (needed because Android's own bundled SQLite lacks FTS5 -- see AndroidStoreDriverFactory's doc comment)
  * ships device-ABI native libraries only, so it cannot run under Robolectric or any host-JVM test (confirmed
- * while building this suite: AndroidStoreDriverFactoryTest, the Robolectric attempt, failed with
- * UnsatisfiedLinkError the moment the database was first opened). Until this test is run on a device or
- * emulator, the FTS5-via-requery path -- this app's only retrieval mechanism, on Android -- is unverified.
+ * while building this suite: an earlier Robolectric version of this same test, since removed in favor of this
+ * instrumented one, failed with UnsatisfiedLinkError the moment the database was first opened). Until this test
+ * is run on a device or emulator, the FTS5-via-requery path -- this app's only retrieval mechanism, on Android --
+ * is unverified.
  *
  * Mirrors the jvmTest ContentStoreTest and androidUnitTest StoreFilesAndroidTest fixture shape: install a tiny
  * manifest and document, close, reopen a fresh ContentStore on the same directory, and confirm the document,
@@ -38,10 +36,12 @@ import org.junit.runner.RunWith
 class AndroidStoreDriverFactoryInstrumentedTest {
 
     @Test
-    @OptIn(ExperimentalPathApi::class)
     fun opensReopensAndSearchesTheSameFile() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val dir: Path = Files.createTempDirectory("sheltr-android-store")
+        // minSdk 24: java.nio.file/kotlin.io.path need API 26+, so plain java.io.File is used here, same as the
+        // production actuals in StoreFiles.android.kt.
+        val dir = File(context.cacheDir, "sheltr-android-store-${System.nanoTime()}")
+        check(dir.mkdirs()) { "could not create test directory $dir" }
         try {
             val store = ContentStore(dir.toString(), AndroidStoreDriverFactory(context))
             store.install(MANIFEST, SOURCE)
