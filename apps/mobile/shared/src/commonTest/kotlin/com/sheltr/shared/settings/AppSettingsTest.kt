@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class AppSettingsTest {
 
@@ -15,6 +16,13 @@ class AppSettingsTest {
         assertFalse(defaults.allowMobileData)
         assertNull(defaults.country)
         assertEquals(TextScale.NORMAL, defaults.textScale)
+    }
+
+    @Test
+    fun highContrastDefaultsToFalseAndRoundTripsThroughCopy() {
+        val settings = AppSettings()
+        assertFalse(settings.highContrast)
+        assertTrue(settings.copy(highContrast = true).highContrast)
     }
 
     @Test
