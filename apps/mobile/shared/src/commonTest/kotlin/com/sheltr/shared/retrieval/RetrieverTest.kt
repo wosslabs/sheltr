@@ -104,11 +104,61 @@ class RetrieverTest {
         assertEquals(1.0, KEYWORD_RELEVANCE_THRESHOLD)
     }
 
-    private class FakeStore(val documents: List<StoredDocument>, private val hits: List<SearchHit>) : StoreReader {
+    @Test
+    fun typoInQueryIsCorrectedWhenFirstSearchRefuses() {
+        val store = FakeStore(
+            documents = listOf(document("d", country = null, hazards = listOf("EARTHQUAKE"))),
+            respondTo = mapOf(
+                "eartquake shelter" to emptyList(),
+                "earthquake shelter" to listOf(hit("a", "d", -5.0)), // well above threshold once negated
+            ),
+        )
+        val result = Retriever(store).retrieve(RetrievalQuery("eartquake shelter"))
+        assertIs<RetrievalResult.Passages>(result)
+        assertEquals("a", result.passages.first().chunk.id)
+        // Proves the retry actually re-queried with the corrected text, not just that the answer happened to match.
+        assertEquals(2, store.searchCallCount)
+    }
+
+    @Test
+    fun rankSearchesTheSynonymExpandedText() {
+        // respondTo has no entry for the raw query "quake": if rank() searched that text verbatim (skipping
+        // expandWithSynonyms), search would return empty and no hit would be found. Only the expanded text
+        // "quake earthquake" has a hit registered, so a result here proves rank() actually expands before searching.
+        val store = FakeStore(
+            documents = listOf(document("d", country = null, hazards = listOf("EARTHQUAKE"))),
+            respondTo = mapOf("quake earthquake" to listOf(hit("a", "d", -5.0))),
+        )
+        val result = Retriever(store).rank(RetrievalQuery("quake"))
+        assertEquals(listOf("a"), result.map { it.chunk.id })
+    }
+
+    @Test
+    fun noRetryWhenCorrectionDoesNotChangeTheQuery() {
+        // "water" has no vocabulary term within distance 1, so correctTypos("water") == "water": the fallback must
+        // not call store.search a second time with the same text. The respondTo map has no entry for "water", so a
+        // second call would also return empty (and still refuse); the call count is what actually proves no retry.
+        val store = FakeStore(documents = emptyList(), respondTo = emptyMap())
+        assertEquals(RetrievalResult.Refusal, Retriever(store).retrieve(RetrievalQuery("water")))
+        assertEquals(1, store.searchCallCount)
+    }
+
+    private class FakeStore(
+        val documents: List<StoredDocument>,
+        private val hits: List<SearchHit> = emptyList(),
+        private val respondTo: Map<String, List<SearchHit>>? = null,
+    ) : StoreReader {
+        /** Number of [search] calls made so far; lets a test prove whether a retry happened. */
+        var searchCallCount: Int = 0
+            private set
+
         override fun bundleVersion() = "test"
         override fun document(id: String) = documents.firstOrNull { it.id == id }
         override fun chunks(documentId: String) = hits.map { it.chunk }.filter { it.documentId == documentId }
-        override fun search(query: String, limit: Int) = hits.take(limit)
+        override fun search(query: String, limit: Int): List<SearchHit> {
+            searchCallCount++
+            return respondTo?.let { it[query].orEmpty() } ?: hits.take(limit)
+        }
     }
 
     private companion object {

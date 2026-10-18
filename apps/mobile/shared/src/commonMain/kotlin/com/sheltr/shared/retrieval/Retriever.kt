@@ -60,7 +60,17 @@ class Retriever(
     fun retrieve(query: RetrievalQuery): RetrievalResult {
         require(query.limit > 0) { "limit must be positive" }
         val passages = rank(query)
-        return if (isAnswerable(passages, threshold)) RetrievalResult.Passages(passages) else RetrievalResult.Refusal
+        if (isAnswerable(passages, threshold)) return RetrievalResult.Passages(passages)
+        // Keyword search found nothing good enough: retry once with likely typos fixed, e.g. "eartquake" ->
+        // "earthquake". Most queries have no typo to fix; skip the second search when correction is a no-op.
+        val corrected = correctTypos(query.text)
+        if (corrected == query.text) return RetrievalResult.Refusal
+        val correctedPassages = rank(query.copy(text = corrected))
+        return if (isAnswerable(correctedPassages, threshold)) {
+            RetrievalResult.Passages(correctedPassages)
+        } else {
+            RetrievalResult.Refusal
+        }
     }
 
     /** Ranked passages without the relevance gate. */
@@ -69,7 +79,9 @@ class Retriever(
         // As on the server: with a boost, rank a larger pool so a boosted passage just below the cut can move up.
         val pool = if (boosting) query.limit * POOL_MULTIPLIER else query.limit
         val documents = mutableMapOf<String, StoredDocument>()
-        val passages = store.search(query.text, pool).map { hit ->
+        // Append known synonyms' canonical terms (e.g. "quake" -> also "earthquake") so the store search can match
+        // either wording; the original text is kept as written.
+        val passages = store.search(expandWithSynonyms(query.text), pool).map { hit ->
             val document = documents.getOrPut(hit.chunk.documentId) {
                 checkNotNull(store.document(hit.chunk.documentId)) { "chunk ${hit.chunk.id} has no document" }
             }
