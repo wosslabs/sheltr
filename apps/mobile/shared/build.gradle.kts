@@ -17,7 +17,11 @@ repositories {
 
 android {
     namespace = "com.sheltr.shared"
-    compileSdk = 34
+    // androidx.core:core:1.15.0 (a transitive of requery's sqlite-android) and SQLDelight's android-driver:2.4.0
+    // both require compileSdk 35. Going further, to 37 (forced by okhttp-android:5.5.0, transitive of Ktor's
+    // ktor-client-okhttp engine), would need an AGP bump past this plan's pinned 8.7.3 (which caps at 35) -- so
+    // ktor-client-okhttp is removed below instead; see the comment there.
+    compileSdk = 35
 
     defaultConfig {
         minSdk = 24
@@ -83,8 +87,11 @@ kotlin {
             // per-ABI native library (~1.2-1.8 MB each) to the APK; ABI-split packaging to shrink that is a
             // separate concern.
             implementation("com.github.requery:sqlite-android:3.49.0")
-            // OkHttp engine.
-            implementation("io.ktor:ktor-client-okhttp:3.6.0")
+            // NOT added here: io.ktor:ktor-client-okhttp (the OkHttp engine). It is unused by every task in this
+            // plan -- wired in only for the later Android sync plan, not this one -- and its transitive
+            // okhttp-android:5.5.0 forces compileSdk 37, which would need an AGP version beyond this plan's
+            // pinned 8.7.3 (capped at compileSdk 35). Re-add it, together with whatever compileSdk/AGP bump it
+            // needs, when a future task actually builds Android sync.
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
@@ -94,7 +101,9 @@ kotlin {
         }
         androidInstrumentedTest.dependencies {
             // Only used by AndroidStoreDriverFactoryInstrumentedTest, run via connectedAndroidTest on a real
-            // device/emulator -- not executed by testDebugUnitTest.
+            // device/emulator -- not executed by testDebugUnitTest. androidInstrumentedTest does not inherit
+            // commonTest's kotlin("test") automatically, so it's repeated here.
+            implementation(kotlin("test"))
             implementation("androidx.test:runner:1.7.0")
             implementation("androidx.test.ext:junit:1.3.0")
         }

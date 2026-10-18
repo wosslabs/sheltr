@@ -5,6 +5,7 @@ import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import com.sheltr.shared.store.db.SheltrDatabase
 import io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory
+import java.io.File
 
 /**
  * Android driver over app.cash.sqldelight's android-driver (SupportSQLiteOpenHelper-backed). [path] is passed as
@@ -18,9 +19,12 @@ import io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory
  * and FTS4 are enabled, FTS5 is not), but this app's schema needs FTS5. Without this factory, schema creation
  * fails with "no such module: fts5" on every real device, not only under Robolectric.
  *
- * The driver's default callback creates the schema itself when the file's user_version is 0, which is the case
- * exactly when [create] is true (a brand new file), so [create] needs no separate handling here -- the same
- * reasoning as NativeStoreDriverFactory for iOS.
+ * The driver's default callback creates the schema itself when the file's user_version is 0, which is normally
+ * the case exactly when [create] is true (a brand new file) -- the same reasoning as NativeStoreDriverFactory for
+ * iOS. But unlike the JVM/iOS drivers, this one does not fail or no-op on its own if [create] is false and the
+ * file is missing: SQLiteOpenHelper would just treat the absent file as new and silently create the schema
+ * anyway, violating the explicit "the file already holds a complete database" half of [StoreDriverFactory.open]'s
+ * contract. [open] checks this itself instead, matching [JdbcStoreDriverFactory]'s explicit `if (create)` gate.
  *
  * No Context is available at the commonMain boundary, so the app module -- which owns the one Context it has --
  * constructs this factory and passes it to ContentStore.
@@ -36,11 +40,13 @@ import io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory
  * item before release, not a formality.
  */
 class AndroidStoreDriverFactory(private val context: Context) : StoreDriverFactory {
-    override fun open(path: String, create: Boolean): SqlDriver =
-        AndroidSqliteDriver(
+    override fun open(path: String, create: Boolean): SqlDriver {
+        check(create || File(path).isFile) { "no database file at $path to open" }
+        return AndroidSqliteDriver(
             SheltrDatabase.Schema,
             context,
             name = path,
             factory = RequerySQLiteOpenHelperFactory(),
         )
+    }
 }

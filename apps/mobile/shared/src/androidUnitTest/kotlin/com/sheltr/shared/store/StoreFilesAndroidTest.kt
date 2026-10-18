@@ -11,6 +11,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -92,5 +93,14 @@ class StoreFilesAndroidTest {
 
         assertFalse(source.exists())
         assertEquals("new content", target.readText())
+    }
+
+    @Test
+    fun atomicReplaceFileThrowsWhenSourceIsMissing() {
+        val source = dir.resolve("missing-source.txt")
+        val target = dir.resolve("target.txt")
+        target.writeText("old content")
+
+        assertFailsWith<IllegalStateException> { atomicReplaceFile(source.toString(), target.toString()) }
     }
 }
