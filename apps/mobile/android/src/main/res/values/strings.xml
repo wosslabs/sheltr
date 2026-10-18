@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Each later task (Home/Search/Answer/Settings) adds its own screen's entries to this same file. -->
+    <string name="app_name">Sheltr</string>
+    <!-- Shown by MainActivity while it awaits the first-run sample bundle install, before any screen is composed. -->
+    <string name="preparing_offline_content">Preparing offline content…</string>
+
+    <!-- Home screen (Task 2). -->
+    <string name="home_title">Prepare for a disaster</string>
+    <string name="home_search_placeholder">Search for guidance</string>
+    <string name="home_search_hint_description">Search Sheltr\'s disaster preparedness guidance</string>
+    <string name="home_settings_button_label">Settings</string>
+    <string name="hazard_earthquake">Earthquake</string>
+    <string name="hazard_flood">Flood</string>
+    <string name="hazard_tropical_cyclone">Tropical Cyclone</string>
+    <string name="hazard_tornado">Tornado</string>
+    <string name="hazard_tsunami">Tsunami</string>
+    <string name="hazard_wildfire">Wildfire</string>
+    <string name="hazard_extreme_heat">Extreme Heat</string>
+    <string name="hazard_winter_storm">Winter Storm</string>
+    <string name="hazard_landslide">Landslide</string>
+    <string name="hazard_glacial_lake_flood">Glacial Lake Flood</string>
+    <string name="hazard_volcano">Volcano</string>
+    <string name="hazard_drought">Drought</string>
+
+    <!-- Search screen (Task 3). -->
+    <string name="search_title">Search</string>
+    <string name="search_placeholder">What do you need to know?</string>
+    <string name="search_active_hazard_chip_description">Clear hazard filter</string>
+    <string name="search_submit_description">Search</string>
+
+    <!-- Answer screen (Task 4). -->
+    <string name="answer_source_label">Source</string>
+    <string name="answer_source_published">Published %1$s</string>
+    <string name="answer_source_page">Page %1$d</string>
+    <string name="answer_read_aloud_description">Read answer aloud</string>
+    <string name="answer_read_aloud_unavailable">Read-aloud isn\'t available on this device.</string>
+    <string name="answer_refusal_title">We can\'t answer that yet</string>
+    <!-- Sheltr's own wording for a refusal, deliberately not a copy of the shared module's
+         RetrievalResult.Refusal.MESSAGE (an internal constant shared with the server, not a localizable UI
+         string): this is the only text AnswerScreen is allowed to show for a refusal. -->
+    <string name="answer_refusal_body">Sheltr doesn\'t have reliable guidance on this yet. Try different search words, or contact local emergency services for urgent help.</string>
+
+    <!-- Settings screen (Task 5). -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_country_label">Country</string>
+    <string name="settings_country_not_set">Not set</string>
+    <string name="settings_language_label">Language</string>
+    <!-- "System default" is the only language-picker option this app actually translates; the other three
+         (English/Español/Français) are deliberately shown as literal, untranslated strings in SettingsScreen.kt,
+         since each one names its own language and must not be translated into the viewer's current UI language. -->
+    <string name="settings_language_system_default">System default</string>
+    <!-- States plainly that this setting only changes menus/labels, not guidance content (spec requirement). -->
+    <string name="settings_language_notice">Language only changes menus and labels in this app. Disaster guidance content stays in its original language.</string>
+    <string name="settings_text_size_label">Text size</string>
+    <string name="settings_text_size_normal">Normal</string>
+    <string name="settings_text_size_large">Large</string>
+    <string name="settings_text_size_extra_large">Extra large</string>
+    <string name="settings_high_contrast_label">High contrast</string>
+    <string name="settings_sync_now_label">Sync now</string>
+    <string name="settings_last_sync_label">Last synced: %1$s</string>
+    <string name="settings_last_sync_never">Never</string>
+    <string name="settings_sync_unavailable_message">Sync isn\'t available in this build.</string>
+    <string name="settings_sync_up_to_date_message">Up to date (bundle %1$s)</string>
+    <string name="settings_sync_updated_message">Updated to bundle %1$s (%2$d documents downloaded)</string>
+    <string name="settings_sync_rejected_signature_message">Sync rejected: the published bundle\'s signature did not verify.</string>
+    <string name="settings_sync_failed_message">Sync failed: %1$s</string>
+    <string name="settings_sync_dismiss_label">Dismiss</string>
+</resources>
