@@ -8,11 +8,11 @@ import kotlin.test.assertEquals
 
 /**
  * Exercises [AndroidSettingsStore] against a real (Robolectric-shadowed) [android.content.Context] and a real
- * AndroidX DataStore -- not an in-memory fake -- so these assertions cover actual preference-file persistence,
- * not just object identity. Each test method gets a fresh Robolectric application context, so
- * [putThenGetRoundTripsEveryField] constructing a second [AndroidSettingsStore] instance (rather than reusing
- * the one it already has) is what proves the value survived a real write/read round trip through DataStore
- * rather than an in-memory field on the first instance.
+ * AndroidX DataStore -- not an in-memory fake -- so [putThenGetRoundTripsEveryField]'s `put` writes to an actual
+ * preferences file on disk before `get` reads it back, rather than merely asserting an in-memory field was set.
+ * Both tests use a single [AndroidSettingsStore] instance: AndroidX DataStore allows only one live instance per
+ * backing file in a process, so a second instance constructed against the same [android.content.Context] here
+ * would throw instead of exercising anything useful.
  */
 @RunWith(RobolectricTestRunner::class)
 class AndroidSettingsStoreTest {
@@ -25,7 +25,7 @@ class AndroidSettingsStoreTest {
 
     @Test
     fun putThenGetRoundTripsEveryField() {
-        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val store = AndroidSettingsStore(ApplicationProvider.getApplicationContext())
         val settings = AppSettings(
             syncFrequency = SyncFrequency.DAILY,
             allowMobileData = true,
@@ -33,10 +33,8 @@ class AndroidSettingsStoreTest {
             textScale = TextScale.LARGE,
             highContrast = true,
         )
-        AndroidSettingsStore(context).put(settings)
+        store.put(settings)
 
-        val reloaded = AndroidSettingsStore(context).get()
-
-        assertEquals(settings, reloaded)
+        assertEquals(settings, store.get())
     }
 }
