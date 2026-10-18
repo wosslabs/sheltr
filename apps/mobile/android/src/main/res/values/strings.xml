@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Each later task (Home/Search/Answer/Settings) adds its own screen's entries to this same file. -->
+    <string name="app_name">Sheltr</string>
+</resources>
