@@ -155,7 +155,12 @@ fun SheltrNavHost(
             )
         }
         composable(Route.Answer.path) { backStackEntry ->
-            val context = LocalContext.current
+            // applicationContext, not the Activity context LocalContext.current would otherwise hand us:
+            // TextToSpeech retains whatever context it's constructed with for its whole lifetime (until
+            // shutdown(), in AnswerViewModel.onCleared()), which can outlive this particular Activity instance
+            // (e.g. a configuration change recreates the Activity while this nav back-stack entry, and the
+            // ViewModel/TTS engine it owns, survive) -- an Activity context held that long is a leak.
+            val context = LocalContext.current.applicationContext
             val resultId = backStackEntry.arguments?.getString("resultId")
             val text = backStackEntry.arguments?.getString("text")
             val hazard = backStackEntry.arguments?.getString("hazard")

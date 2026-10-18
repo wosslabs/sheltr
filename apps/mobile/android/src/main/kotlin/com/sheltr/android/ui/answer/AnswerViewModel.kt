@@ -67,13 +67,17 @@ class AnswerViewModel(
 
     init {
         val held = resultId?.let { RetrievalResultHolder.take(it) }
-        when {
-            held != null -> _result.value = held
+        if (held != null) {
+            _result.value = held
+        } else {
             // text is always supplied by the one caller that builds Route.Answer (see that route's doc
-            // comment), so this branch is the real fallback path. The `else` below is an unreachable-in-practice
-            // safety net, not a path any real navigation produces.
-            text != null -> rerunRetrieval(text, hazard)
-            else -> _result.value = RetrievalResult.Refusal
+            // comment): a null text here means that contract broke, not that there is genuinely nothing to
+            // answer. Fail loudly (a crash is visible and gets fixed) rather than silently manufacturing a
+            // Refusal state that would look like a real, deliberate "no answer" to the user.
+            val checkedText = checkNotNull(text) {
+                "Route.Answer always supplies text; got resultId=$resultId, text=null"
+            }
+            rerunRetrieval(checkedText, hazard)
         }
     }
 
