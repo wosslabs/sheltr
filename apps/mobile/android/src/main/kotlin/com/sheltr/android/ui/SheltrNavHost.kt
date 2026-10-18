@@ -5,11 +5,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.sheltr.android.ui.home.HomeScreen
+import com.sheltr.android.ui.search.RetrieverPort
+import com.sheltr.android.ui.search.SearchScreen
+import com.sheltr.android.ui.search.SearchViewModel
 import com.sheltr.shared.retrieval.Retriever
 import com.sheltr.shared.settings.AppSettings
 import com.sheltr.shared.settings.SettingsStore
@@ -42,7 +48,20 @@ sealed class Route(val path: String) {
             return if (params.isEmpty()) "search" else "search?${params.joinToString("&")}"
         }
     }
-    data object Answer : Route("answer")
+    /**
+     * `resultId` carries the key into [RetrievalResultHolder] for the
+     * [com.sheltr.shared.retrieval.RetrievalResult] Search retrieved -- not the result itself, which can't be
+     * a type-safe nav argument (Bundle-backed arguments can't carry a non-Parcelable domain type; see
+     * [RetrievalResultHolder]'s doc comment for the full design this task, Task 3, built for Task 4 to
+     * consume: `AnswerViewModel` reads it with `RetrievalResultHolder.take(resultId)`).
+     *
+     * Unlike Search's `hazard`/`query`, `resultId` is a mandatory path segment, not an optional query
+     * parameter: Answer is only ever reached via this handoff (see the Search composable below), so there is
+     * no "blank" Answer route to support.
+     */
+    data object Answer : Route("answer/{resultId}") {
+        fun destination(resultId: String): String = "answer/${Uri.encode(resultId)}"
+    }
     data object Settings : Route("settings")
 }
 
@@ -51,9 +70,14 @@ sealed class Route(val path: String) {
  * once in [com.sheltr.android.SheltrApplication.onCreate]), not re-fetched from a singleton inside each screen,
  * so screens stay testable with fakes (see SheltrNavHostTest).
  *
- * Home (Task 2) is now the real [HomeScreen]; Search/Answer/Settings below remain placeholder stubs (a tagged,
- * empty [Box]) until Tasks 3-5 of this plan replace each with its real screen, reading whichever of these
- * dependencies that screen needs.
+ * Home (Task 2) and Search (Task 3) are now the real [HomeScreen]/`SearchScreen`; Answer/Settings below remain
+ * placeholder stubs (a tagged, empty [Box]) until Tasks 4-5 of this plan replace each with its real screen,
+ * reading whichever of these dependencies that screen needs.
+ *
+ * Search hands its [com.sheltr.shared.retrieval.RetrievalResult] to Answer via [RetrievalResultHolder]: the
+ * Search composable below stores the result and navigates with the id [RetrievalResultHolder.put] returns, as
+ * `Route.Answer.destination(resultId)`. See [RetrievalResultHolder]'s doc comment for why (Navigation Compose
+ * arguments can't carry a non-Parcelable domain type) and [Route.Answer]'s for the route shape this produces.
  *
  * [onSettingsChanged] is the callback Task 5's Settings screen calls after writing new [AppSettings], so
  * [com.sheltr.android.MainActivity] can update the [SheltrTheme][com.sheltr.android.ui.theme.SheltrTheme]
@@ -80,8 +104,25 @@ fun SheltrNavHost(
                 onSearchSubmit = { text -> navController.navigate(Route.Search.destination(query = text)) },
             )
         }
-        composable(Route.Search.path) {
-            Box(Modifier.testTag("search-screen"))
+        composable(Route.Search.path) { backStackEntry ->
+            SearchScreen(
+                onNavigateToAnswer = { result ->
+                    val resultId = RetrievalResultHolder.put(result)
+                    navController.navigate(Route.Answer.destination(resultId))
+                },
+                viewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            SearchViewModel(
+                                retriever = RetrieverPort(retriever::retrieve),
+                                country = settingsStore.get().country,
+                            )
+                        }
+                    },
+                ),
+                initialHazard = backStackEntry.arguments?.getString("hazard"),
+                initialQuery = backStackEntry.arguments?.getString("query"),
+            )
         }
         composable(Route.Answer.path) {
             Box(Modifier.testTag("answer-screen"))

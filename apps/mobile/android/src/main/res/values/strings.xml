@@ -21,4 +21,10 @@
     <string name="hazard_glacial_lake_flood">Glacial Lake Flood</string>
     <string name="hazard_volcano">Volcano</string>
     <string name="hazard_drought">Drought</string>
+
+    <!-- Search screen (Task 3). -->
+    <string name="search_title">Search</string>
+    <string name="search_placeholder">What do you need to know?</string>
+    <string name="search_active_hazard_chip_description">Clear hazard filter</string>
+    <string name="search_submit_description">Search</string>
 </resources>

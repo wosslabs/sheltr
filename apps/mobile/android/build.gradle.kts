@@ -97,6 +97,10 @@ dependencies {
     implementation("io.ktor:ktor-client-core:3.6.0")
 
     testImplementation("junit:junit:4.13.2")
+    // Same version as the main-source kotlinx-coroutines-android above. SearchViewModelTest/SearchScreenTest
+    // (Task 3) need TestDispatcher/runTest/advanceUntilIdle to drive SearchViewModel's Dispatchers.IO hop
+    // deterministically instead of racing a real thread pool.
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
     testImplementation("org.robolectric:robolectric:4.17")
     testImplementation(composeBom)
     testImplementation("androidx.compose.ui:ui-test-junit4")
