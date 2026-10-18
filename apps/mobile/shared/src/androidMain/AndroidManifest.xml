@@ -1,0 +1,6 @@
+<!--
+    Minimal library manifest: required by the Android Gradle library plugin even for a pure-Kotlin module with no
+    Android components. The namespace is declared via android.namespace in build.gradle.kts instead of the
+    package attribute here, since AGP 8.7.3 ignores package with a deprecation warning.
+-->
+<manifest />
