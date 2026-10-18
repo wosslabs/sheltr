@@ -11,6 +11,7 @@ data class AppSettings(
     val allowMobileData: Boolean = false,
     val country: String? = null,
     val textScale: TextScale = TextScale.NORMAL,
+    val highContrast: Boolean = false,
 ) {
     init {
         require(country == null || isValidCountry(country)) {

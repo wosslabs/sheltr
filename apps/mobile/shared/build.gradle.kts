@@ -92,12 +92,26 @@ kotlin {
             // okhttp-android:5.5.0 forces compileSdk 37, which would need an AGP version beyond this plan's
             // pinned 8.7.3 (capped at compileSdk 35). Re-add it, together with whatever compileSdk/AGP bump it
             // needs, when a future task actually builds Android sync.
+            // AndroidX DataStore (Preferences) 1.2.1 (Apache-2.0, https://developer.android.com/jetpack/androidx/releases/datastore):
+            // backs AndroidSettingsStore. 1.2.1 is the latest stable release on Google's Maven as of this
+            // writing (androidx/datastore/datastore-preferences/maven-metadata.xml); newer entries (1.3.0-alphaNN,
+            // 1.3.0-rc01) are pre-release.
+            implementation("androidx.datastore:datastore-preferences:1.2.1")
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
         }
         jvmTest.dependencies {
             implementation("io.ktor:ktor-client-mock:3.6.0")
+        }
+        androidUnitTest.dependencies {
+            // Robolectric 4.17 (MIT, https://github.com/robolectric/robolectric) + androidx.test:core 1.7.0 (same
+            // version as androidx.test:runner above, for consistency): AndroidSettingsStoreTest needs a real
+            // Context (via ApplicationProvider) to exercise AndroidX DataStore, which has no native-library
+            // dependency and so -- unlike requery's sqlite-android -- runs fine under Robolectric's host-JVM
+            // shadowing. Scoped to androidUnitTest only; androidInstrumentedTest keeps its own JUnit4 deps above.
+            implementation("org.robolectric:robolectric:4.17")
+            implementation("androidx.test:core:1.7.0")
         }
         androidInstrumentedTest.dependencies {
             // Only used by AndroidStoreDriverFactoryInstrumentedTest, run via connectedAndroidTest on a real
