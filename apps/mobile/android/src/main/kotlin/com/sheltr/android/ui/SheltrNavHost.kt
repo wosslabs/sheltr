@@ -3,7 +3,10 @@ package com.sheltr.android.ui
 import android.net.Uri
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -12,6 +15,9 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.sheltr.android.ui.answer.AnswerScreen
+import com.sheltr.android.ui.answer.AnswerViewModel
+import com.sheltr.android.ui.answer.TextToSpeechController
 import com.sheltr.android.ui.home.HomeScreen
 import com.sheltr.android.ui.search.RetrieverPort
 import com.sheltr.android.ui.search.SearchScreen
@@ -68,8 +74,8 @@ sealed class Route(val path: String) {
      * caller that builds this route (the Search composable below) -- `SearchViewModel.onSubmit` never invokes
      * its callback with a blank query (see that method's blank-guard). Navigation Compose still parses it as a
      * nullable query parameter like every other one here (Task 2's established, verified behavior), so
-     * `Route.Answer`'s own stub composable reading it must still null-check -- there is just never a real path
-     * that reaches it with `text` actually absent.
+     * `Route.Answer`'s composable below, and `AnswerViewModel` itself, still null-check it -- there is just
+     * never a real path that reaches either with `text` actually absent.
      */
     data object Answer : Route("answer/{resultId}?text={text}&hazard={hazard}") {
         /** [text]/[hazard] are the exact inputs that produced the [resultId] result -- see the class doc comment. */
@@ -89,18 +95,19 @@ sealed class Route(val path: String) {
  * once in [com.sheltr.android.SheltrApplication.onCreate]), not re-fetched from a singleton inside each screen,
  * so screens stay testable with fakes (see SheltrNavHostTest).
  *
- * Home (Task 2) and Search (Task 3) are now the real [HomeScreen]/`SearchScreen`; Answer/Settings below remain
- * placeholder stubs (a tagged, empty [Box]) until Tasks 4-5 of this plan replace each with its real screen,
- * reading whichever of these dependencies that screen needs.
+ * Home (Task 2), Search (Task 3) and Answer (Task 4) are now the real [HomeScreen]/`SearchScreen`/`AnswerScreen`;
+ * Settings below remains a placeholder stub (a tagged, empty [Box]) until Task 5 of this plan replaces it with
+ * its real screen, reading whichever of these dependencies that screen needs.
  *
  * Search hands its [com.sheltr.shared.retrieval.RetrievalResult] to Answer via [RetrievalResultHolder]: the
  * Search composable below stores the result and navigates with the id [RetrievalResultHolder.put] returns,
  * plus the exact text/hazard that produced it, as `Route.Answer.destination(resultId, text, hazard)`. The
  * text/hazard are not decoration -- [RetrievalResultHolder] is process memory only and does not survive
  * process death, while Navigation Compose's own back stack does, so Answer can be recomposed after a process
- * restart with a `resultId` this fresh process's holder has never seen. See [RetrievalResultHolder]'s doc
- * comment for the full reasoning and the fallback Task 4's `AnswerViewModel` must implement, and
- * [Route.Answer]'s for the route shape this produces.
+ * restart with a `resultId` this fresh process's holder has never seen. The Answer composable below reads
+ * `resultId`/`text`/`hazard` straight off `backStackEntry.arguments` and hands them to `AnswerViewModel`, which
+ * implements the `take()`-then-fallback recovery itself; see [RetrievalResultHolder]'s doc comment for the full
+ * reasoning, and [Route.Answer]'s for the route shape this produces.
  *
  * [onSettingsChanged] is the callback Task 5's Settings screen calls after writing new [AppSettings], so
  * [com.sheltr.android.MainActivity] can update the [SheltrTheme][com.sheltr.android.ui.theme.SheltrTheme]
@@ -147,8 +154,40 @@ fun SheltrNavHost(
                 initialQuery = backStackEntry.arguments?.getString("query"),
             )
         }
-        composable(Route.Answer.path) {
-            Box(Modifier.testTag("answer-screen"))
+        composable(Route.Answer.path) { backStackEntry ->
+            val context = LocalContext.current
+            val resultId = backStackEntry.arguments?.getString("resultId")
+            val text = backStackEntry.arguments?.getString("text")
+            val hazard = backStackEntry.arguments?.getString("hazard")
+            val viewModel: AnswerViewModel = viewModel(
+                factory = viewModelFactory {
+                    initializer {
+                        AnswerViewModel(
+                            resultId = resultId,
+                            text = text,
+                            hazard = hazard,
+                            retriever = RetrieverPort(retriever::retrieve),
+                            country = settingsStore.get().country,
+                            ttsController = TextToSpeechController(context),
+                        )
+                    }
+                },
+            )
+            val result by viewModel.result.collectAsState()
+            val readAloudAvailable by viewModel.readAloudAvailable.collectAsState()
+            val currentResult = result
+            if (currentResult != null) {
+                AnswerScreen(
+                    result = currentResult,
+                    onReadAloud = viewModel::onReadAloudTapped,
+                    readAloudAvailable = readAloudAvailable,
+                )
+            } else {
+                // Transient: the take()-then-fallback retrieval (AnswerViewModel's init, see
+                // RetrievalResultHolder's doc comment) is still in flight. Keeps the "answer-screen" tag
+                // present even during this brief window, same as the stub this replaces.
+                Box(Modifier.testTag("answer-screen"))
+            }
         }
         composable(Route.Settings.path) {
             Box(Modifier.testTag("settings-screen"))
