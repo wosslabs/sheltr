@@ -4,4 +4,21 @@
     <string name="app_name">Sheltr</string>
     <!-- Shown by MainActivity while it awaits the first-run sample bundle install, before any screen is composed. -->
     <string name="preparing_offline_content">Preparing offline content…</string>
+
+    <!-- Home screen (Task 2). -->
+    <string name="home_title">Prepare for a disaster</string>
+    <string name="home_search_placeholder">Search for guidance</string>
+    <string name="home_search_hint_description">Search Sheltr\'s disaster preparedness guidance</string>
+    <string name="hazard_earthquake">Earthquake</string>
+    <string name="hazard_flood">Flood</string>
+    <string name="hazard_tropical_cyclone">Tropical Cyclone</string>
+    <string name="hazard_tornado">Tornado</string>
+    <string name="hazard_tsunami">Tsunami</string>
+    <string name="hazard_wildfire">Wildfire</string>
+    <string name="hazard_extreme_heat">Extreme Heat</string>
+    <string name="hazard_winter_storm">Winter Storm</string>
+    <string name="hazard_landslide">Landslide</string>
+    <string name="hazard_glacial_lake_flood">Glacial Lake Flood</string>
+    <string name="hazard_volcano">Volcano</string>
+    <string name="hazard_drought">Drought</string>
 </resources>
