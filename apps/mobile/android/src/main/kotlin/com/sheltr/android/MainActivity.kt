@@ -3,18 +3,31 @@ package com.sheltr.android
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import com.sheltr.android.ui.SheltrNavHost
 import com.sheltr.android.ui.theme.SheltrTheme
 import com.sheltr.shared.settings.AppSettings
 
 /**
- * Hosts [SheltrNavHost] inside [SheltrTheme]. Reads [AppSettings] once from
- * [SheltrApplication.settingsStore] to pick the theme's `highContrast`/`textScale`, then hoists that settings
- * value as `mutableStateOf` so it can be updated without re-reading the store on every recomposition.
+ * Hosts [SheltrNavHost] inside [SheltrTheme], but only once [SheltrApplication.sampleBundleReady] completes:
+ * [com.sheltr.shared.store.ContentStore] is not thread safe against its own install, so no screen may be
+ * composed -- and therefore read [SheltrApplication.contentStore] or [SheltrApplication.retriever] -- until the
+ * first-run install attempt is done. Showing a brief loading message instead keeps that guarantee here, at the
+ * one call site that builds [SheltrNavHost], rather than pushing an awaiting responsibility onto every screen.
+ *
+ * Reads [AppSettings] once from [SheltrApplication.settingsStore] to pick the theme's `highContrast`/`textScale`,
+ * then hoists that settings value as `mutableStateOf` so it can be updated without re-reading the store on every
+ * recomposition.
  *
  * [SettingsStore][com.sheltr.shared.settings.SettingsStore] is a synchronous port with no change notifications,
  * so there is no reactive settings `Flow` to collect here; instead, [SheltrNavHost]'s `onSettingsChanged`
@@ -30,17 +43,29 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             var settings by remember { mutableStateOf(app.settingsStore.get()) }
+            var sampleBundleReady by remember { mutableStateOf(false) }
+
+            LaunchedEffect(Unit) {
+                app.sampleBundleReady.await()
+                sampleBundleReady = true
+            }
 
             SheltrTheme(highContrast = settings.highContrast, textScale = settings.textScale) {
-                SheltrNavHost(
-                    contentStore = app.contentStore,
-                    settingsStore = app.settingsStore,
-                    retriever = app.retriever,
-                    syncEngine = { app.syncEngine },
-                    publisherBaseUrl = app.publisherBaseUrl,
-                    publisherPublicKey = app.publisherPublicKey,
-                    onSettingsChanged = { updated -> settings = updated },
-                )
+                if (sampleBundleReady) {
+                    SheltrNavHost(
+                        contentStore = app.contentStore,
+                        settingsStore = app.settingsStore,
+                        retriever = app.retriever,
+                        syncEngine = { app.syncEngine },
+                        publisherBaseUrl = app.publisherBaseUrl,
+                        publisherPublicKey = app.publisherPublicKey,
+                        onSettingsChanged = { updated -> settings = updated },
+                    )
+                } else {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(stringResource(R.string.preparing_offline_content))
+                    }
+                }
             }
         }
     }

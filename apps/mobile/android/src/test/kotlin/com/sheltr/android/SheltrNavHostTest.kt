@@ -1,5 +1,6 @@
 package com.sheltr.android
 
+import android.app.Application
 import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -15,13 +16,22 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * Smoke test for [SheltrNavHost]: proves the NavHost actually renders and starts on the Home route, not just
  * that the composable compiles. Tasks 2-5 replace each stub screen; this test should keep passing unchanged as
  * long as the Home route's test tag survives.
+ *
+ * `@Config(application = Application::class)` overrides the manifest's `SheltrApplication` with a bare
+ * [Application] for this test: without it, Robolectric would instantiate the real `SheltrApplication` to back
+ * the test's [ComponentActivity], whose `onCreate` would start the real first-run sample-bundle install -- which
+ * opens a real [com.sheltr.shared.store.AndroidStoreDriverFactory] driver and so requires requery's native SQLite
+ * library, unavailable under Robolectric (see that factory's own doc comment). This test exercises [SheltrNavHost]
+ * in isolation with fakes below, not that install path, so the real `SheltrApplication` must not run here at all.
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(application = Application::class)
 class SheltrNavHostTest {
 
     @get:Rule
