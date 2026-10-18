@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        MainActivity is an AppCompatActivity (see that class's doc comment: the per-app language picker needs
+        it), which requires an AppCompat-derived theme. NoActionBar: this app's whole UI is Compose content set
+        via setContent {}, which already renders its own Material3 surfaces/top content, so a platform action
+        bar above it would be a stray, unused element.
+    -->
+    <style name="Theme.Sheltr" parent="Theme.AppCompat.DayNight.NoActionBar" />
+</resources>

@@ -12,9 +12,11 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
+import com.sheltr.android.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -100,5 +102,20 @@ class HomeScreenTest {
         compose.setContent { HomeScreen(onHazardTapped = {}, onSearchSubmit = {}) }
 
         compose.onNodeWithTag("home-screen").assertExists()
+    }
+
+    @Test
+    fun settingsButtonIsLabeledNotIconOnlyAndInvokesCallback() {
+        // Regression coverage for review Finding 1: Settings was unreachable from any screen. This asserts both
+        // that the button exists with a visible label (not icon-only, the Global Constraint on tappable
+        // controls) and that tapping it actually invokes the navigation callback SheltrNavHost wires up.
+        var tapped = false
+        compose.setContent { HomeScreen(onHazardTapped = {}, onSearchSubmit = {}, onSettingsTapped = { tapped = true }) }
+
+        val label = compose.activity.getString(R.string.home_settings_button_label)
+        compose.onNodeWithText(label).assertExists()
+        compose.onNodeWithTag("home-settings-button").performClick()
+
+        assertTrue(tapped)
     }
 }

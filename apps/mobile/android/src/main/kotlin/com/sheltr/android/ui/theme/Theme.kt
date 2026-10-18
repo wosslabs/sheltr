@@ -30,6 +30,20 @@ private val HighContrastColors = lightColorScheme(
     onSurface = Color.Black,
     error = Color.Black,
     onError = Color.White,
+    // Material3's default lightColorScheme() leaves these at mid-tone gray values even when the roles above are
+    // overridden -- Cards (CardDefaults' container), the filled TextField's container, and the Switch's track
+    // all read one of these roles, not `surface`/`background` directly, so without this they stayed visibly
+    // gray/washed-out under "high contrast" (the bug this finding reports). Pushed to the same pure black/white
+    // as every other role above, consistent with this mode's stated goal.
+    surfaceVariant = Color.White,
+    onSurfaceVariant = Color.Black,
+    outline = Color.Black,
+    outlineVariant = Color.Black,
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = Color.White,
+    surfaceContainer = Color.White,
+    surfaceContainerHigh = Color.White,
+    surfaceContainerHighest = Color.White,
 )
 
 /**

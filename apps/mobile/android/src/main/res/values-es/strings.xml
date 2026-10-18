@@ -7,6 +7,7 @@
     <string name="home_title">Prepárate para un desastre</string>
     <string name="home_search_placeholder">Buscar orientación</string>
     <string name="home_search_hint_description">Buscar en la guía de preparación ante desastres de Sheltr</string>
+    <string name="home_settings_button_label">Configuración</string>
     <string name="hazard_earthquake">Terremoto</string>
     <string name="hazard_flood">Inundación</string>
     <string name="hazard_tropical_cyclone">Ciclón tropical</string>

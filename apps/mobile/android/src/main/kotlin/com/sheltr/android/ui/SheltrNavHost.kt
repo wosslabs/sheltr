@@ -133,6 +133,7 @@ fun SheltrNavHost(
             HomeScreen(
                 onHazardTapped = { hazard -> navController.navigate(Route.Search.destination(hazard = hazard)) },
                 onSearchSubmit = { text -> navController.navigate(Route.Search.destination(query = text)) },
+                onSettingsTapped = { navController.navigate(Route.Settings.path) },
             )
         }
         composable(Route.Search.path) { backStackEntry ->
@@ -147,12 +148,12 @@ fun SheltrNavHost(
                             SearchViewModel(
                                 retriever = RetrieverPort(retriever::retrieve),
                                 country = settingsStore.get().country,
+                                initialHazard = backStackEntry.arguments?.getString("hazard"),
+                                initialQuery = backStackEntry.arguments?.getString("query"),
                             )
                         }
                     },
                 ),
-                initialHazard = backStackEntry.arguments?.getString("hazard"),
-                initialQuery = backStackEntry.arguments?.getString("query"),
             )
         }
         composable(Route.Answer.path) { backStackEntry ->

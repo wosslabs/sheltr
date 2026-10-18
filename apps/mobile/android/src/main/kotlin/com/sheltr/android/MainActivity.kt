@@ -1,10 +1,12 @@
 package com.sheltr.android
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,8 +35,17 @@ import com.sheltr.shared.settings.AppSettings
  * so there is no reactive settings `Flow` to collect here; instead, [SheltrNavHost]'s `onSettingsChanged`
  * callback is the mechanism by which a future write (Task 5's Settings screen, after calling
  * `settingsStore.put`) updates this hoisted state and triggers recomposition.
+ *
+ * [AppCompatActivity], not a plain `ComponentActivity`: `SettingsScreen`'s language picker calls
+ * `AppCompatDelegate.setApplicationLocales`, which only takes effect pre-API-33 when its host Activity is an
+ * `AppCompatActivity` (AppCompat's own documented per-app-language mechanism) -- on a plain `ComponentActivity`
+ * that call is a silent no-op on roughly API 24-32, which is most of this app's `minSdk = 24` range. Compose
+ * content set via `setContent {}` works identically under `AppCompatActivity`; this change does not move where
+ * or how the UI is rendered. The manifest's `android:theme` must derive from AppCompat (see
+ * `AndroidManifest.xml`) for this base class to work -- `Theme.Sheltr` (`res/values/themes.xml`) does, and is
+ * also a `NoActionBar` variant so no stray platform action bar renders above the Compose content below.
  */
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,19 +62,24 @@ class MainActivity : ComponentActivity() {
             }
 
             SheltrTheme(highContrast = settings.highContrast, textScale = settings.textScale) {
-                if (sampleBundleReady) {
-                    SheltrNavHost(
-                        contentStore = app.contentStore,
-                        settingsStore = app.settingsStore,
-                        retriever = app.retriever,
-                        syncEngine = { app.syncEngine },
-                        publisherBaseUrl = app.publisherBaseUrl,
-                        publisherPublicKey = app.publisherPublicKey,
-                        onSettingsChanged = { updated -> settings = updated },
-                    )
-                } else {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(stringResource(R.string.preparing_offline_content))
+                // Renders the theme's background color behind everything: without this, body text and
+                // backgrounds fall back to platform/Material defaults regardless of `highContrast`, since
+                // nothing else in this tree actually paints `MaterialTheme.colorScheme.background`.
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    if (sampleBundleReady) {
+                        SheltrNavHost(
+                            contentStore = app.contentStore,
+                            settingsStore = app.settingsStore,
+                            retriever = app.retriever,
+                            syncEngine = { app.syncEngine },
+                            publisherBaseUrl = app.publisherBaseUrl,
+                            publisherPublicKey = app.publisherPublicKey,
+                            onSettingsChanged = { updated -> settings = updated },
+                        )
+                    } else {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(stringResource(R.string.preparing_offline_content))
+                        }
                     }
                 }
             }

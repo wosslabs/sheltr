@@ -36,6 +36,18 @@ fun interface RetrieverPort {
  * fresh [SearchViewModel] is built the next time this screen is navigated to anyway (same "no reactive settings
  * Flow needed" simplicity level this plan's Task 1 already established for `MainActivity`).
  *
+ * [initialHazard]/[initialQuery] come from [com.sheltr.android.ui.SheltrNavHost]'s Search route's nav arguments
+ * (`Route.Search.destination(hazard, query)`) and seed [_activeHazard]/[_query] exactly once, here at
+ * construction -- not from a `LaunchedEffect` in `SearchScreen` keyed on first composition. That used to be
+ * where this was applied, but a `NavBackStackEntry`'s `ViewModelStore` (and therefore this ViewModel instance)
+ * survives the Search composable leaving and re-entering composition -- which happens on every back-navigation
+ * from Answer, and on every configuration change -- while a `LaunchedEffect(Unit)` in the Composable re-runs on
+ * every one of those re-entries. That silently overwrote a hazard chip the user had dismissed, or a query they
+ * had edited, back to the original nav arguments every time. Seeding the state here instead, in a constructor
+ * that only ever runs once for this ViewModel's lifetime, fixes that -- the same one-time-at-construction
+ * convention [com.sheltr.android.ui.answer.AnswerViewModel]'s `init` already established for `resultId`/`text`/
+ * `hazard`.
+ *
  * [ioDispatcher] defaults to [Dispatchers.IO] in production -- the shared module's retrieval is synchronous
  * SQLite I/O and must not run on the main thread. The constructor parameter exists purely so tests can supply a
  * [kotlinx.coroutines.test.TestDispatcher] (sharing the test's own scheduler) or [kotlinx.coroutines.Dispatchers.Unconfined]
@@ -45,14 +57,21 @@ fun interface RetrieverPort {
 class SearchViewModel(
     private val retriever: RetrieverPort,
     private val country: String?,
+    initialHazard: String? = null,
+    initialQuery: String? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
 
-    private val _query = MutableStateFlow("")
+    private val _query = MutableStateFlow(initialQuery ?: "")
     val query: StateFlow<String> = _query.asStateFlow()
 
-    private val _activeHazard = MutableStateFlow<String?>(null)
+    private val _activeHazard = MutableStateFlow(initialHazard)
     val activeHazard: StateFlow<String?> = _activeHazard.asStateFlow()
+
+    private val _isSubmitting = MutableStateFlow(false)
+
+    /** True from [onSubmit] starting a retrieval until it completes. Gates `SearchScreen`'s submit button. */
+    val isSubmitting: StateFlow<Boolean> = _isSubmitting.asStateFlow()
 
     fun onQueryChange(text: String) {
         _query.value = text
@@ -81,8 +100,14 @@ class SearchViewModel(
      * back from [query]/[activeHazard] after it: those [StateFlow]s could have changed (the user kept typing)
      * while retrieval was in flight, and the values that must reach `Route.Answer` are the ones that actually
      * produced this [RetrievalResult], not whatever is in the text field by the time the callback fires.
+     *
+     * Guarded by [isSubmitting]: a second tap (or a double `onSearch` IME event) while a retrieval is already in
+     * flight is a no-op instead of pushing a second Answer entry onto the back stack. `SearchScreen` also
+     * disables its submit button while [isSubmitting] is true, but that is a UI convenience, not the actual
+     * guard -- this check is what makes double-submission impossible regardless of which caller triggers it.
      */
     fun onSubmit(onNavigateToAnswer: (result: RetrievalResult, submittedText: String, submittedHazard: String?) -> Unit) {
+        if (_isSubmitting.value) return
         val text = query.value.trim()
         if (text.isEmpty()) return
         val hazard = activeHazard.value
@@ -91,8 +116,10 @@ class SearchViewModel(
             country = country,
             activeHazards = hazard?.let { setOf(it) } ?: emptySet(),
         )
+        _isSubmitting.value = true
         viewModelScope.launch {
             val result = withContext(ioDispatcher) { retriever.retrieve(request) }
+            _isSubmitting.value = false
             onNavigateToAnswer(result, text, hazard)
         }
     }

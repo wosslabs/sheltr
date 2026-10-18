@@ -67,12 +67,11 @@ private val hazardLabels: Map<String, Int> = mapOf(
  * Sheltr's search screen: a pre-focused text field, an optional dismissible chip for a hazard carried over from
  * a Home hazard tap, and a submit button that runs the query against the shared module's [RetrieverPort].
  *
- * [initialHazard]/[initialQuery] come from [com.sheltr.android.ui.SheltrNavHost]'s Search route's nav
- * arguments (Task 2's `Route.Search.destination(hazard, query)`); applied once, on first composition, to
- * [viewModel]. [viewModel] is always already constructed (with the real `country` and [RetrieverPort]) by
- * `SheltrNavHost` -- unlike `HomeScreen`'s trivial no-arg `HomeViewModel`, `SearchViewModel` needs constructor
- * arguments a default `viewModel()` call can't supply, so this screen takes it as a required parameter instead
- * of reaching for a singleton or a composition-local.
+ * [viewModel] is always already constructed (with the real `country`, [RetrieverPort], and any nav-carried
+ * `initialHazard`/`initialQuery` -- see [SearchViewModel]'s doc comment for why those are seeded there, not
+ * applied here) by `SheltrNavHost` -- unlike `HomeScreen`'s trivial no-arg `HomeViewModel`, `SearchViewModel`
+ * needs constructor arguments a default `viewModel()` call can't supply, so this screen takes it as a required
+ * parameter instead of reaching for a singleton or a composition-local.
  *
  * [onNavigateToAnswer] receives the [RetrievalResult] once [viewModel] finishes retrieving it, plus the exact
  * text/hazard that produced it (see [SearchViewModel.onSubmit]'s doc comment for why both are needed, not just
@@ -84,18 +83,15 @@ private val hazardLabels: Map<String, Int> = mapOf(
 fun SearchScreen(
     onNavigateToAnswer: (result: RetrievalResult, submittedText: String, submittedHazard: String?) -> Unit,
     viewModel: SearchViewModel,
-    initialHazard: String? = null,
-    initialQuery: String? = null,
 ) {
     val query by viewModel.query.collectAsState()
     val activeHazard by viewModel.activeHazard.collectAsState()
+    val isSubmitting by viewModel.isSubmitting.collectAsState()
     val focusRequester = remember { FocusRequester() }
     val submitDescription = stringResource(R.string.search_submit_description)
     val dismissHazardDescription = stringResource(R.string.search_active_hazard_chip_description)
 
     LaunchedEffect(Unit) {
-        initialHazard?.let { viewModel.onHazardSelected(it) }
-        initialQuery?.let { viewModel.onQueryChange(it) }
         focusRequester.requestFocus()
     }
 
@@ -151,6 +147,7 @@ fun SearchScreen(
 
         Button(
             onClick = { viewModel.onSubmit(onNavigateToAnswer) },
+            enabled = !isSubmitting,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 48.dp)

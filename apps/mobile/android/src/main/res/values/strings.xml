@@ -9,6 +9,7 @@
     <string name="home_title">Prepare for a disaster</string>
     <string name="home_search_placeholder">Search for guidance</string>
     <string name="home_search_hint_description">Search Sheltr\'s disaster preparedness guidance</string>
+    <string name="home_settings_button_label">Settings</string>
     <string name="hazard_earthquake">Earthquake</string>
     <string name="hazard_flood">Flood</string>
     <string name="hazard_tropical_cyclone">Tropical Cyclone</string>

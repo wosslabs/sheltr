@@ -3,6 +3,8 @@ package com.sheltr.android.ui.search
 import android.app.Application
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -10,7 +12,10 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import com.sheltr.android.R
 import com.sheltr.shared.retrieval.RetrievalResult
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Rule
@@ -30,6 +35,7 @@ import org.robolectric.annotation.Config
  * synchronously within `performClick()`'s own call stack, which is exactly what these tests need: a
  * deterministic assertion immediately after the click, with no dispatcher racing.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 class SearchScreenTest {
@@ -37,11 +43,19 @@ class SearchScreenTest {
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
 
-    private fun viewModel(result: RetrievalResult = RetrievalResult.Refusal): SearchViewModel =
+    private fun viewModel(
+        result: RetrievalResult = RetrievalResult.Refusal,
+        initialHazard: String? = null,
+        initialQuery: String? = null,
+        retriever: FakeRetriever = FakeRetriever(result),
+        ioDispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
+    ): SearchViewModel =
         SearchViewModel(
-            retriever = FakeRetriever(result),
+            retriever = retriever,
             country = null,
-            ioDispatcher = Dispatchers.Unconfined,
+            initialHazard = initialHazard,
+            initialQuery = initialQuery,
+            ioDispatcher = ioDispatcher,
         )
 
     @Test
@@ -82,7 +96,7 @@ class SearchScreenTest {
     @Test
     fun hazardChipIsOptionalAndClearable() {
         compose.setContent {
-            SearchScreen(onNavigateToAnswer = { _, _, _ -> }, viewModel = viewModel(), initialHazard = "FLOOD")
+            SearchScreen(onNavigateToAnswer = { _, _, _ -> }, viewModel = viewModel(initialHazard = "FLOOD"))
         }
 
         val floodLabel = compose.activity.getString(R.string.hazard_flood)
@@ -113,9 +127,9 @@ class SearchScreenTest {
 
     @Test
     fun initialQueryPrefillsTheTextField() {
-        val vm = viewModel()
+        val vm = viewModel(initialQuery = "flashlight batteries")
         compose.setContent {
-            SearchScreen(onNavigateToAnswer = { _, _, _ -> }, viewModel = vm, initialQuery = "flashlight batteries")
+            SearchScreen(onNavigateToAnswer = { _, _, _ -> }, viewModel = vm)
         }
 
         assertEquals("flashlight batteries", vm.query.value)
@@ -128,5 +142,22 @@ class SearchScreenTest {
         }
 
         compose.onNodeWithTag("search-screen").assertExists()
+    }
+
+    @Test
+    fun submitButtonIsDisabledWhileARetrievalIsInFlight() {
+        // Regression coverage for Finding 6: a retriever that never completes (nothing advances its
+        // StandardTestDispatcher's scheduler) keeps SearchViewModel.isSubmitting true, which must disable the
+        // button so a user cannot push a second Answer entry onto the back stack with a second tap.
+        val vm = viewModel(ioDispatcher = StandardTestDispatcher())
+        compose.setContent {
+            SearchScreen(onNavigateToAnswer = { _, _, _ -> }, viewModel = vm)
+        }
+        compose.onNodeWithTag("search-query-field").performTextInput("flood shelter")
+        compose.onNodeWithTag("search-submit-button").assertIsEnabled()
+
+        compose.onNodeWithTag("search-submit-button").performClick()
+
+        compose.onNodeWithTag("search-submit-button").assertIsNotEnabled()
     }
 }
