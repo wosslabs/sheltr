@@ -11,13 +11,13 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
@@ -109,10 +109,13 @@ fun SettingsScreen(
 
     LaunchedEffect(settings) { onSettingsChanged(settings) }
 
-    var syncMessage by rememberSaveable { mutableStateOf<String?>(null) }
-    // Resolved once, at composition time, so the onSyncNowTapped callback below -- invoked later, outside any
-    // composition, from a plain (non-@Composable) lambda -- never needs to call stringResource itself.
-    val syncUnavailableMessage = stringResource(R.string.settings_sync_unavailable_message)
+    // Holds the raw outcome, not an already-formatted String: onSyncNowTapped's result callback runs later,
+    // outside any composition, so it cannot call `stringResource` itself (see resolveSyncMessage's doc comment).
+    // Formatting happens below, during composition, from this state. Plain `remember`, not `rememberSaveable`:
+    // SyncOutcomeMessage isn't Parcelable, and this transient, dismissible message is not worth a custom Saver --
+    // losing it across a config change/process death just means the message re-shows as absent, not wrong.
+    var syncOutcome by remember { mutableStateOf<SyncOutcomeMessage?>(null) }
+    val syncMessage = syncOutcome?.let { resolveSyncMessage(it) }
 
     Column(
         modifier = Modifier
@@ -140,25 +143,31 @@ fun SettingsScreen(
             lastSyncEpochSeconds = lastSyncEpochSeconds,
             syncInProgress = syncInProgress,
             message = syncMessage,
-            onDismissMessage = { syncMessage = null },
-            onSyncNowTapped = {
-                viewModel.onSyncNowTapped { result ->
-                    syncMessage = resolveSyncMessage(result, syncUnavailableMessage)
-                }
-            },
+            onDismissMessage = { syncOutcome = null },
+            onSyncNowTapped = { viewModel.onSyncNowTapped { outcome -> syncOutcome = outcome } },
         )
     }
 }
 
 /**
- * [SettingsViewModel.SYNC_UNAVAILABLE_MESSAGE_KEY] is a lookup key, not a localized string; every other value
- * [SettingsViewModel.onSyncNowTapped] reports is already a plain description (see that method's doc comment) and
- * is shown as-is. A plain function, not `@Composable`: it runs from [SettingsViewModel.onSyncNowTapped]'s result
- * callback, invoked later outside any composition, so [unavailableMessage] must already be resolved by the
- * caller (via `stringResource`, at composition time) rather than looked up in here.
+ * Formats [outcome] through this screen's own string resources -- each a template with `%1$s`/`%2$d` placeholders
+ * for the raw data [SyncOutcomeMessage] carries (bundle version, document count, failure reason), the same
+ * pattern `settings_last_sync_label`/`answer_source_published` already use elsewhere in this app. `@Composable`,
+ * called from [SettingsScreen]'s body during composition -- never from [SettingsViewModel.onSyncNowTapped]'s
+ * result callback itself, which runs later, outside any composition, and so cannot call `stringResource`.
  */
-private fun resolveSyncMessage(result: String, unavailableMessage: String): String =
-    if (result == SettingsViewModel.SYNC_UNAVAILABLE_MESSAGE_KEY) unavailableMessage else result
+@Composable
+private fun resolveSyncMessage(outcome: SyncOutcomeMessage): String = when (outcome) {
+    SyncOutcomeMessage.Unavailable -> stringResource(R.string.settings_sync_unavailable_message)
+    is SyncOutcomeMessage.UpToDate -> stringResource(R.string.settings_sync_up_to_date_message, outcome.bundleVersion)
+    is SyncOutcomeMessage.Updated -> stringResource(
+        R.string.settings_sync_updated_message,
+        outcome.bundleVersion,
+        outcome.documentsDownloaded,
+    )
+    SyncOutcomeMessage.RejectedSignature -> stringResource(R.string.settings_sync_rejected_signature_message)
+    is SyncOutcomeMessage.Failed -> stringResource(R.string.settings_sync_failed_message, outcome.reason)
+}
 
 @Composable
 private fun CountrySection(selectedCountry: String?, onCountryChanged: (String?) -> Unit) {
@@ -220,22 +229,35 @@ private fun LanguageSection() {
     // persists itself (no SettingsStore write needed) and survives process death on its own. Deliberately NOT
     // routed through SettingsStore/AppSettings -- the only setting on this screen that isn't -- because it is a
     // presentation-only concern (which language menus/labels render in) with no effect on retrieval, boosting,
-    // or any other domain behavior those settings drive. Read fresh on every recomposition, not cached in
-    // `remember`, so a change (which recreates the Activity in most cases) is reflected immediately if it isn't.
-    val currentTag = AppCompatDelegate.getApplicationLocales().toLanguageTags()
+    // or any other domain behavior those settings drive.
+    //
+    // `remember`, seeded from AppCompatDelegate's current value, then updated directly in the click handler
+    // below: AppCompatDelegate itself is not Compose state, so nothing would otherwise tell this composable to
+    // recompose when it changes. In production a locale change also recreates the Activity (AppCompat's own
+    // pre-33 behavior), which would pick up the new value on its own -- but that recreation is not guaranteed to
+    // happen inside the same frame as the tap, so this local mirror is what gives the radio selection its
+    // immediate visual feedback either way.
+    var selectedTag by remember { mutableStateOf(AppCompatDelegate.getApplicationLocales().toLanguageTags()) }
 
     Text(stringResource(R.string.settings_language_label), style = MaterialTheme.typography.titleMedium)
     Column {
         languageOptions.forEach { option ->
             val label = languageDisplayName(option) ?: stringResource(option.labelRes!!)
-            val selected = currentTag == option.tag || (option.tag == "" && currentTag.isEmpty())
+            val selected = selectedTag == option.tag || (option.tag == "" && selectedTag.isEmpty())
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 48.dp)
-                    .clickable {
-                        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(option.tag))
-                    }
+                    // `selectable`, not `clickable`: this row's RadioButton gives it Role.RadioButton semantics
+                    // (announced by TalkBack as "radio button... selected/not selected"), which a plain clickable
+                    // row would not convey.
+                    .selectable(
+                        selected = selected,
+                        onClick = {
+                            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(option.tag))
+                            selectedTag = option.tag
+                        },
+                    )
                     .testTag("settings-language-option-${option.testTagSuffix}"),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -321,17 +343,28 @@ private fun SyncSection(
 
     message?.let { text ->
         Spacer(Modifier.heightIn(min = 8.dp))
-        val dismissDescription = stringResource(R.string.settings_sync_dismiss_message_description)
+        val dismissLabel = stringResource(R.string.settings_sync_dismiss_label)
         Row(
             modifier = Modifier.fillMaxWidth().testTag("settings-sync-message"),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(text, modifier = Modifier.weight(1f))
-            IconButton(onClick = onDismissMessage) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = dismissDescription,
-                )
+            Row(
+                modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .clickable { onDismissMessage() }
+                    .testTag("settings-sync-message-dismiss")
+                    // Decorative: the visible Text below already carries the accessible label (same pattern as
+                    // AnswerScreen's read-aloud button) -- a visible label alongside the icon, not an icon-only
+                    // control, matching every other icon-bearing control in this app (hazard tiles, read-aloud,
+                    // the hazard chip).
+                    .semantics { contentDescription = dismissLabel }
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(imageVector = Icons.Default.Close, contentDescription = null)
+                Spacer(Modifier.width(4.dp))
+                Text(dismissLabel)
             }
         }
     }

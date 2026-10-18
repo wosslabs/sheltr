@@ -17,6 +17,26 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
+ * The outcome [SettingsViewModel.onSyncNowTapped] reports, for [com.sheltr.android.ui.settings.SettingsScreen] to
+ * resolve into a localized, formatted message via `stringResource`. A sealed type rather than an already-formatted
+ * `String`: [SettingsViewModel] has no `Context`/`stringResource` access (and shouldn't need one -- formatting
+ * belongs in the UI layer), so each case carries only the raw data ([SyncResult]'s own fields) the screen's
+ * format-string resources (`settings_sync_up_to_date_message`, etc.) need as `%1$s`/`%2$d` arguments.
+ */
+sealed interface SyncOutcomeMessage {
+    /** [SettingsViewModel.baseUrl]/`publicKey` were not both configured; `syncEngine` was never called. */
+    data object Unavailable : SyncOutcomeMessage
+
+    data class UpToDate(val bundleVersion: String) : SyncOutcomeMessage
+
+    data class Updated(val bundleVersion: String, val documentsDownloaded: Int) : SyncOutcomeMessage
+
+    data object RejectedSignature : SyncOutcomeMessage
+
+    data class Failed(val reason: String) : SyncOutcomeMessage
+}
+
+/**
  * Settings screen state and its four user intents: change country / text scale / high contrast (each persisted
  * through [settingsStore] and reflected in [settings]), and sync now.
  *
@@ -71,16 +91,15 @@ class SettingsViewModel(
     }
 
     /**
-     * [onResult] is called exactly once: immediately with [SYNC_UNAVAILABLE_MESSAGE_KEY] -- a lookup key, not a
-     * localized string, so the screen can resolve it through `stringResource` -- when [baseUrl]/[publicKey] are
-     * not both configured (without ever calling [syncEngine]); otherwise once the sync (run on [ioDispatcher])
-     * completes, with a plain description of the resulting [SyncResult].
+     * [onResult] is called exactly once: immediately with [SyncOutcomeMessage.Unavailable] when [baseUrl]/
+     * [publicKey] are not both configured (without ever calling [syncEngine]); otherwise once the sync (run on
+     * [ioDispatcher]) completes, with the [SyncOutcomeMessage] matching the resulting [SyncResult].
      */
-    fun onSyncNowTapped(onResult: (String) -> Unit) {
+    fun onSyncNowTapped(onResult: (SyncOutcomeMessage) -> Unit) {
         val url = baseUrl
         val key = publicKey
         if (url.isNullOrBlank() || key == null) {
-            onResult(SYNC_UNAVAILABLE_MESSAGE_KEY)
+            onResult(SyncOutcomeMessage.Unavailable)
             return
         }
         _syncInProgress.value = true
@@ -88,27 +107,14 @@ class SettingsViewModel(
             val result = withContext(ioDispatcher) { syncEngine().run(url, key, store) }
             _syncInProgress.value = false
             _lastSyncEpochSeconds.value = store.lastSyncEpochSeconds()
-            onResult(describe(result))
+            onResult(toOutcomeMessage(result))
         }
     }
 
-    /**
-     * A plain, English description of [result] -- not a localized string resource. Only [SYNC_UNAVAILABLE_MESSAGE_KEY]
-     * (the one new string this task's brief lists for sync outcomes) is a genuine, pre-sync UX message; the
-     * outcome of a sync that actually ran is closer to diagnostic/technical detail (bundle versions, document
-     * counts, raw failure reasons already untranslated at the source -- see [SyncResult.Failed.reason]) than to
-     * core UX copy, so it is not worth four more string resources (YAGNI) for a transient, dismissible message.
-     */
-    private fun describe(result: SyncResult): String = when (result) {
-        is SyncResult.UpToDate -> "Up to date (bundle ${result.bundleVersion})"
-        is SyncResult.Updated ->
-            "Updated to bundle ${result.bundleVersion} (${result.documentsDownloaded} documents downloaded)"
-        SyncResult.RejectedSignature -> "Sync rejected: the published bundle's signature did not verify"
-        is SyncResult.Failed -> "Sync failed: ${result.reason}"
-    }
-
-    companion object {
-        /** Lookup key, not a localized string; the screen resolves it to `R.string.settings_sync_unavailable_message`. */
-        const val SYNC_UNAVAILABLE_MESSAGE_KEY = "settings_sync_unavailable_message"
+    private fun toOutcomeMessage(result: SyncResult): SyncOutcomeMessage = when (result) {
+        is SyncResult.UpToDate -> SyncOutcomeMessage.UpToDate(result.bundleVersion)
+        is SyncResult.Updated -> SyncOutcomeMessage.Updated(result.bundleVersion, result.documentsDownloaded)
+        SyncResult.RejectedSignature -> SyncOutcomeMessage.RejectedSignature
+        is SyncResult.Failed -> SyncOutcomeMessage.Failed(result.reason)
     }
 }

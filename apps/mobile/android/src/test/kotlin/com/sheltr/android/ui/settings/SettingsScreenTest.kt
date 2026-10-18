@@ -5,10 +5,11 @@ import androidx.activity.ComponentActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -24,8 +25,6 @@ import com.sheltr.shared.sync.SyncEngine
 import java.nio.file.Files
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -183,6 +182,18 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun selectingALanguageOptionReportsItAsSelectedViaProperRadioSemantics() {
+        // Regression coverage for review finding: the language option row uses Modifier.selectable (which
+        // conveys Role.RadioButton + a selected/unselected state to TalkBack), not a bare Modifier.clickable.
+        compose.setContent { SettingsScreen(viewModel = viewModel(), onSettingsChanged = {}) }
+
+        compose.onNodeWithTag("settings-language-option-en").performScrollTo().performClick()
+
+        compose.onNodeWithTag("settings-language-option-en").assertIsSelected()
+        compose.onNodeWithTag("settings-language-option-system").assertIsNotSelected()
+    }
+
+    @Test
     fun selectingSystemDefaultLanguageClearsTheApplicationLocaleOverride() {
         AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("fr"))
         compose.setContent { SettingsScreen(viewModel = viewModel(), onSettingsChanged = {}) }
@@ -207,11 +218,22 @@ class SettingsScreenTest {
         compose.setContent { SettingsScreen(viewModel = viewModel(baseUrl = null, publicKey = null), onSettingsChanged = {}) }
 
         compose.onNodeWithTag("settings-sync-now-button").performScrollTo().performClick()
-        val dismissDescription = compose.activity.getString(R.string.settings_sync_dismiss_message_description)
-        compose.onNodeWithContentDescription(dismissDescription).performScrollTo().performClick()
+        compose.onNodeWithTag("settings-sync-message-dismiss").performScrollTo().performClick()
 
         val unavailable = compose.activity.getString(R.string.settings_sync_unavailable_message)
         compose.onNodeWithText(unavailable).assertDoesNotExist()
+    }
+
+    @Test
+    fun dismissControlHasAVisibleLabelNotJustAnIconOrContentDescription() {
+        // Regression coverage for review finding: every other icon-bearing control in this app (hazard tiles,
+        // the read-aloud button, the hazard chip) pairs its icon with visible Text, not a screen-reader-only
+        // contentDescription alone.
+        compose.setContent { SettingsScreen(viewModel = viewModel(baseUrl = null, publicKey = null), onSettingsChanged = {}) }
+        compose.onNodeWithTag("settings-sync-now-button").performScrollTo().performClick()
+
+        val dismissLabel = compose.activity.getString(R.string.settings_sync_dismiss_label)
+        compose.onNodeWithText(dismissLabel).assertExists()
     }
 
     @Test
