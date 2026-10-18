@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -233,10 +234,14 @@ private fun LanguageSection() {
     //
     // `remember`, seeded from AppCompatDelegate's current value, then updated directly in the click handler
     // below: AppCompatDelegate itself is not Compose state, so nothing would otherwise tell this composable to
-    // recompose when it changes. In production a locale change also recreates the Activity (AppCompat's own
-    // pre-33 behavior), which would pick up the new value on its own -- but that recreation is not guaranteed to
-    // happen inside the same frame as the tap, so this local mirror is what gives the radio selection its
-    // immediate visual feedback either way.
+    // recompose when it changes. In production a locale change also recreates the Activity, which would pick up
+    // the new value on its own -- but only because MainActivity is an AppCompatActivity with the manifest's
+    // AppLocalesMetadataHolderService/autoStoreLocales registered (see MainActivity's doc comment and
+    // AndroidManifest.xml). A previous version of this comment described that recreation as something that
+    // "already" happened pre-33; it did not -- MainActivity was a plain ComponentActivity at the time, on which
+    // setApplicationLocales is a silent no-op on roughly API 24-32. Regardless, that recreation is not
+    // guaranteed to happen inside the same frame as the tap, so this local mirror is what gives the radio
+    // selection its immediate visual feedback either way.
     var selectedTag by remember { mutableStateOf(AppCompatDelegate.getApplicationLocales().toLanguageTags()) }
 
     Text(stringResource(R.string.settings_language_label), style = MaterialTheme.typography.titleMedium)
@@ -301,14 +306,23 @@ private fun HighContrastSection(enabled: Boolean, onHighContrastChanged: (Boolea
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
+            // Merges the label and the Switch into one semantics node with this Row's own click/toggle action --
+            // same pattern as LanguageSection's selectable Row + RadioButton(onClick = null) below: without it,
+            // TalkBack focus on the Switch alone announces no label. The testTag moves to this Row, not the
+            // Switch, for the same reason LanguageSection's option testTags live on its Row, not its
+            // RadioButton: Switch(onCheckedChange = null) is no longer its own merge boundary, so it is not
+            // independently addressable in the merged semantics tree SettingsScreenTest queries by default --
+            // only the merged Row is. The Switch's ToggleableState still merges up into this node, so
+            // assertIsOn()/assertIsOff() on this tag keep working exactly as before.
+            .toggleable(value = enabled, onValueChange = onHighContrastChanged)
+            .testTag("settings-high-contrast-switch")
             .semantics { contentDescription = label },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
         Switch(
             checked = enabled,
-            onCheckedChange = onHighContrastChanged,
-            modifier = Modifier.testTag("settings-high-contrast-switch"),
+            onCheckedChange = null,
         )
     }
 }

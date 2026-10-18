@@ -7,6 +7,7 @@
     <string name="home_title">Préparez-vous à une catastrophe</string>
     <string name="home_search_placeholder">Rechercher des conseils</string>
     <string name="home_search_hint_description">Rechercher dans les conseils de préparation aux catastrophes de Sheltr</string>
+    <string name="home_settings_button_label">Paramètres</string>
     <string name="hazard_earthquake">Tremblement de terre</string>
     <string name="hazard_flood">Inondation</string>
     <string name="hazard_tropical_cyclone">Cyclone tropical</string>

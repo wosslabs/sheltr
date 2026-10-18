@@ -12,7 +12,9 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TestWatcher
@@ -38,13 +40,17 @@ internal class MainDispatcherRule(private val dispatcher: TestDispatcher = Uncon
     }
 }
 
-/** Records the last [RetrievalQuery] it was asked to retrieve and always answers with [result]. */
+/** Records the last [RetrievalQuery] it was asked to retrieve (and how many times) and always answers with [result]. */
 internal class FakeRetriever(private val result: RetrievalResult) : RetrieverPort {
     var lastQuery: RetrievalQuery? = null
         private set
 
+    var callCount: Int = 0
+        private set
+
     override fun retrieve(query: RetrievalQuery): RetrievalResult {
         lastQuery = query
+        callCount++
         return result
     }
 }
@@ -146,5 +152,71 @@ class SearchViewModelTest {
         vm.onQueryChange("earthquake kit")
 
         assertEquals("earthquake kit", vm.query.value)
+    }
+
+    @Test
+    fun initialHazardAndQuerySeedStateOnceAtConstruction() {
+        // Regression coverage for review Finding 2: these must be constructor-seeded state, not re-applied by a
+        // recomposition-triggered effect in SearchScreen -- see SearchViewModel's class doc comment.
+        val retriever = FakeRetriever(result = RetrievalResult.Refusal)
+        val vm = SearchViewModel(
+            retriever,
+            country = null,
+            initialHazard = "FLOOD",
+            initialQuery = "flashlight batteries",
+        )
+
+        assertEquals("FLOOD", vm.activeHazard.value)
+        assertEquals("flashlight batteries", vm.query.value)
+    }
+
+    @Test
+    fun dismissingInitialHazardIsNotOverwrittenByAnythingLater() {
+        // The old bug was a Composable effect reapplying initialHazard on every re-entry into composition (e.g.
+        // back navigation). There is no such effect reachable from the ViewModel's public API any more -- this
+        // asserts the one-time seed really is one-time: once dismissed, nothing in this ViewModel's surface
+        // brings it back.
+        val retriever = FakeRetriever(result = RetrievalResult.Refusal)
+        val vm = SearchViewModel(retriever, country = null, initialHazard = "FLOOD")
+
+        vm.onHazardSelected(null)
+
+        assertNull(vm.activeHazard.value)
+    }
+
+    @Test
+    fun onSubmitWhileAlreadySubmittingIsANoOp() = runTest {
+        // Regression coverage for Finding 6: a second tap (or IME event) while a retrieval is already in flight
+        // must not call the retriever again or navigate a second time.
+        val ioDispatcher = StandardTestDispatcher(testScheduler)
+        val retriever = FakeRetriever(result = RetrievalResult.Refusal)
+        val vm = SearchViewModel(retriever, country = null, ioDispatcher = ioDispatcher)
+        vm.onQueryChange("flood shelter")
+
+        var navigateCount = 0
+        vm.onSubmit { _, _, _ -> navigateCount++ }
+        assertTrue("isSubmitting must be true while the retrieval is in flight", vm.isSubmitting.value)
+
+        vm.onSubmit { _, _, _ -> navigateCount++ }
+        advanceUntilIdle()
+
+        assertEquals(1, retriever.callCount)
+        assertEquals(1, navigateCount)
+        assertFalse("isSubmitting must clear once the retrieval completes", vm.isSubmitting.value)
+    }
+
+    @Test
+    fun onSubmitIsAvailableAgainAfterTheFirstRetrievalCompletes() = runTest {
+        val ioDispatcher = StandardTestDispatcher(testScheduler)
+        val retriever = FakeRetriever(result = RetrievalResult.Refusal)
+        val vm = SearchViewModel(retriever, country = null, ioDispatcher = ioDispatcher)
+        vm.onQueryChange("flood shelter")
+
+        vm.onSubmit { _, _, _ -> }
+        advanceUntilIdle()
+        vm.onSubmit { _, _, _ -> }
+        advanceUntilIdle()
+
+        assertEquals(2, retriever.callCount)
     }
 }
