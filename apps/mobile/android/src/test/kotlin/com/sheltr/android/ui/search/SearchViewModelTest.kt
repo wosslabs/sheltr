@@ -67,7 +67,13 @@ class SearchViewModelTest {
         vm.onHazardSelected("FLOOD")
 
         var navigated: RetrievalResult? = null
-        vm.onSubmit { navigated = it }
+        var navigatedText: String? = null
+        var navigatedHazard: String? = null
+        vm.onSubmit { result, submittedText, submittedHazard ->
+            navigated = result
+            navigatedText = submittedText
+            navigatedHazard = submittedHazard
+        }
 
         assertNull("retrieve() must not run inline on the calling dispatcher", retriever.lastQuery)
 
@@ -77,6 +83,12 @@ class SearchViewModelTest {
         assertEquals(setOf("FLOOD"), retriever.lastQuery?.activeHazards)
         assertEquals("KE", retriever.lastQuery?.country)
         assertEquals(RetrievalResult.Refusal, navigated)
+        // The callback must also receive the exact text/hazard that produced this result (not re-read from
+        // the ViewModel's live state): Route.Answer needs these as nav arguments so Answer can re-run the
+        // same retrieval if its process is recreated before RetrievalResultHolder is ever read (see that
+        // class's doc comment).
+        assertEquals("flood shelter", navigatedText)
+        assertEquals("FLOOD", navigatedHazard)
     }
 
     @Test
@@ -89,7 +101,7 @@ class SearchViewModelTest {
         )
         vm.onQueryChange("flashlight batteries")
 
-        vm.onSubmit { }
+        vm.onSubmit { _, _, _ -> }
         advanceUntilIdle()
 
         assertEquals(emptySet<String>(), retriever.lastQuery?.activeHazards)
@@ -107,7 +119,7 @@ class SearchViewModelTest {
         vm.onQueryChange("   ")
 
         var navigated: RetrievalResult? = null
-        vm.onSubmit { navigated = it }
+        vm.onSubmit { result, _, _ -> navigated = result }
         advanceUntilIdle()
 
         assertNull(retriever.lastQuery)

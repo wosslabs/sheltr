@@ -55,12 +55,31 @@ sealed class Route(val path: String) {
      * [RetrievalResultHolder]'s doc comment for the full design this task, Task 3, built for Task 4 to
      * consume: `AnswerViewModel` reads it with `RetrievalResultHolder.take(resultId)`).
      *
-     * Unlike Search's `hazard`/`query`, `resultId` is a mandatory path segment, not an optional query
-     * parameter: Answer is only ever reached via this handoff (see the Search composable below), so there is
-     * no "blank" Answer route to support.
+     * `text`/`hazard` are *also* carried here, alongside `resultId`, even though they are redundant with what
+     * [RetrievalResultHolder] already holds in the common case. They are not redundant in the case that
+     * matters: Navigation Compose's back stack (route + all its arguments, `text`/`hazard` included) survives
+     * process death via `SavedStateRegistry`, but [RetrievalResultHolder]'s in-memory map does not -- so after
+     * a process restart, Answer composes again with the *same* `resultId`, `take(resultId)` correctly returns
+     * `null` (a fresh process never put anything under that id), and `text`/`hazard` are the only way left to
+     * answer the same question again. See [RetrievalResultHolder]'s doc comment for the full reasoning and the
+     * exact fallback contract Task 4's `AnswerViewModel` must implement on that `null`.
+     *
+     * Unlike Search's `hazard`/`query` (both genuinely optional), `text` here is always supplied by the one
+     * caller that builds this route (the Search composable below) -- `SearchViewModel.onSubmit` never invokes
+     * its callback with a blank query (see that method's blank-guard). Navigation Compose still parses it as a
+     * nullable query parameter like every other one here (Task 2's established, verified behavior), so
+     * `Route.Answer`'s own stub composable reading it must still null-check -- there is just never a real path
+     * that reaches it with `text` actually absent.
      */
-    data object Answer : Route("answer/{resultId}") {
-        fun destination(resultId: String): String = "answer/${Uri.encode(resultId)}"
+    data object Answer : Route("answer/{resultId}?text={text}&hazard={hazard}") {
+        /** [text]/[hazard] are the exact inputs that produced the [resultId] result -- see the class doc comment. */
+        fun destination(resultId: String, text: String, hazard: String?): String {
+            val params = buildList {
+                add("text=${Uri.encode(text)}")
+                hazard?.let { add("hazard=${Uri.encode(it)}") }
+            }
+            return "answer/${Uri.encode(resultId)}?${params.joinToString("&")}"
+        }
     }
     data object Settings : Route("settings")
 }
@@ -75,9 +94,13 @@ sealed class Route(val path: String) {
  * reading whichever of these dependencies that screen needs.
  *
  * Search hands its [com.sheltr.shared.retrieval.RetrievalResult] to Answer via [RetrievalResultHolder]: the
- * Search composable below stores the result and navigates with the id [RetrievalResultHolder.put] returns, as
- * `Route.Answer.destination(resultId)`. See [RetrievalResultHolder]'s doc comment for why (Navigation Compose
- * arguments can't carry a non-Parcelable domain type) and [Route.Answer]'s for the route shape this produces.
+ * Search composable below stores the result and navigates with the id [RetrievalResultHolder.put] returns,
+ * plus the exact text/hazard that produced it, as `Route.Answer.destination(resultId, text, hazard)`. The
+ * text/hazard are not decoration -- [RetrievalResultHolder] is process memory only and does not survive
+ * process death, while Navigation Compose's own back stack does, so Answer can be recomposed after a process
+ * restart with a `resultId` this fresh process's holder has never seen. See [RetrievalResultHolder]'s doc
+ * comment for the full reasoning and the fallback Task 4's `AnswerViewModel` must implement, and
+ * [Route.Answer]'s for the route shape this produces.
  *
  * [onSettingsChanged] is the callback Task 5's Settings screen calls after writing new [AppSettings], so
  * [com.sheltr.android.MainActivity] can update the [SheltrTheme][com.sheltr.android.ui.theme.SheltrTheme]
@@ -106,9 +129,9 @@ fun SheltrNavHost(
         }
         composable(Route.Search.path) { backStackEntry ->
             SearchScreen(
-                onNavigateToAnswer = { result ->
+                onNavigateToAnswer = { result, submittedText, submittedHazard ->
                     val resultId = RetrievalResultHolder.put(result)
-                    navController.navigate(Route.Answer.destination(resultId))
+                    navController.navigate(Route.Answer.destination(resultId, submittedText, submittedHazard))
                 },
                 viewModel = viewModel(
                     factory = viewModelFactory {

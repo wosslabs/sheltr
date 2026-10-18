@@ -47,21 +47,31 @@ class SearchScreenTest {
     @Test
     fun typingAndSubmittingTriggersNavigation() {
         var navigated: RetrievalResult? = null
+        var navigatedText: String? = null
         compose.setContent {
-            SearchScreen(onNavigateToAnswer = { navigated = it }, viewModel = viewModel(RetrievalResult.Refusal))
+            SearchScreen(
+                onNavigateToAnswer = { result, submittedText, _ ->
+                    navigated = result
+                    navigatedText = submittedText
+                },
+                viewModel = viewModel(RetrievalResult.Refusal),
+            )
         }
 
         compose.onNodeWithTag("search-query-field").performTextInput("flood shelter")
         compose.onNodeWithTag("search-submit-button").performClick()
 
         assertEquals(RetrievalResult.Refusal, navigated)
+        // SearchScreen must forward the exact submitted text through to Route.Answer's eventual nav
+        // argument, not just the RetrievalResult -- see SearchViewModel.onSubmit's doc comment for why.
+        assertEquals("flood shelter", navigatedText)
     }
 
     @Test
     fun blankQuerySubmitDoesNotNavigate() {
         var navigated: RetrievalResult? = null
         compose.setContent {
-            SearchScreen(onNavigateToAnswer = { navigated = it }, viewModel = viewModel())
+            SearchScreen(onNavigateToAnswer = { result, _, _ -> navigated = result }, viewModel = viewModel())
         }
 
         compose.onNodeWithTag("search-submit-button").performClick()
@@ -72,7 +82,7 @@ class SearchScreenTest {
     @Test
     fun hazardChipIsOptionalAndClearable() {
         compose.setContent {
-            SearchScreen(onNavigateToAnswer = {}, viewModel = viewModel(), initialHazard = "FLOOD")
+            SearchScreen(onNavigateToAnswer = { _, _, _ -> }, viewModel = viewModel(), initialHazard = "FLOOD")
         }
 
         val floodLabel = compose.activity.getString(R.string.hazard_flood)
@@ -86,7 +96,7 @@ class SearchScreenTest {
     @Test
     fun noHazardChipWhenNotArrivedFromAHazardTap() {
         compose.setContent {
-            SearchScreen(onNavigateToAnswer = {}, viewModel = viewModel())
+            SearchScreen(onNavigateToAnswer = { _, _, _ -> }, viewModel = viewModel())
         }
 
         compose.onNodeWithTag("search-hazard-chip").assertDoesNotExist()
@@ -95,7 +105,7 @@ class SearchScreenTest {
     @Test
     fun queryFieldStartsPreFocused() {
         compose.setContent {
-            SearchScreen(onNavigateToAnswer = {}, viewModel = viewModel())
+            SearchScreen(onNavigateToAnswer = { _, _, _ -> }, viewModel = viewModel())
         }
 
         compose.onNodeWithTag("search-query-field").assertIsFocused()
@@ -105,7 +115,7 @@ class SearchScreenTest {
     fun initialQueryPrefillsTheTextField() {
         val vm = viewModel()
         compose.setContent {
-            SearchScreen(onNavigateToAnswer = {}, viewModel = vm, initialQuery = "flashlight batteries")
+            SearchScreen(onNavigateToAnswer = { _, _, _ -> }, viewModel = vm, initialQuery = "flashlight batteries")
         }
 
         assertEquals("flashlight batteries", vm.query.value)
@@ -114,7 +124,7 @@ class SearchScreenTest {
     @Test
     fun rootIsTaggedSearchScreen() {
         compose.setContent {
-            SearchScreen(onNavigateToAnswer = {}, viewModel = viewModel())
+            SearchScreen(onNavigateToAnswer = { _, _, _ -> }, viewModel = viewModel())
         }
 
         compose.onNodeWithTag("search-screen").assertExists()

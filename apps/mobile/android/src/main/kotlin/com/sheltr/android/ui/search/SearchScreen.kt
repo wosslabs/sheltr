@@ -74,14 +74,15 @@ private val hazardLabels: Map<String, Int> = mapOf(
  * arguments a default `viewModel()` call can't supply, so this screen takes it as a required parameter instead
  * of reaching for a singleton or a composition-local.
  *
- * [onNavigateToAnswer] receives the [RetrievalResult] once [viewModel] finishes retrieving it; this screen does
- * not navigate itself (same convention as `HomeScreen`) -- `SheltrNavHost` supplies this callback and decides
- * what "navigate to Answer" means (see that file's `Route.Answer`/`RetrievalResultHolder` doc comments for the
- * full mechanism).
+ * [onNavigateToAnswer] receives the [RetrievalResult] once [viewModel] finishes retrieving it, plus the exact
+ * text/hazard that produced it (see [SearchViewModel.onSubmit]'s doc comment for why both are needed, not just
+ * the result); this screen does not navigate itself (same convention as `HomeScreen`) -- `SheltrNavHost`
+ * supplies this callback and decides what "navigate to Answer" means (see that file's
+ * `Route.Answer`/`RetrievalResultHolder` doc comments for the full mechanism).
  */
 @Composable
 fun SearchScreen(
-    onNavigateToAnswer: (RetrievalResult) -> Unit,
+    onNavigateToAnswer: (result: RetrievalResult, submittedText: String, submittedHazard: String?) -> Unit,
     viewModel: SearchViewModel,
     initialHazard: String? = null,
     initialQuery: String? = null,

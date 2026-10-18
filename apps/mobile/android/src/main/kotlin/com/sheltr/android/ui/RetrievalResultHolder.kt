@@ -16,23 +16,34 @@ import java.util.concurrent.ConcurrentHashMap
  * Mechanism: [put] stores a result under a freshly generated id and returns that id; the caller
  * (`SearchViewModel`'s `onSubmit` callback, wired up in [SheltrNavHost]) passes that id as `Route.Answer`'s
  * `resultId` nav argument. [take] removes and returns the entry for a given id -- a one-time read, not a
- * cache -- so that:
- *   - Rapid re-submission from Search never shows a stale result: each submit calls [put] again and gets a
- *     fresh id; an id left over from an earlier submit the user never navigated away from (e.g. they backed out
- *     of Search before Answer ever composed) is simply an orphaned entry, never confused with a newer one.
- *   - Task 4's `AnswerViewModel` is expected to call [take] exactly once (e.g. from its `init`) and hold the
- *     result in its own state from then on; a configuration-change recomposition re-reads the ViewModel's own
- *     held state (which survives rotation), not this holder, so a second [take] of the same id correctly
- *     returns null rather than silently re-serving data an earlier caller already consumed.
+ * cache -- so that rapid re-submission from Search never shows a stale result: each submit calls [put] again
+ * and gets a fresh id, and an id left over from an earlier submit the user never navigated away from (e.g.
+ * they backed out of Search before Answer ever composed) is simply an orphaned entry, never confused with a
+ * newer one.
  *
- * Durability: process memory only, like the in-flight navigation stack itself. It does not survive process
- * death -- if the process dies after Search submits but before Answer reads, Android does not replay the
- * in-flight navigate() call on restart, so there is nothing to read back anyway; the user lands back on a
- * cold-started Home/Search and simply searches again. This is the same level of durability Task 1 already
- * accepted for `MainActivity`'s own in-process settings state ("no reactive settings Flow needed" simplicity
- * level) and is appropriate here too: a navigation payload is not business state (per CLAUDE.md's "do not
- * treat conversation history as authoritative business state" -- the same reasoning extends to this transient,
- * non-authoritative handoff, which Answer can always reproduce by re-querying if it were ever lost).
+ * **Durability -- this is the part that is easy to get wrong, and an earlier version of this doc comment did:**
+ * this holder is process memory only and does *not* survive process death. That is not the same as saying
+ * "Answer is never reached after process death" -- it is reached, and with the *same* `resultId`. Navigation
+ * Compose's own back stack (the sequence of route strings and their arguments, via `NavController`'s
+ * integration with `SavedStateRegistry`) *is* restored across process death; that is the exact mechanism that
+ * lets Android recreate an app's UI after it reclaims a backgrounded process. A disaster-prep user switching to
+ * Maps or a phone call mid-search, then returning, is an ordinary case this must survive without crashing or
+ * silently mis-answering (plan's own Review Focus: "Rotating the device or backgrounding the app mid-search...
+ * must not lose the in-flight query or crash").
+ *
+ * So: after a process restart, Answer's composable *will* run again with the *same* `resultId` -- but
+ * [take] on that id now runs for the first time in a fresh, empty map, and returns `null`. **A `null` from
+ * [take] is therefore not evidence of "no answer was found" (that is what [RetrievalResult.Refusal] means) --
+ * it only ever means "this process never had this id," which happens both for an unknown/already-consumed id
+ * *and* for a perfectly valid resubmission-worthy one after a process restart.** `Route.Answer` carries
+ * `text`/`hazard` (Bundle-safe strings, unlike [RetrievalResult] itself) alongside `resultId` for exactly this
+ * reason: the only way to tell these two `null` cases apart, and to recover correctly from the second one, is
+ * for the caller to re-run the deterministic local retrieval with the same inputs rather than show a generic
+ * failure. **Contract for Task 4's `AnswerViewModel`:** on `take(resultId) == null`, re-run
+ * `retriever.retrieve(RetrievalQuery(text, settingsStore.get().country, hazard?.let { setOf(it) } ?:
+ * emptySet()))` (re-reading `country` fresh, not carried in the route) instead of treating it as a refusal --
+ * retrieval is a deterministic local FTS5 query over a corpus that does not change between submit and
+ * restore, so the re-run is an equally valid result, not a stale one.
  *
  * Thread safety: [SearchViewModel][com.sheltr.android.ui.search.SearchViewModel]'s `onSubmit` calls [put] only
  * after hopping back onto the main thread following its `Dispatchers.IO` retrieval, so in practice this is
