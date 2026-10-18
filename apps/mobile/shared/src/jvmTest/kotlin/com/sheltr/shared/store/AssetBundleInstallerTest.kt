@@ -9,6 +9,7 @@ import com.sheltr.shared.bundle.DocumentFile
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.deleteRecursively
+import kotlin.io.path.readBytes
 import kotlin.io.path.readText
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -76,7 +77,7 @@ class AssetBundleInstallerTest {
     fun malformedDocumentAssetLeavesStoreEmpty() {
         val malformedAssets = object : BundleAssetReader {
             override fun readManifestJson() = RealSampleAssets.readManifestJson()
-            override fun readDocumentJson(documentId: String) = "{ not valid json"
+            override fun readDocumentJson(documentId: String) = "{ not valid json".encodeToByteArray()
         }
 
         assertFailsWith<Exception> { installSampleBundleIfEmpty(store, malformedAssets) }
@@ -91,8 +92,8 @@ class AssetBundleInstallerTest {
 
         override fun readManifestJson(): String = bundleDir.resolve("bundle.json").readText()
 
-        override fun readDocumentJson(documentId: String): String =
-            bundleDir.resolve("documents").resolve("$documentId.json").readText()
+        override fun readDocumentJson(documentId: String): ByteArray =
+            bundleDir.resolve("documents").resolve("$documentId.json").readBytes()
     }
 
     private companion object {
