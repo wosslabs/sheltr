@@ -27,4 +27,16 @@
     <string name="search_placeholder">What do you need to know?</string>
     <string name="search_active_hazard_chip_description">Clear hazard filter</string>
     <string name="search_submit_description">Search</string>
+
+    <!-- Answer screen (Task 4). -->
+    <string name="answer_source_label">Source</string>
+    <string name="answer_source_published">Published %1$s</string>
+    <string name="answer_source_page">Page %1$d</string>
+    <string name="answer_read_aloud_description">Read answer aloud</string>
+    <string name="answer_read_aloud_unavailable">Read-aloud isn\'t available on this device.</string>
+    <string name="answer_refusal_title">We can\'t answer that yet</string>
+    <!-- Sheltr's own wording for a refusal, deliberately not a copy of the shared module's
+         RetrievalResult.Refusal.MESSAGE (an internal constant shared with the server, not a localizable UI
+         string): this is the only text AnswerScreen is allowed to show for a refusal. -->
+    <string name="answer_refusal_body">Sheltr doesn\'t have reliable guidance on this yet. Try different search words, or contact local emergency services for urgent help.</string>
 </resources>
