@@ -20,7 +20,6 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -168,10 +167,10 @@ class SettingsViewModelTest {
             publicKey = byteArrayOf(1, 2, 3),
         )
 
-        var message: String? = null
+        var message: SyncOutcomeMessage? = null
         vm.onSyncNowTapped { message = it }
 
-        assertEquals(SettingsViewModel.SYNC_UNAVAILABLE_MESSAGE_KEY, message)
+        assertEquals(SyncOutcomeMessage.Unavailable, message)
     }
 
     @Test
@@ -184,10 +183,10 @@ class SettingsViewModelTest {
             publicKey = byteArrayOf(1, 2, 3),
         )
 
-        var message: String? = null
+        var message: SyncOutcomeMessage? = null
         vm.onSyncNowTapped { message = it }
 
-        assertEquals(SettingsViewModel.SYNC_UNAVAILABLE_MESSAGE_KEY, message)
+        assertEquals(SyncOutcomeMessage.Unavailable, message)
     }
 
     @Test
@@ -200,10 +199,10 @@ class SettingsViewModelTest {
             publicKey = null,
         )
 
-        var message: String? = null
+        var message: SyncOutcomeMessage? = null
         vm.onSyncNowTapped { message = it }
 
-        assertEquals(SettingsViewModel.SYNC_UNAVAILABLE_MESSAGE_KEY, message)
+        assertEquals(SyncOutcomeMessage.Unavailable, message)
     }
 
     @Test
@@ -248,7 +247,7 @@ class SettingsViewModelTest {
             ioDispatcher = ioDispatcher,
         )
 
-        var message: String? = null
+        var message: SyncOutcomeMessage? = null
         vm.onSyncNowTapped { message = it }
 
         // Not yet resolved: proves the sync really dispatches onto ioDispatcher instead of running inline.
@@ -258,7 +257,9 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         assertEquals("https://example.org/bundle", capturedBaseUrl)
-        assertNotNull(message)
+        // The fake client throws on every call, so SyncEngine.run catches it and returns SyncResult.Failed;
+        // onSyncNowTapped must translate that into the matching SyncOutcomeMessage, not swallow or misreport it.
+        assertEquals(SyncOutcomeMessage.Failed("boom"), message)
         assertFalse(vm.syncInProgress.value)
     }
 
