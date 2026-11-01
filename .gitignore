@@ -29,8 +29,16 @@ keystore.properties
 # Git worktrees
 .worktrees/
 
-# Claude Code local settings and worktrees
+# AI assistant local state and worktrees (CLAUDE.md is tracked)
 .claude/
+.superpowers/
 
 # Eval run output; chosen reports are copied to docs/eval/
 eval/reports/
+
+# Publisher compiled output
+bin/
+
+# Android local
+*.apk
+*.aab

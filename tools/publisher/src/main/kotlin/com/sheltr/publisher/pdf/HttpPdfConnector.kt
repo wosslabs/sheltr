@@ -13,12 +13,12 @@ import java.net.http.HttpResponse
 import java.time.Duration
 
 /**
- * Downloads a PDF over HTTP. Port of the server's HttpPdfConnector: redirects are never followed (any 3xx, like
+ * Downloads a PDF over HTTP. Redirects are never followed (any 3xx, like
  * any other non-200 status, fails), and the checksum is the SHA-256 of the downloaded bytes.
  *
  * The URI is checked against the [SourcePolicy] before any request is made.
  *
- * Known limit, as on the server: the request timeout bounds the wait for response headers, not the time spent
+ * Known limit: the request timeout bounds the wait for response headers, not the time spent
  * streaming a slow body.
  */
 class HttpPdfConnector(

@@ -39,7 +39,7 @@ import com.sheltr.shared.retrieval.RetrievalResult
  * [RetrievalResult.Refusal], Sheltr's own localized refusal copy.
  *
  * Deliberately never shows [RetrievalResult.Refusal.MESSAGE] -- the shared module's English constant, shared
- * with the server's own refusal response, not a UI string resource. [R.string.answer_refusal_title] and
+ * with the retriever's own refusal response, not a UI string resource. [R.string.answer_refusal_title] and
  * [R.string.answer_refusal_body] are this app's own localizable wording instead, so a non-English UI locale
  * gets a real translation rather than hardcoded English leaking out of the domain model into the UI.
  *

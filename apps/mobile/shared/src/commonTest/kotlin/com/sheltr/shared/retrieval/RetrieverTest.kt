@@ -85,7 +85,7 @@ class RetrieverTest {
     fun answersWhenTheBestPassageIsExactlyAtTheThreshold() {
         val atThreshold = Retriever(FakeStore(store.documents, listOf(hit("d", "global", -KEYWORD_RELEVANCE_THRESHOLD), hit("e", "no", -0.2))))
         val result = assertIs<RetrievalResult.Passages>(atThreshold.retrieve(RetrievalQuery("water")))
-        // The gate is on the best passage; weaker passages under it are still returned, as on the server.
+        // The gate is on the best passage; weaker passages under it are still returned.
         assertEquals(listOf("d", "e"), result.passages.map { it.chunk.id })
     }
 

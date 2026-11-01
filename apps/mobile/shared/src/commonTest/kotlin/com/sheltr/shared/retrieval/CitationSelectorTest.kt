@@ -3,7 +3,7 @@ package com.sheltr.shared.retrieval
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** Ported one for one from apps/backend/src/test/java/com/sheltr/ai/domain/CitationSelectorTest.java. */
+/** Citation selection cases. */
 class CitationSelectorTest {
 
     private val first = "chunk-1"

@@ -1,6 +1,6 @@
 # Mobile and Publisher Design
 
-Status: current. Decision: `docs/adr/0015-offline-mobile-publisher-no-server.md`. Design: `docs/superpowers/specs/2026-10-05-offline-mobile-app-design.md`.
+Status: current. Decision: `docs/adr/0015-offline-mobile-publisher-no-server.md`. Design: `docs/design/offline-mobile-app.md`.
 
 There is no server. The phones work offline from a signed content bundle. The maintainer builds that bundle on a computer with the publisher and uploads it to free static hosting. The apps make one kind of network call: they fetch the bundle from that host.
 

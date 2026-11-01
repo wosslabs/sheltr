@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 /**
  * Thin wrapper around Android's [TextToSpeech] for reading an Answer passage aloud.
  *
- * The corpus (the sample bundle and every document the server ingests) is English-only regardless of the
+ * The corpus (the sample bundle and every document the publisher ingests) is English-only regardless of the
  * device's or app's own UI locale, so [speak] must always use [Locale.ENGLISH] -- never the ambient
  * default/device locale -- or a non-English-locale user would hear the English source text mispronounced in a
  * voice selected for a language the content isn't actually in.

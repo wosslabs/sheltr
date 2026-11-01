@@ -7,7 +7,7 @@ import com.sheltr.android.R
 
 /**
  * One hazard the Home screen's grid can show. [hazard] is a `DisasterType` enum name -- the same strings as
- * `tools/publisher`'s `DisasterType` (and the server's `com.sheltr.knowledge.domain.DisasterType` it mirrors),
+ * `tools/publisher`'s `DisasterType`,
  * used verbatim as an entry of `RetrievalQuery.activeHazards` once Search (Task 3) passes a selected hazard
  * along to the shared module's `Retriever`. This module can't depend on the JVM-only publisher module, so the
  * twelve names are copied here by hand -- the same source-of-truth convention the retrieval-robustness plan's

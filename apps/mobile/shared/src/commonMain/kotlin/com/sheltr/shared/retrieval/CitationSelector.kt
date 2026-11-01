@@ -1,6 +1,6 @@
 package com.sheltr.shared.retrieval
 
-/** A source shown with an answer. Mirrors the server's Citation (documentId, chunkId, sourceTitle, sourceUrl, pageNumber). */
+/** A source shown with an answer. Carries documentId, chunkId, sourceTitle, sourceUrl and pageNumber. */
 data class Citation(
     val documentId: String,
     val chunkId: String,
@@ -17,8 +17,7 @@ data class Citation(
 }
 
 /**
- * Finds which numbered passages an answer cites, written as [1], [2], and so on. Port of the server's
- * CitationSelector: markers are 1-based passage numbers of one to three digits; numbers outside 1..passages.size
+ * Finds which numbered passages an answer cites, written as [1], [2], and so on. Markers are 1-based passage numbers of one to three digits; numbers outside 1..passages.size
  * are ignored; the result is the [citations] whose chunk was cited, in the order of [citations], each once.
  */
 object CitationSelector {
