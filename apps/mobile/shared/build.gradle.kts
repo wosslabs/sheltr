@@ -3,7 +3,7 @@ plugins {
     kotlin("plugin.serialization")
     // SQLDelight 2.4.0 (Apache-2.0, https://github.com/sqldelight/sqldelight): on-device store with FTS5.
     // Keep the plugin and the driver artifacts below on the same version.
-    id("app.cash.sqldelight") version "2.4.0"
+    id("app.cash.sqldelight") version "2.4.1"
     id("com.android.library")
 }
 
@@ -55,7 +55,7 @@ kotlin {
             // JDK provider on jvm and CryptoKit (Ed25519 via Curve25519.Signing) on iosArm64/iosSimulatorArm64.
             implementation("dev.whyoleg.cryptography:cryptography-core:0.6.0")
             implementation("dev.whyoleg.cryptography:cryptography-provider-optimal:0.6.0")
-            implementation("app.cash.sqldelight:runtime:2.4.0")
+            implementation("app.cash.sqldelight:runtime:2.4.1")
             // Ktor 3.6.0 (Apache-2.0, https://github.com/ktorio/ktor): HTTP client for bundle sync. Only the core
             // client: the bundle files are fetched as raw bytes (signature and checksums cover exact bytes), so no
             // content negotiation. HttpClient() with no engine picks the one engine on each target's classpath.
@@ -64,19 +64,19 @@ kotlin {
         }
         jvmMain.dependencies {
             // JDBC driver over xerial sqlite-jdbc (bundled SQLite, built with FTS5). Used by jvmTest and the eval runner.
-            implementation("app.cash.sqldelight:sqlite-driver:2.4.0")
+            implementation("app.cash.sqldelight:sqlite-driver:2.4.1")
             // JDK java.net.http client engine: no extra dependency beyond the JDK.
             implementation("io.ktor:ktor-client-java:3.6.0")
         }
         iosMain.dependencies {
             // Links the system libsqlite3 on iOS (FTS5 is enabled in the iOS system SQLite).
-            implementation("app.cash.sqldelight:native-driver:2.4.0")
+            implementation("app.cash.sqldelight:native-driver:2.4.1")
             // NSURLSession engine.
             implementation("io.ktor:ktor-client-darwin:3.6.0")
         }
         androidMain.dependencies {
             // SQLDelight's Android driver, backed by androidx.sqlite's SupportSQLiteOpenHelper abstraction.
-            implementation("app.cash.sqldelight:android-driver:2.4.0")
+            implementation("app.cash.sqldelight:android-driver:2.4.1")
             // Android's own bundled SQLite does not compile in FTS5 (confirmed against AOSP's
             // external/sqlite/dist/Android.bp: SQLITE_ENABLE_FTS3/FTS4 are set, FTS5 is not, on every branch
             // checked), but this app's schema needs it (see the sqlite-3-38-dialect comment below). requery's
@@ -129,7 +129,7 @@ sqldelight {
         create("SheltrDatabase") {
             packageName.set("com.sheltr.shared.store.db")
             // FTS5 virtual tables need a dialect newer than the default sqlite-3-18 grammar.
-            dialect("app.cash.sqldelight:sqlite-3-38-dialect:2.4.0")
+            dialect("app.cash.sqldelight:sqlite-3-38-dialect:2.4.1")
         }
     }
 }
