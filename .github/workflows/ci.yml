@@ -23,6 +23,6 @@ jobs:
           distribution: temurin
           java-version: 25
       # ubuntu-latest ships the Android SDK; AGP finds it through ANDROID_HOME.
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Test publisher, shared module and Android unit tests
         run: ./gradlew :tools:publisher:test :apps:mobile:shared:jvmTest :apps:mobile:android:testDebugUnitTest
