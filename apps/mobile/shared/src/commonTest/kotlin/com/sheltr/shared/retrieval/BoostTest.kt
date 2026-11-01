@@ -3,7 +3,7 @@ package com.sheltr.shared.retrieval
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** Country cases ported from the server's CountryBoostTest; hazard cases from HazardBoostTest (active hazards only). */
+/** Country and active-hazard boost cases. */
 class BoostTest {
 
     @Test

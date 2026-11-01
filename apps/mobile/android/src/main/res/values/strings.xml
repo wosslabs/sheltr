@@ -37,7 +37,7 @@
     <string name="answer_read_aloud_unavailable">Read-aloud isn\'t available on this device.</string>
     <string name="answer_refusal_title">We can\'t answer that yet</string>
     <!-- Sheltr's own wording for a refusal, deliberately not a copy of the shared module's
-         RetrievalResult.Refusal.MESSAGE (an internal constant shared with the server, not a localizable UI
+         RetrievalResult.Refusal.MESSAGE (an internal constant, not a localizable UI
          string): this is the only text AnswerScreen is allowed to show for a refusal. -->
     <string name="answer_refusal_body">Sheltr doesn\'t have reliable guidance on this yet. Try different search words, or contact local emergency services for urgent help.</string>
 

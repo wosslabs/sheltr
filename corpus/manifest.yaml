@@ -1,6 +1,6 @@
 # The approved Sheltr corpus. Every entry is an official English document of global
 # guidance whose reuse terms allow storing and quoting it with attribution.
-# Load with `make ingest-corpus`.
+# Read by the publisher (tools/publisher).
 #
 # documents:
 #   - source_uri: direct URL of the PDF, or of the HTML page when source_type is html

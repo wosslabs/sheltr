@@ -1,6 +1,6 @@
 package com.sheltr.publisher
 
-/** Hazards a corpus document can cover. Mirrors com.sheltr.knowledge.domain.DisasterType on the server. */
+/** Hazards a corpus document can cover. */
 enum class DisasterType {
     EARTHQUAKE,
     FLOOD,

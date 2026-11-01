@@ -111,7 +111,7 @@ data class CorpusManifest(
             if (list == null || list.isEmpty()) {
                 throw IllegalArgumentException("Manifest entry $uri is missing 'hazards'")
             }
-            // Sorted by enum ordinal, like the server's EnumSet.
+            // Sorted by enum ordinal.
             return list.map { hazard("$it", uri) }.toSortedSet()
         }
 

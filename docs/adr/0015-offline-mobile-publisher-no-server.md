@@ -4,14 +4,13 @@
 Accepted
 
 Date: 2026-10-05
-Design: `docs/superpowers/specs/2026-10-05-offline-mobile-app-design.md`
-Plan: `docs/superpowers/plans/2026-10-05-mobile-kotlin-mpp.md`
+Design: `docs/design/offline-mobile-app.md`
 Diagram: `docs/architecture/mobile-design.md`
 
-This ADR supersedes ADR-0001 to ADR-0008 and ADR-0010 to ADR-0014 where they describe the server. ADR-0009 (licence) stays in force.
+This ADR replaces the earlier server-based decisions (former ADR-0001 to ADR-0008 and ADR-0010 to ADR-0014). Those ADRs were removed from the tree and remain in git history. ADR-0009 (licence) stays in force.
 
 ## Context
-- The Spring Boot backend (ADR-0001 to ADR-0014) answered questions over a REST API. It needed Postgres with pgvector, a local model or Gemini, and Podman for development. The only planned client was a mobile app that did not exist yet.
+- The Spring Boot backend  answered questions over a REST API. It needed Postgres with pgvector, a local model or Gemini, and Podman for development. The only planned client was a mobile app that did not exist yet.
 - Sheltr is for people in disasters, when the network and power are often down. The app has to answer from content stored on the phone, with no network.
 - The app did not need a server. The content is a small set of approved official documents that changes slowly. The phone only needs a signed copy of that content, refreshed whenever a network is available.
 - A server in production would be a single point of failure and an operating cost for a free, non-profit project.
@@ -26,11 +25,11 @@ This ADR supersedes ADR-0001 to ADR-0008 and ADR-0010 to ADR-0014 where they des
 ## Consequences
 - Positive: the app works offline. There is no server to run, patch or attack, and no hosting cost beyond static files. There are no accounts and no analytics. The trust boundary is the signed bundle, not a server.
 - Negative: v1 has no semantic retrieval on the phone. Keyword search misses passages that are worded differently from the question. The refusal rule prevents invented answers, but more questions will get no answer.
-- Evaluation: the server eval harness and its Gemini judge are removed. The phone's own keyword retrieval is evaluated instead (plan tasks E1 to E3). The cosine thresholds in ADR-0012 (0.65 local, 0.75 Gemini) no longer apply. The targets in the earlier design still apply: zero false accepts on held-out questions.
+- Evaluation: the server eval harness and its Gemini judge are removed. The phone's own keyword retrieval is evaluated instead (planned). The cosine thresholds of the removed server (0.65 local, 0.75 Gemini) no longer apply. The targets in the earlier design still apply: zero false accepts on held-out questions.
 - Freshness: content changes only when the maintainer runs the publisher and uploads the bundle. The server's automatic ingestion is gone.
 - Signing key: the maintainer holds the Ed25519 private key, off the phone and outside the repository. Losing it stops new signed bundles; the apps keep the last good content. Leaking it lets anyone sign content that the apps accept. The apps verify against the public key they ship with, so rotating the key requires an app update.
 - Network: the only network endpoint is the bundle host. The publisher fetches only the hosts named in the approved manifest.
 - iOS: BGTaskScheduler decides when sync runs, so it may run later than the schedule.
-- On-device model: the iOS integration is unproven until the spike (plan task I3). The Android integration is unproven until plan task A5.
+- On-device model: the iOS integration is unproven until the spike (planned). The Android integration is unproven until the Android spike.
 - Costs: Google Play one-time $25; Apple Developer Program $99 per year.
 - Removed: the Spring Boot backend, Postgres and pgvector, jOOQ, Flyway, Ollama, Podman, the Gemini provider, the Lumina chat UI and the OpenAPI contract. Git history keeps all of them.
