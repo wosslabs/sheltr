@@ -3,6 +3,9 @@ node_modules/
 build/
 dist/
 
+# On-device model weights
+*.litertlm
+
 # IDE
 .idea/
 *.iml
