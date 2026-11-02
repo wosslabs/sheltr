@@ -1,290 +1,396 @@
-# Native Apps Migration Implementation Plan
+# Flutter App Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the Expo app with two native apps, Android (Kotlin, Jetpack Compose) and iOS (Swift, SwiftUI), that behave identically because both pass one shared contract, and add the life-safety features the contract needs.
+**Goal:** Replace the Expo app with one Flutter app, written in Dart, that passes one shared contract on Android and iOS, then add cited on-device summaries through Google LiteRT-LM.
 
-**Architecture:** No shared runtime code. A `contract/` folder is the single source of truth: the bundle format, the retrieval rules and word lists, signed test bundles, and question cases with expected answers. The publisher (TypeScript, unchanged) generates the fixtures; the Expo app is kept as a reference implementation until both native apps pass the same contract, then deleted. Safety features (downgrade protection, content expiry, action cards, key rotation) come after parity so parity failures and feature failures never mix.
+**Architecture:** One Dart codebase. `sheltr_core` has no Flutter imports and holds the bundle format, signature check, SQLite store, retrieval, sync, settings, and the passage rewriter. The Flutter app is UI, localisation, background scheduling, and the LiteRT-LM adapter. A `contract/` folder is the source of truth for the bundle format, retrieval rules, signed fixtures, and question cases. The publisher stays TypeScript and generates the fixtures. The Expo app stays as the oracle until the Flutter app passes the same contract and the release checklist is done. LiteRT-LM only rewrites passages that already passed retrieval. It never answers a refusal, and a failed or missing model leaves the keyword answer in place.
 
-**Tech Stack:** Android: Kotlin 2.x, Jetpack Compose, SQLite with FTS5 (a bundled build if the platform lacks it), Tink for Ed25519, WorkManager, OkHttp. iOS: Swift 6, SwiftUI, GRDB (SQLite with FTS5), CryptoKit, BGTaskScheduler, URLSession. Publisher: Node 24, TypeScript. CI: GitHub Actions.
+**Tech Stack:** Flutter stable channel recorded at Task 3, Dart 3. `package:sqlite3` bundled build with FTS5 enabled (do not switch either phone to the system SQLite). `package:cryptography` `DartEd25519` for verification, without `cryptography_flutter`. `flutter_edge_ai` 2.5.5 and `flutter_edge_ai_litertlm` 1.19.1 for LiteRT-LM, CPU backend only. Publisher: Node 24, TypeScript. CI: GitHub Actions.
 
-**Spec:** `docs/design/offline-mobile-app.md`, `docs/adr/0015-offline-mobile-publisher-no-server.md`, `docs/adr/0016-expo-react-native-app.md` (superseded in part by the ADR written in Task 1), `docs/evaluation.md`.
+**Spec:** `docs/design/offline-mobile-app.md` (the on-device model section is the LiteRT-LM rule this plan implements), `docs/adr/0015-offline-mobile-publisher-no-server.md`, `docs/evaluation.md`. Behaviour to port is `apps/mobile/src/core`.
+
+This file used to describe two native apps, Kotlin and Swift. That version is replaced by this plan.
 
 ## Global Constraints
 
-- No server, no accounts, no analytics, no tracking SDK. The only network request is fetching the signed bundle over HTTPS. HTTP is refused.
-- The app answers only from approved documents, shows agency, title, date, page and link for every passage, and refuses when no passage passes the relevance check. It never generates guidance.
-- Relevance rules (shared through `contract/retrieval-rules.json`): minimum keyword score `1.0` (negated FTS5 bm25); a passage must contain `60%` of the question's topical words (word forms match when they share a prefix of at least 4 letters covering all but one letter of the shorter word, and two words that each have exactly one letter left after the shared prefix differ); country boost `+0.15`, hazard boost `+0.15`, boosts only reorder.
-- Bundle format version `1` until Task 14; `2` afterwards. An app reads exactly its own version and rejects others with a clear message.
-- An update is all-or-nothing: on any failure, including a process kill mid-install, the previous content stays active and unchanged.
-- Signatures: Ed25519, raw 32-byte public key compiled into the app, raw 64-byte signature of the exact bytes of `bundle.json`, strict RFC 8032 verification.
-- Android: minSdk 24, the current stable compileSdk and AGP at execution time, Kotlin core module with no Android imports so it runs in plain JVM tests. iOS: iOS 16 minimum, core in a Swift package with no UIKit or SwiftUI imports.
-- Languages: English, Spanish, French (same keys on both platforms). Text scale factors `1.0`, `1.2`, `1.4`. Touch targets at least 48 dp / 44 pt. Every control has a screen-reader label.
-- Licence: Apache-2.0. Corpus text keeps its own licence (`THIRD_PARTY_CONTENT.md`).
-- Every task ends with its tests passing in CI and a commit. No task leaves another platform's tests red.
+- No server, no accounts, no analytics, no tracking SDK. The only network host is the bundle host. HTTP is refused. A model file, when the signed manifest names one, is fetched from that same host and checked against the signed checksum. No Hugging Face download and no token in the app.
+- The app answers only from approved documents, shows agency, title, date, page and link for every passage, and refuses when no passage passes the relevance check. It never generates guidance. Model text is an optional lead above those passages. Hiding the lead still shows the passages.
+- Relevance rules, shared through `contract/retrieval-rules.json`: minimum keyword score `1.0` (negated FTS5 bm25); a passage must contain `60%` of the question's topical words; country boost `+0.15`, hazard boost `+0.15`; boosts only reorder; pool multiplier `5`. Scores are not compared across devices. The contract compares passage ids and answer-or-refuse, not bm25 numbers.
+- Word rule, shared through `contract/word-cases.tsv` and implemented once in `sheltr_core`: two words match when they share a prefix of at least 4 letters that covers all but at most one letter of the shorter word. When both words have exactly one letter left after that prefix, they do not match (`flood` / `floor`).
+- Bundle format version `1` until Task 10; version `2` afterwards. The app reads exactly its own version and rejects others with a clear message.
+- An update is all-or-nothing. On any failure, including a thrown write halfway through install, the previous content stays active. A staging file is never the active file. A leftover `content.db.staging` is deleted on the next open. Tests simulate the abort by throwing. They do not kill a process.
+- Signatures: Ed25519, raw 32-byte public key compiled into the app, raw 64-byte signature of the exact bytes of `bundle.json`, strict RFC 8032 via `DartEd25519`. `verify` returns false for a bad input and does not throw. Do not enable `cryptography_flutter`.
+- A wrong device clock does not hide guidance. A bad signature, an unknown key id, and a bundle sequence less than or equal to the installed sequence reject the update. A document past `expiresOn`, a last sync older than 90 days, and a trusted key past `notAfter` show a warning. Answers still work. Removing a key from the compiled list is what revokes it.
+- Android minSdk 24. iOS 16 minimum. The LiteRT-LM engine runs on the CPU backend on both, including the iOS simulator. GPU and NPU are out of this plan. Gemma 4 on GPU has been measured copying digits wrongly, which this app cannot show.
+- Languages: English, Spanish, French UI, keys in `contract/strings.tsv`, taken from `apps/mobile/src/i18n/locales/en.json`. Retrieval and the model support check are English. Text scale factors `1.0`, `1.2`, `1.4`. Touch targets at least 48 logical pixels. Every control has a screen-reader label.
+- The model flag defaults to off. Nothing in this plan turns it on. A later human commit may turn it on only together with a passing device record in `docs/evaluation.md`.
+- Model weights are never committed. `*.litertlm` is gitignored.
+- Licence: Apache-2.0. Corpus text keeps its own licence (`THIRD_PARTY_CONTENT.md`). The model file keeps the licence its publisher states, recorded in the eval doc, not in the app binary.
+- The publisher already drops images and drops a line that is only a logo, crest, emblem, coat of arms, or wordmark (`tools/publisher/src/html.ts`, `tools/publisher/src/text.ts`). A sentence that mentions one of those words stays. Do not add a second stripper.
+- Every task ends with its tests passing and a commit. Committed fixtures are canonical. CI does not regenerate them. Generation uses a new key every run, so a regeneration will not match the committed bytes.
 
 ## Review Focus
 
-1. **Replayed old signed bundle.** An attacker serves a genuine but older signed bundle. Expected: rejected as a downgrade, content unchanged (Task 14 pins it for both apps and the publisher).
-2. **Install interrupted or disk full.** Process killed or storage exhausted mid-install. Expected: the old content still answers, no partial rows, no leftover staging file after restart (Tasks 5 and 11).
-3. **Odd questions.** Empty text, only stopwords, only punctuation, non-Latin script, a 5,000-character paste, FTS5 operators in the text. Expected: refusal or an answer, never a crash or a syntax error (Tasks 4, 5, 11).
-4. **Unsupported or missing settings.** Device language not en/es/fr, country unset, damaged stored settings. Expected: English UI, no country boost, defaults for any damaged field (Tasks 8 and 13).
-5. **Stale content with no network.** Content past its expiry, or never synced for a long time, offline. Expected: answers still work and a visible staleness warning shows, in both apps (Task 14).
+1. **Replayed old signed bundle.** Rejected because `sequence` is not greater than the installed sequence. Content unchanged (Task 11).
+2. **Install interrupted.** A document source throws on the second document, and a driver throws on a later statement. The old content still answers, no partial rows, no leftover staging file after the next open (Task 5).
+3. **Odd questions.** Empty text, only stopwords, only punctuation, non-Latin script, a 5,000-character paste, FTS5 operators in the text. Refusal or an answer, never a crash or a syntax error (Task 6). `flood` does not match `floor` (Task 6, `contract/word-cases.tsv`).
+4. **Unsupported or missing settings.** Device language not en/es/fr, country unset, damaged stored settings. English UI, no country boost, defaults for any damaged field (Task 8).
+5. **Stale content, wrong clock, no network.** Content past `expiresOn`, or last sync older than 90 days, or the device date before the bundle's published time. Answers still work and a warning shows (Task 11).
+6. **Model adds a fact.** Retrieval passed, the scripted model reply contains a content word or a digit sequence that is not in the cited passages. The lead is hidden, the passages and their citations still show, and a retrieval refusal never calls the model (Task 14).
 
 ## File Structure
 
 ```
 contract/
-  README.md                     how to run the contract in each platform
-  bundle-format.md              layout, field rules, version rules (human readable)
-  retrieval-rules.json          thresholds, boosts, stopwords, synonyms, hazard terms, hazard order
-  retrieval-cases.tsv           question, country, hazards -> answerable | refuse (+ expected term)
-  fixtures/<name>/              bundle.json, bundle.json.sig, documents/, public-key.hex, expect.json
-apps/android/
-  core/                         pure Kotlin library (bundle, signing, store interface, retrieval, sync, settings)
-  app/                          Compose UI, Room-free SQLite store, WorkManager, resources en/es/fr
-apps/ios/
-  SheltrCore/                   Swift package (same layers)
-  Sheltr/                       SwiftUI app, Localizable strings en/es/fr
-tools/publisher/                unchanged except Tasks 1 and 14-16
-apps/mobile/                    Expo app: kept until Task 17, then deleted
-docs/                           ADR-0017, publishing, evaluation, store listings updated
+  README.md
+  bundle-format.md
+  retrieval-rules.json
+  retrieval-cases.tsv          moved from apps/mobile/src/core/testing/retrieval-eval.tsv
+  word-cases.tsv               left, right, match (true|false)
+  strings.tsv                  key, placeholders. Keys copied from the English locale.
+  model-cases.tsv              question, passages, model output, show|hide
+  fixtures/<name>/             bundle.json, bundle.json.sig, documents/, public-key.hex, expect.json
+apps/flutter/
+  pubspec.yaml                 path dependency on packages/sheltr_core; app UI
+  lib/                         Flutter UI, l10n, sync scheduling, LiteRT adapter
+  packages/sheltr_core/        pure Dart. No package:flutter import.
+  test/
+apps/mobile/                   Expo app: oracle until Task 17, then deleted
+tools/publisher/               unchanged except Tasks 1, 10, 12 and 13
+docs/
 ```
 
-`expect.json` is `{"result": "updated" | "rejectedSignature" | "failed" | "upToDate", "reasonContains": string | null}` and tells a test what the sync engine must return for that fixture.
+`expect.json` is:
+
+```json
+{
+  "prior": "empty" | "valid-signed",
+  "result": "updated" | "rejectedSignature" | "failed" | "upToDate",
+  "reasonContains": null,
+  "documentsDownloaded": null
+}
+```
+
+`reasonContains` is asserted only when it is a string. `documentsDownloaded` is asserted only when it is a number. `rejectedSignature` has no reason on the current sync result, so those fixtures use `null`.
+
+| Fixture | prior | result | reasonContains | documentsDownloaded |
+|---|---|---|---|---|
+| `valid-signed` | empty | updated | null | number of documents in that bundle |
+| `valid-unchanged-doc` | valid-signed | updated | null | count of documents whose file checksum differs from the installed one |
+| `tampered-manifest` | empty | rejectedSignature | null | null |
+| `wrong-key` | empty | rejectedSignature | null | null |
+| `bad-file-checksum` | empty | failed | `does not match the manifest` | null |
+| `missing-document` | empty | failed | null | null |
+| `unsupported-format` | empty | failed | `format` | null |
+| `plain-http-url` | empty | failed | `https` | null |
 
 ## Phase A: contract
 
 ### Task 1: Contract folder and generated fixtures
 
 **Files:**
-- Create: `contract/README.md`, `contract/bundle-format.md`, `contract/retrieval-rules.json`, `contract/retrieval-cases.tsv` (moved from `apps/mobile/src/core/testing/retrieval-eval.tsv`), `tools/publisher/src/fixtures.ts`, `tools/publisher/src/fixtures.test.ts`, `docs/adr/0017-native-apps.md`
-- Modify: `tools/publisher/package.json` (script `fixtures`), `apps/mobile/src/core/retrieval/*` (read the rules file in tests only, see Task 2)
+- Create: `contract/README.md`, `contract/bundle-format.md`, `contract/retrieval-rules.json`, `contract/retrieval-cases.tsv`, `contract/word-cases.tsv`, `contract/strings.tsv`, `tools/publisher/src/fixtures.ts`, `tools/publisher/src/fixtures.test.ts`
+- Modify: `tools/publisher/package.json` (script `fixtures`)
 
 **Interfaces:**
-- Produces: `contract/fixtures/<name>/` for these names: `valid-signed`, `valid-unchanged-doc` (second bundle that reuses one document), `tampered-manifest`, `wrong-key`, `bad-file-checksum`, `missing-document`, `unsupported-format`, `plain-http-url` (expect `failed`, `reasonContains` "https"). Each has `expect.json`. Produces `npm run fixtures` in `tools/publisher`.
-- `retrieval-rules.json` keys: `relevanceThreshold`, `minTermCoverage`, `countryBoost`, `hazardBoost`, `poolMultiplier`, `stopwords[]`, `synonyms{}`, `hazardTerms[]`, `disasterTypes[]`.
+- Produces: the eight fixture directories in the table above, each with `expect.json` matching that row. `npm run fixtures` writes them. The private key is never written. Only `public-key.hex` and the signature are.
+- `retrieval-rules.json` keys: `relevanceThreshold` (1.0), `minTermCoverage` (0.6), `countryBoost` (0.15), `hazardBoost` (0.15), `poolMultiplier` (5), `stopwords[]`, `synonyms{}`, `hazardTerms[]`, `disasterTypes[]` (the 12 `DisasterType` values in `apps/mobile/src/ui/hazards.ts`).
+- `word-cases.tsv` rows: `aftershocks aftershock true`, `evacuate evacuation true`, `disasters disaster true`, `heat heating true`, `programming programmes false`, `pet petrol false`, `flood floor false`, `heat heal false`.
+- `strings.tsv`: one row per key in `apps/mobile/src/i18n/locales/en.json`, with the `%{pN}` placeholders used by that string. Spanish and French are not copied. Later tasks only check that those locales have the same keys and placeholders.
 
-- [ ] **Step 1: Write the failing test** `fixtures.test.ts`: `it('generates every named fixture with an expect.json')` asserting the eight directories exist and each `expect.json` parses to the shape above; `it('valid-signed verifies under its public-key.hex')` using the publisher's `verify`; `it('tampered-manifest does not verify')`; `it('regenerating produces a coherent set')` (run generation twice into temp dirs, every fixture's signature verifies under its own `public-key.hex`).
-- [ ] **Step 2: Run** `cd tools/publisher && npm test -- --test-name-pattern fixtures` — Expected: FAIL (module not found).
-- [ ] **Step 3: Implement** `generateFixtures(outDir: string, now: () => Date): Promise<void>` in `fixtures.ts`, building bundles with `buildBundle` and a freshly generated key per run (the private key is never written to disk; only `public-key.hex` and the signature are), then deriving the broken variants by editing bytes after signing.
-- [ ] **Step 4: Run** the publisher tests — Expected: PASS. Run `npm run fixtures` once and commit the output.
-- [ ] **Step 5: Write `retrieval-rules.json`** from the constants currently in `apps/mobile/src/core/retrieval` (values in Global Constraints), and `bundle-format.md` from `docs/design/offline-mobile-app.md` section 4 and `src/bundle.ts` comments. Write ADR-0017: native apps, contract-based parity, Expo app kept as oracle until Task 17.
-- [ ] **Step 6: Commit** `feat: add the cross-platform contract and generated fixtures`.
+- [ ] **Step 1: Write the failing test** `fixtures.test.ts`: the eight directories exist; each `expect.json` equals the row in the table; `valid-signed` verifies under its `public-key.hex`; `tampered-manifest` does not; running generation twice into two temp directories produces fixtures that verify under their own public keys. A second test reads `word-cases.tsv` and `strings.tsv` and checks they are non-empty and have the header columns above.
+- [ ] **Step 2: Run** `cd tools/publisher && npm test -- --test-name-pattern fixtures`. Expected: FAIL (module not found).
+- [ ] **Step 3: Implement** `generateFixtures(outDir: string, now: () => Date): Promise<void>` using `buildBundle` and a key generated in memory. Derive the broken fixtures by editing bytes after signing. Write the rules JSON from the constants in `apps/mobile/src/core/retrieval`. Write `word-cases.tsv` with the eight rows. Generate `strings.tsv` from the English locale keys. Write `bundle-format.md` from `docs/design/offline-mobile-app.md` section 4 and `apps/mobile/src/core/bundle/format.ts`.
+- [ ] **Step 4: Run** the publisher tests. Expected: PASS. Run `npm run fixtures` once and commit that output. Do not re-run it in CI.
+- [ ] **Step 5: Commit** `feat: add the shared contract and generated fixtures`.
 
 ### Task 2: Prove the Expo app already satisfies the contract
 
 **Files:**
 - Create: `apps/mobile/src/core/contract.test.ts`
-- Modify: `apps/mobile/src/core/retrieval/stopwords.ts`, `vocabulary.ts`, `boost.ts`, `retriever.ts` (load values from `contract/retrieval-rules.json` instead of literals)
+- Modify: `apps/mobile/src/core/retrieval/stopwords.ts`, `vocabulary.ts`, `boost.ts`, `retriever.ts` so the numbers and lists come from `contract/retrieval-rules.json`. The `sameWord` function stays in `retriever.ts`.
 
 **Interfaces:**
-- Consumes: Task 1 fixtures and rules.
-- Produces: the proof that the contract equals current, shipped-quality behaviour; every native task's parity tests mirror this file.
+- Consumes: Task 1 fixtures, rules, word cases, and retrieval cases.
+- Produces: the oracle. Flutter's contract tests assert the same fixture table, the same word cases, and the same retrieval bars.
 
-- [ ] **Step 1: Write the failing test** `contract.test.ts`: for each fixture directory, serve its files through a mock `SyncClient`, run `SyncEngine` with `public-key.hex`, assert `result.kind` equals `expect.json.result` and the reason contains `reasonContains`; and `it('answers every case in retrieval-cases.tsv as expected')` over the sample bundle, asserting zero false accepts and at least 90% answered (same bars as `docs/evaluation.md`).
-- [ ] **Step 2: Run** `cd apps/mobile && npx jest src/core/contract.test.ts` — Expected: FAIL until fixtures path and rules loading exist.
-- [ ] **Step 3: Implement** loading of the rules JSON in the four retrieval files (import the JSON; Metro and Jest both support it). Remove the duplicated literals.
-- [ ] **Step 4: Run** `npm test` in `apps/mobile` — Expected: all prior tests plus the contract tests PASS.
+- [ ] **Step 1: Write the failing test** `contract.test.ts`. For each fixture, install `prior` when it is `valid-signed`, serve the fixture through a mock `SyncClient`, run `SyncEngine` with that fixture's `public-key.hex`, and assert `result.kind`, `reasonContains` when non-null, and `documentsDownloaded` when non-null. Assert every `word-cases.tsv` row against `sameWord`. Assert `retrieval-cases.tsv` has zero false accepts and at least 90% of the answerable rows answered, and that each answered row's expected term is present. These are the bars in `docs/evaluation.md`.
+- [ ] **Step 2: Run** `cd apps/mobile && npx jest src/core/contract.test.ts`. Expected: FAIL until the fixtures path and the rules file are wired.
+- [ ] **Step 3: Implement** the JSON load in the four retrieval files. Keep `sameWord` as it is. Point the existing evaluation test at `contract/retrieval-cases.tsv` so there is one case file.
+- [ ] **Step 4: Run** `npm test` in `apps/mobile`. Expected: PASS.
 - [ ] **Step 5: Commit** `test: the Expo app passes the shared contract`.
 
-## Phase B: Android
+## Phase B: Flutter app
 
-### Task 3: Android project from history, split into core and app
-
-**Files:**
-- Create: `apps/android/` by restoring `apps/mobile/shared` and `apps/mobile/android` from commit `ae9fbaaf` (33 main files, 38 tests) into `apps/android/core` and `apps/android/app`, plus `settings.gradle.kts`, `gradle/` wrapper, `.github/workflows/android.yml`
-- Modify: package names `com.sheltr.shared` -> `com.sheltr.core`; remove the Kotlin Multiplatform plugin and the iOS and JVM targets: `core` becomes an Android-independent Kotlin/JVM library module
-
-**Interfaces:**
-- Produces: Gradle modules `:core` (Kotlin JVM library, no `android.*` imports) and `:app`. `./gradlew :core:test :app:testDebugUnitTest` is the single check.
-
-- [ ] **Step 1: Restore** with `git restore --source=ae9fbaaf -- apps/mobile/shared apps/mobile/android`, move the folders to `apps/android/{core,app}`, adjust the Gradle files. Do not touch `apps/mobile` (Expo).
-- [ ] **Step 2: Write the failing check** — an ArchUnit-style test `CoreHasNoAndroidImportsTest` in `:core` that scans compiled classes and fails on any `android.` reference.
-- [ ] **Step 3: Run** `./gradlew :core:test` — Expected: FAIL until the Android-specific files (settings DataStore, store driver factory, file helpers) are moved to `:app` behind interfaces `SettingsStore`, `StoreDriverFactory`, `FileSystem`.
-- [ ] **Step 4: Implement the move**; keep every restored test passing.
-- [ ] **Step 5: Add the workflow** running both Gradle tasks; **Run** `./gradlew :core:test :app:testDebugUnitTest` — Expected: PASS.
-- [ ] **Step 6: Commit** `feat(android): restore the Android app as core and app modules`.
-
-### Task 4: Android core passes the contract; rules come from the contract
+### Task 3: Flutter project and a Flutter-free core package
 
 **Files:**
-- Create: `apps/android/core/src/test/kotlin/com/sheltr/core/ContractFixturesTest.kt`, `ContractRetrievalCasesTest.kt`, `core/src/main/kotlin/com/sheltr/core/retrieval/Rules.kt`
-- Modify: `Retriever.kt`, `Stopwords.kt`, `HazardVocabulary.kt`, `Boost.kt`
+- Create: `apps/flutter/` with `flutter create`, then `apps/flutter/packages/sheltr_core/` as a pure Dart package. `apps/flutter/pubspec.yaml` depends on it by path. `.github/workflows/flutter.yml`. `.gitignore` gains `*.litertlm`.
 
 **Interfaces:**
-- Produces: `object Rules { val relevanceThreshold: Double; val minTermCoverage: Double; val countryBoost: Double; val hazardBoost: Double; val stopwords: Set<String>; val synonyms: Map<String,String>; val hazardTerms: Set<String>; val disasterTypes: List<String> }` loaded from `contract/retrieval-rules.json` (copied to test and app resources by a Gradle sync task, with a test that the copy is identical to `contract/`).
+- Produces: `flutter test` in `apps/flutter` runs the app tests and `dart test` in `packages/sheltr_core`. A test `core_has_no_flutter_import_test.dart` fails if any file under `packages/sheltr_core/lib` contains `package:flutter`.
+- Record `flutter --version` in the commit message. Android `minSdk` 24. iOS deployment target 16.0.
 
-- [ ] **Step 1: Write failing tests**: `ContractFixturesTest` (a parameterised test over every `contract/fixtures/*`, asserting the `SyncResult` kind and reason like Task 2) and `ContractRetrievalCasesTest` (zero false accepts, at least 90% answered, same cases file), plus `sameWordDoesNotMatchFloodAndFloor`, `emptyAndPunctuationQueriesRefuse`, `ftsOperatorsInTextAreNotInterpreted`, `fiveThousandCharacterQuestionDoesNotFail`.
-- [ ] **Step 2: Run** `./gradlew :core:test` — Expected: FAIL.
-- [ ] **Step 3: Implement** `Rules` loading and replace literals; port the one-letter-substitution rule for `sameWord` from `apps/mobile/src/core/retrieval/retriever.ts`.
-- [ ] **Step 4: Run** `./gradlew :core:test` — Expected: PASS.
-- [ ] **Step 5: Commit** `feat(android): core satisfies the contract`.
+- [ ] **Step 1: Write the failing check** that greps `sheltr_core/lib` for `package:flutter` and fails on a hit. The package does not exist yet, so the test command fails first.
+- [ ] **Step 2: Run** `cd apps/flutter/packages/sheltr_core && dart test`. Expected: FAIL.
+- [ ] **Step 3: Implement** the create, the path dependency, the grep test, and the workflow running `dart test` and `flutter test` on `ubuntu-latest`.
+- [ ] **Step 4: Run** both test commands. Expected: PASS.
+- [ ] **Step 5: Commit** `feat(flutter): add the app and sheltr_core`.
 
-### Task 5: Android store: FTS5 everywhere and interruption safety
+### Task 4: Bundle parsing, checksums, and Ed25519
 
 **Files:**
-- Modify: `app/.../store/AndroidStoreDriverFactory.kt`, `core/.../store/ContentStore.kt`
-- Test: `core/.../ContentStoreInterruptionTest.kt`, `app/src/androidTest/.../FtsAvailabilityTest.kt`
+- Create: `packages/sheltr_core/lib/bundle/format.dart`, `parser.dart`, `sha256.dart`, `lib/signing/verifier.dart`
+- Test: `packages/sheltr_core/test/contract_fixtures_test.dart`, `verifier_test.dart`, `parser_test.dart`
 
 **Interfaces:**
-- Consumes: `StoreDriverFactory.open(path: String, create: Boolean): SqlDriver` (existing).
-- Produces: unchanged `ContentStore.install(manifest, documents)` semantics, now with a documented guarantee: a staging file is never the active file, and a leftover staging file is deleted on the next open.
+- Produces:
+  - `bool verifySignature(Uint8List publicKey, Uint8List message, Uint8List signature)` using `DartEd25519` from `package:cryptography/dart.dart`. False for a key that is not 32 bytes, a signature that is not 64 bytes, a DER key, or a high-S signature.
+  - `BundleManifest parseBundleManifest(String text)`
+  - `void verifyDocumentFile(BundleDocument doc, Uint8List bytes)` throws a format error whose message contains `does not match the manifest` when the SHA-256 does not match `fileChecksum`.
+- Add `cryptography` at the version resolved on the day of the task. Do not add `cryptography_flutter`.
 
-- [ ] **Step 1: Write failing tests**: `killDuringInstallLeavesOldContentActive` (a `DocumentSource` that throws on the second document and a second variant that closes the driver midway), `leftoverStagingFileIsDeletedOnOpen`, `installFailsCleanlyWhenWritesFail` (a `StoreDriverFactory` whose driver throws on the Nth statement), and an instrumented `ftsIsAvailableOnMinSdk` creating an FTS5 table on an API 24 emulator image.
-- [ ] **Step 2: Run** the JVM tests — Expected: FAIL for any gap; the instrumented test runs in CI on an emulator matrix (API 24, 30, 35).
-- [ ] **Step 3: Implement** fixes; keep the bundled `sqlite-android` build only if the API 24 emulator lacks FTS5.
-- [ ] **Step 4: Run** all; PASS. **Step 5: Commit** `feat(android): interruption-safe store, FTS5 on every supported API level`.
+- [ ] **Step 1: Write the failing tests.** RFC 8032 test vector 1 verifies. A signature with `S` greater than or equal to the group order returns false. A 33-byte key returns false. A DER-encoded key returns false. `valid-signed` verifies. `tampered-manifest` and `wrong-key` do not. `unsupported-format` and `bad-file-checksum` throw with the substrings in the fixture table.
+- [ ] **Step 2: Run** `dart test`. Expected: FAIL.
+- [ ] **Step 3: Implement** the parser against `contract/bundle-format.md` and `apps/mobile/src/core/bundle`. Verification calls `DartEd25519().verify` and catches any error as false.
+- [ ] **Step 4: Run** `dart test`. Expected: PASS.
+- [ ] **Step 5: Commit** `feat(flutter): verify Ed25519 bundles in sheltr_core`.
 
-### Task 6: Android signature verification on minSdk 24
+### Task 5: Store, FTS5, and interrupted installs
 
 **Files:**
-- Create: `core/.../signing/SignatureVerifier.kt` (replace the multiplatform crypto dependency with Tink or BouncyCastle, chosen by a one-hour spike recorded in the commit message)
-- Test: `core/.../SignatureVerifierTest.kt`
+- Create: `packages/sheltr_core/lib/store/content_store.dart`
+- Test: `packages/sheltr_core/test/content_store_test.dart`
+- Modify: `apps/flutter/pubspec.yaml` and `packages/sheltr_core/pubspec.yaml` to depend on `sqlite3`. Do not set `hooks.user_defines.sqlite3.source` to `system` on Android or iOS. The package's bundled SQLite is compiled with `SQLITE_ENABLE_FTS5`.
 
 **Interfaces:**
-- Produces: `fun verifySignature(publicKey: ByteArray, message: ByteArray, signature: ByteArray): Boolean` (32-byte key, 64-byte signature, false for any malformed input, never throws).
+- Produces: `ContentStore` opened on a directory. `install` writes `content.db.staging`, checks row counts against the manifest, closes it, and renames it over `content.db`. On any throw before the rename, `content.db` is unchanged and the staging file is removed. `open` deletes a leftover staging file, including `content.db.staging-journal` and `content.db.staging-wal` if present. `search(query, limit)` returns FTS5 rows using `bm25(chunks_fts)`. The query string is built by the store from tokens, never passed through as the user's text.
 
-- [ ] **Step 1: Write failing tests**: `rfc8032Vector1Verifies`, `highSScalarIsRejected`, `thirtyThreeByteKeyIsRejected`, `derKeyIsRejected`, and the contract fixture `valid-signed` verifies while `tampered-manifest` and `wrong-key` do not.
-- [ ] **Step 2: Run** — Expected: FAIL. **Step 3: Implement** with the chosen library using strict (non-ZIP215) verification.
-- [ ] **Step 4: Run** — PASS. **Step 5: Commit** `feat(android): Ed25519 verification on API 24+`.
+- [ ] **Step 1: Write the failing tests** `installThrowsOnSecondDocumentLeavesOldContent`, `driverThrowMidwayLeavesOldContent`, `leftoverStagingFileIsDeletedOnOpen`, `fts5TableCanBeCreated`. The FTS5 test runs in `dart test` against the bundled library.
+- [ ] **Step 2: Run** `dart test`. Expected: FAIL.
+- [ ] **Step 3: Implement** the staging rename. Port the SQL from `apps/mobile/src/core/store/schema.ts` and `contentStore.ts`.
+- [ ] **Step 4: Run** `dart test`. Expected: PASS.
+- [ ] **Step 5: Commit** `feat(flutter): interruption-safe FTS5 store`.
 
-### Task 7: Android sync, scheduling and network policy
+### Task 6: Retrieval
 
 **Files:**
-- Modify: `core/.../sync/SyncEngine.kt` (from history), `app/.../sync/SyncWorker.kt` (new), `AndroidManifest.xml`
-- Test: `core/.../SyncEngineContractTest.kt`, `app/src/test/.../SyncWorkerTest.kt`
+- Create: `packages/sheltr_core/lib/retrieval/rules.dart`, `retriever.dart`, `stopwords.dart`, `citations.dart`
+- Test: `packages/sheltr_core/test/retrieval_test.dart`
 
 **Interfaces:**
-- Produces: `class SyncWorker : CoroutineWorker` scheduled by `fun scheduleSync(context: Context, settings: AppSettings)` with `NetworkType.UNMETERED` unless `allowMobileData`, `RetryPolicy` back-off, and unique work name `sheltr-sync`.
+- Produces: `Rules` loaded from `contract/retrieval-rules.json`, copied into the package by a test helper that fails if the copy differs. `bool sameWord(String a, String b)`. `RetrievalResult retrieve(RetrievalQuery query)` with kinds `passages` and `refuse`. A `passages` result carries agency, title, published date, page, and source link for each passage.
 
-- [ ] **Step 1: Write failing tests**: sync-engine cases from `fixtures/` served by OkHttp `MockWebServer`; `workerRunsOnlyOnUnmeteredWhenMobileDataOff`, `manualFrequencyCancelsWork`, `rejectedSignatureIsNotRetried`, `failedSyncRetriesWithBackoff` using `WorkManagerTestInitHelper`.
-- [ ] **Step 2-5:** run (FAIL), implement, run (PASS), commit `feat(android): background sync with WorkManager`.
+- [ ] **Step 1: Write the failing tests.** Every `word-cases.tsv` row. Every review-focus odd question returns `refuse` or `passages` and does not throw: empty, stopwords only, punctuation only, a non-Latin string, 5,000 characters, and a query containing `AND`, `OR`, `NOT`, and `"`. `retrieval-cases.tsv`: zero false accepts, at least 90% of answerable rows answered, expected term present on answered rows. Country and hazard boosts reorder and do not turn a refusal into an answer.
+- [ ] **Step 2: Run** `dart test`. Expected: FAIL.
+- [ ] **Step 3: Implement** by porting `apps/mobile/src/core/retrieval/retriever.ts`, including `sameWord` and the 60% coverage check. Load lists from `Rules`. The FTS query is tokenised before it reaches SQLite.
+- [ ] **Step 4: Run** `dart test`. Expected: PASS.
+- [ ] **Step 5: Commit** `feat(flutter): retrieval passes the contract`.
 
-### Task 8: Android UI parity, accessibility and settings resilience
+### Task 7: Sync
 
 **Files:**
-- Modify: the Compose screens restored from history (Home, Search, Answer, Settings, About); `res/values{,-es,-fr}/strings.xml`
-- Test: `app/src/test/.../*ScreenTest.kt` (Robolectric), `StringResourceParityTest.kt`
+- Create: `packages/sheltr_core/lib/sync/client.dart`, `engine.dart`, `result.dart`, `retry_policy.dart`
+- Test: `packages/sheltr_core/test/sync_engine_test.dart`
 
 **Interfaces:**
-- Consumes: Task 4 `Retriever`, Task 7 `scheduleSync`. Produces: the screens and string keys listed in `contract/README.md` (the key list is the cross-platform string contract; Task 12 checks iOS against it).
+- Produces: `SyncResult` with kinds `updated`, `upToDate`, `rejectedSignature`, and `failed`. Only `failed` has `reason`. `SyncEngine.run(baseUrl, publicKey, store)` fetches `bundle.json` and `bundle.json.sig`, verifies the signature before parsing, refuses a base URL that does not start with `https://`, downloads only documents whose `fileChecksum` changed, and installs through `ContentStore.install`. `RetryPolicy.delayBeforeRetry` returns null for `rejectedSignature`, `upToDate`, and `updated`.
 
-- [ ] **Step 1: Write failing tests**: `unsupportedDeviceLanguageShowsEnglish`, `damagedStoredSettingsFallBackToDefaults`, `largestTextScaleKeepsEveryControlReachable`, `everyButtonHasAContentDescription`, `answerShowsAgencyTitleDatePageAndLink`, `refusalShowsOwnTextAndTheEmergencyNumberHint`.
-- [ ] **Step 2-5:** run, implement, run, commit `feat(android): UI parity and accessibility checks`.
+- [ ] **Step 1: Write the failing test** over every `contract/fixtures/*` directory, honouring `expect.json` `prior`, `result`, `reasonContains`, and `documentsDownloaded`. Use an in-memory client. No sockets.
+- [ ] **Step 2: Run** `dart test`. Expected: FAIL.
+- [ ] **Step 3: Implement** by porting `apps/mobile/src/core/sync/engine.ts` and `client.ts`.
+- [ ] **Step 4: Run** `dart test`. Expected: PASS.
+- [ ] **Step 5: Commit** `feat(flutter): sync engine passes the fixture contract`.
 
-## Phase C: iOS
-
-### Task 9: iOS project: Swift package core plus SwiftUI app
+### Task 8: UI, localisation, accessibility, settings
 
 **Files:**
-- Create: `apps/ios/SheltrCore/Package.swift`, `apps/ios/Sheltr.xcodeproj` (or an XcodeGen `project.yml`, committed), `.github/workflows/ios.yml` (macOS runner, `xcodebuild test`)
+- Create: `apps/flutter/lib/screens/home.dart`, `search.dart`, `answer.dart`, `settings.dart`, `about.dart`, `l10n/app_en.arb`, `app_es.arb`, `app_fr.arb`
+- Test: `apps/flutter/test/screens_test.dart`, `apps/flutter/test/strings_test.dart`
+- Modify: `packages/sheltr_core` settings types, ported from `apps/mobile/src/core/settings`
 
 **Interfaces:**
-- Produces: package `SheltrCore` (no UIKit/SwiftUI import) and app target `Sheltr`. Prerequisite on the dev machine: an iOS simulator runtime (`xcodebuild -downloadPlatform iOS`).
+- Produces: screens for the 12 hazards, search, answer, settings, and about. `strings_test.dart` fails if any key or placeholder in `contract/strings.tsv` is missing from a locale. Settings: country null or two uppercase letters, language en/es/fr, text scale one of `1.0`, `1.2`, `1.4`, sync frequency manual/daily/weekly/monthly, `allowMobileData` default false. Damaged stored JSON falls back field by field.
 
-- [ ] **Step 1: Write the failing check** `CoreImportsTests` that greps the package sources for `import UIKit` and `import SwiftUI`.
-- [ ] **Step 2-5:** run (FAIL), scaffold, run, commit `feat(ios): project skeleton`.
+- [ ] **Step 1: Write the failing tests.** `unsupportedDeviceLanguageShowsEnglish`, `damagedStoredSettingsFallBackToDefaults`, `largestTextScaleKeepsEveryControlReachable` at text scale `1.4`, `everyButtonHasASemanticsLabel`, `answerShowsAgencyTitleDatePageAndLink`, `refusalShowsOwnText`, `homeShowsTwelveHazards`, `searchSubmitDisabledWhenBlank`.
+- [ ] **Step 2: Run** `flutter test`. Expected: FAIL.
+- [ ] **Step 3: Implement** the screens against `sheltr_core`. Copy the English strings from `apps/mobile/src/i18n/locales/en.json` and the existing Spanish and French translations. Wire `MediaQuery.textScaler` from the setting. Read-aloud uses the platform text-to-speech plugin already chosen in this task's commit message. Record the plugin name and version there.
+- [ ] **Step 4: Run** `flutter test`. Expected: PASS.
+- [ ] **Step 5: Commit** `feat(flutter): screens, localisation, and accessibility`.
 
-### Task 10: iOS bundle parsing, checksums, CryptoKit verification, contract fixtures
+### Task 9: When a sync is due
 
 **Files:**
-- Create: `SheltrCore/Sources/SheltrCore/Bundle/{BundleFormat,BundleParser,Sha256}.swift`, `Signing/SignatureVerifier.swift`; Test: `ContractFixturesTests.swift`, `SignatureVerifierTests.swift`, `BundleParserTests.swift`
+- Create: `packages/sheltr_core/lib/settings/sync_due.dart`, `apps/flutter/lib/sync/scheduler.dart`
+- Test: `packages/sheltr_core/test/sync_due_test.dart`
 
 **Interfaces:**
-- Produces: `func verifySignature(publicKey: Data, message: Data, signature: Data) -> Bool`, `func parseBundleManifest(_ text: String) throws -> BundleManifest`, `func verifyDocumentFile(_ doc: BundleDocument, bytes: Data) throws`; same error messages as Android and the contract.
+- Produces: `DateTime? nextSyncDue(AppSettings settings, DateTime? lastSync, DateTime now)`. Manual frequency returns null. Otherwise the interval is 86400, 604800, or 2592000 seconds. The Flutter scheduler asks this function on launch and registers a best-effort background callback with the same interval. The background callback is not covered by a unit test. The release checklist runs it on a device.
 
-- [ ] **Step 1: Write failing tests** mirroring Task 6 (RFC vector, high-S, wrong length, DER key) and Task 2's fixture expectations for parse errors (`unsupported-format`, `bad-file-checksum`).
-- [ ] **Step 2-5:** run, implement with `Curve25519.Signing.PublicKey.isValidSignature`, run, commit `feat(ios): bundle format and signature verification`.
+- [ ] **Step 1: Write the failing tests** by porting the cases in `apps/mobile/src/core/settings/settings.test.ts` for `nextSyncDue`, including the unmetered-network boundary the existing tests cover.
+- [ ] **Step 2: Run** `dart test`. Expected: FAIL.
+- [ ] **Step 3: Implement** `nextSyncDue`. The app calls it from the launch path. Background registration may no-op in tests.
+- [ ] **Step 4: Run** `dart test` and `flutter test`. Expected: PASS.
+- [ ] **Step 5: Commit** `feat(flutter): sync schedule on launch`.
 
-### Task 11: iOS store (GRDB FTS5) and retrieval parity
+## Phase C: bundle format 2
+
+### Task 10: Publisher sequence, review dates, and expiry
 
 **Files:**
-- Create: `SheltrCore/Sources/SheltrCore/Store/ContentStore.swift`, `Retrieval/{Rules,Retriever,Stopwords,Citations}.swift`; Test: `ContentStoreTests.swift`, `RetrievalCasesTests.swift`
+- Modify: `tools/publisher/src/bundle.ts`, `tools/publisher/src/manifest.ts`, `corpus/manifest.yaml`, `contract/bundle-format.md`
+- Create: fixtures `downgrade-older-sequence`, `same-sequence`, `expired-document` by extending `fixtures.ts`
+- Test: publisher tests named below
 
 **Interfaces:**
-- Produces: `final class ContentStore { init(path: String) throws; func install(_ manifest: BundleManifest, documents: (BundleDocument) throws -> DocumentFile) throws; func search(_ query: String, limit: Int) throws -> [SearchHit]; func bundleVersion() throws -> String?; func documents() throws -> [StoredDocument] }` and `struct Retriever { func retrieve(_ query: RetrievalQuery) throws -> RetrievalResult }`; `Rules` loaded from the same `retrieval-rules.json` (copied into the package's test and app resources by a build phase, with a test that the copy equals `contract/`).
+- Produces: `BUNDLE_FORMAT_VERSION = 2`. Bundle field `sequence` is an integer, strictly increasing per publication via `--previous <bundle.json>`. Each manifest entry requires `reviewed_on`, `expires_on`, and `reviewed_by`. The publisher refuses a missing date and refuses an `expires_on` already past `now`. Document fields on the wire are `reviewedOn` and `expiresOn`, ISO dates. An optional `model` object is specified in `bundle-format.md` and omitted by the publisher until Task 15: `{ file, sha256, byteSize, modelType }` where `modelType` is one of `gemma4`, `gemmaIt`, `qwen`, `qwen3`, `general`.
 
-- [ ] **Step 1: Write failing tests**: `killDuringInstallKeepsOldContent` (throwing document source and a transaction abort), `leftoverStagingFileRemovedOnOpen`, the same four odd-question tests as Task 4, and `RetrievalCasesTests` (zero false accepts, at least 90% answered).
-- [ ] **Step 2-5:** run, implement, run, commit `feat(ios): store and retrieval pass the contract`.
+- [ ] **Step 1: Write the failing tests** `refusesEntryWithoutReviewDates`, `refusesExpiredEntry`, `sequenceMustExceedPreviousPublished`.
+- [ ] **Step 2: Run** `cd tools/publisher && npm test`. Expected: FAIL.
+- [ ] **Step 3: Implement** the checks and the new fields. Regenerate fixtures once, including the three new directories. `downgrade-older-sequence` and `same-sequence` use `prior: valid-signed` and `result: failed` with `reasonContains: "older"`. `expired-document` is a bundle the app still installs. Expiry is a warning, not a sync failure. Its `expect.json` is `prior: empty`, `result: updated`.
+- [ ] **Step 4: Run** the publisher tests and the Expo contract test. Update the Expo parser enough that the oracle stays green on format 2. Expected: PASS.
+- [ ] **Step 5: Commit** `feat!: bundle format 2 with sequence and review dates`.
 
-### Task 12: iOS sync and background scheduling
+### Task 11: Flutter understands format 2
 
 **Files:**
-- Create: `SheltrCore/.../Sync/{SyncClient,SyncEngine,RetryPolicy}.swift`, `Sheltr/Background/SyncScheduler.swift`; Test: `SyncEngineContractTests.swift` (URLProtocol stub), `RetryPolicyTests.swift`
+- Modify: `packages/sheltr_core` bundle, store, and sync. `apps/flutter/lib/screens/answer.dart` and `about.dart`.
+- Test: extend `sync_engine_test.dart` and `screens_test.dart`
 
 **Interfaces:**
-- Produces: `func registerSyncTask()` for `BGAppRefreshTask` identifier `org.sheltr.sync` (declared in Info.plist), `func scheduleNextSync(settings: AppSettings, lastSync: Date?)` using `nextSyncDue` semantics from the contract (manual never; unmetered unless `allowMobileData`; interval 86400 / 604800 / 2592000 s).
+- Produces: the store keeps `sequence`. Sync rejects `sequence <= installed` with `failed` and a reason containing `older`. `Staleness` is `fresh`, `expiringSoon`, or `expired`. `expiringSoon` when a document expires within 30 days or the last successful sync is older than 90 days. `expired` when a document's `expiresOn` is before the device date. The answer screen still shows passages in all three states. The warning copy is a new key added to `contract/strings.tsv` and all three locales in this task. If the device date is earlier than the bundle's published timestamp, show the warning `answer_clock_unsure` and do not treat documents as expired.
 
-- [ ] **Step 1: Write failing tests**: fixtures through a `URLProtocol` stub, plain-http refusal, `nextSyncDue` boundary cases copied from `apps/mobile/src/core/settings/settings.test.ts`.
-- [ ] **Step 2-5:** run, implement, run, commit `feat(ios): sync engine and background refresh`.
+- [ ] **Step 1: Write the failing tests** for the three new fixtures, `answerShowsExpiredBanner`, `answerShowsPassagesWhenExpired`, `aboutListsReviewDateAndExpiry`, `deviceDateBeforePublishShowsClockWarning`.
+- [ ] **Step 2: Run** `dart test` and `flutter test`. Expected: FAIL.
+- [ ] **Step 3: Implement** the sequence check and the staleness warning. Do not block `retrieve` on staleness.
+- [ ] **Step 4: Run** the tests. Expected: PASS.
+- [ ] **Step 5: Commit** `feat(flutter): reject downgrades and warn on stale content`.
 
-### Task 13: iOS SwiftUI parity, localisation, VoiceOver, Dynamic Type
+### Task 12: Key rotation
 
 **Files:**
-- Create: `Sheltr/Views/{HomeView,SearchView,AnswerView,SettingsView,AboutView}.swift`, `Sheltr/Resources/{en,es,fr}.lproj/Localizable.strings`; Test: `SheltrUITests`, `LocalizableKeysTests.swift`
+- Modify: publisher bundle writer (`signedBy` key id), both apps' trusted-key list, `docs/publishing.md`, fixtures `rotated-key-valid` and `revoked-key`
+- Test: publisher, Expo contract test, `sheltr_core` sync test
 
 **Interfaces:**
-- Consumes: Task 8's string key list in `contract/README.md`.
+- Produces: a compiled list of at most two keys, `{ id, publicKeyHex, notAfter }`. A bundle is accepted when `signedBy` names a key on that list and the signature verifies under it. An unknown id is `rejectedSignature`. A listed key past `notAfter` still verifies. The About screen shows `about_key_date_passed`. A key removed from the compiled list is rejected.
 
-- [ ] **Step 1: Write failing tests**: `LocalizableKeysTests` (every key of the contract list exists in all three languages and has the same placeholders), UI tests `homeShowsTwelveHazards`, `searchSubmitDisabledWhenBlank`, `answerShowsSourceBlock`, `largestDynamicTypeKeepsControlsReachable`, `everyControlHasAnAccessibilityLabel`, `unsupportedDeviceLanguageShowsEnglish`.
-- [ ] **Step 2-5:** run, implement, run, commit `feat(ios): SwiftUI screens at parity with Android`.
+- [ ] **Step 1: Write the failing tests** `rotatedKeyBundleVerifies`, `unknownKeyIdRejected`, `listedKeyPastNotAfterStillInstallsAndWarns` in the publisher, the Expo contract test, and `sheltr_core`.
+- [ ] **Step 2: Run** each suite. Expected: FAIL.
+- [ ] **Step 3: Implement** publisher first, regenerate the two fixtures once, then Expo and Flutter.
+- [ ] **Step 4: Run** all three suites. Expected: PASS.
+- [ ] **Step 5: Commit** `feat: key ids with a date warning`.
 
-## Phase D: safety features (contract version 2)
-
-### Task 14: Downgrade protection, content expiry and staleness warnings
+### Task 13: Cited action cards
 
 **Files:**
-- Modify: `tools/publisher/src/{bundle,manifest}.ts`, `corpus/manifest.yaml` (add `reviewed_on`, `expires_on`, `reviewed_by` per entry), `contract/bundle-format.md`, `contract/fixtures/*` (new: `downgrade-older-sequence`, `same-sequence`, `expired-document`), both apps' sync engines and stores, About and Answer screens on both platforms
+- Create: `corpus/cards/<hazard>-<phase>.yaml` only as examples the publisher tests use under `tools/publisher`. Do not add production cards in this task. `tools/publisher/src/cards.ts`. Fixtures `cards-valid` and `cards-uncited-step`.
+- Modify: bundle format `cards[]`, the Flutter home screen, `docs/publishing.md`
 
 **Interfaces:**
-- Produces: `BUNDLE_FORMAT_VERSION = 2`; bundle field `sequence: Int` (strictly increasing per publication); document fields `reviewedOn: String`, `expiresOn: String` (ISO dates); store keeps `sequence`; sync rejects `sequence <= installed` with result `failed`, reason contains "older"; `StalenessState { fresh | expiringSoon | expired }` computed from `expiresOn` and last sync (threshold: warn when a document expires within 30 days or the last successful sync is older than 90 days); publisher refuses entries without both dates or already expired.
+- Produces: card `{ id, hazard, phase: before|during|after, country, title, steps: [{ text, documentId, chunkId }] }`. The publisher refuses a step whose chunk is not in the bundle or whose text is not a verbatim substring of that chunk. The home screen lists cards for a hazard with the step text, a citation, and read-aloud. Zero cards shows the hazard grid as it does today.
 
-- [ ] **Step 1: Write failing tests** per component: publisher (`refusesEntryWithoutReviewDates`, `refusesExpiredEntry`, `sequenceMustExceedPreviousPublished` via a `--previous <bundle.json>` flag), then in each app the three new fixtures plus `answerShowsExpiredBanner`, `answerShowsUpdatedOnDate`, `aboutListsReviewDateAndExpiry`; the Expo app is updated too so the oracle stays green.
-- [ ] **Step 2: Run** each suite — Expected: FAIL.
-- [ ] **Step 3: Implement** publisher first, regenerate fixtures, then Android, iOS and Expo.
-- [ ] **Step 4: Run** all suites — PASS. **Step 5: Commit** `feat!: bundle format 2 with downgrade protection and content expiry`.
+- [ ] **Step 1: Write the failing tests** `refusesStepWithNoCitation`, `refusesStepNotQuotedFromItsChunk`, `acceptsVerbatimCitedStep`, plus a Flutter test that `cards-valid` renders the step and its source.
+- [ ] **Step 2: Run** the publisher tests and `flutter test`. Expected: FAIL.
+- [ ] **Step 3: Implement.** Content authoring stays out of this commit. The sample card lives in the fixture only.
+- [ ] **Step 4: Run** the tests. Expected: PASS.
+- [ ] **Step 5: Commit** `feat: cited action cards`.
 
-### Task 15: Action cards for each hazard
+## Phase D: LiteRT-LM
+
+The engine package is the successor of `flutter_gemma`, which is the package Google documents for Flutter. On 2026-11-02, `flutter_gemma` 1.11.4 says it has moved, and `flutter_edge_ai` 2.5.5 plus `flutter_edge_ai_litertlm` 1.19.1 are the current releases. Google's page `https://developers.google.com/edge/litert-lm/flutter` still names `flutter_gemma` and was last updated 2026-06-01. Re-read both pages at the start of Task 15. If pub.dev has a newer patch of these two packages, pin that patch in the commit message and keep the support-check tests. Do not add `flutter_edge_ai_mediapipe`, `flutter_edge_ai_rag`, `flutter_edge_ai_speech`, `flutter_edge_ai_agent`, or `flutter_litert_lm`.
+
+### Task 14: Passage rewriter, with the model flag off
 
 **Files:**
-- Create: `corpus/cards/<hazard>-<phase>.yaml`, `tools/publisher/src/cards.ts`, `contract/fixtures/cards-valid/`, `contract/fixtures/cards-uncited-step/`
-- Modify: bundle format (`cards[]` in `bundle.json`), Home screens on both platforms, `docs/publishing.md`
+- Create: `packages/sheltr_core/lib/model/rewriter.dart`, `contract/model-cases.tsv`
+- Test: `packages/sheltr_core/test/rewriter_test.dart`
+- Modify: `apps/flutter/lib/screens/answer.dart`
 
 **Interfaces:**
-- Produces: card `{ id, hazard, phase: "before"|"during"|"after", country: String?, title, steps: [{ text, documentId, chunkId }] }`; publisher refuses a card whose step cites a chunk that does not exist in the built bundle or whose text is not a verbatim substring of that chunk; apps show a card list per hazard with large step text, citation per step and read-aloud.
+- Produces:
+  - `abstract class PassageModel { Future<String> rewrite(String question, List<CitedPassage> passages); }`
+  - `bool modelTextIsSupported(String modelText, List<CitedPassage> passages)`
+  - `AnswerPresentation present({required RetrievalResult retrieval, String? modelText, required bool modelEnabled})`
+- `modelTextIsSupported` is false when the trimmed text is empty or `NONE`, when it is longer than 600 characters, when any maximal digit sequence in the model text is absent from the cited passage texts, or when any remaining word of 4 or more letters, after the retrieval stopword list is removed, fails `sameWord` against every word in those passages. Otherwise true.
+- `present` never calls a model when retrieval is `refuse` or when `modelEnabled` is false. When the support check fails, `lead` is null and `passages` is the retrieval passages. When it passes, `lead` is the model text and `passages` is unchanged. The default of `modelEnabled` in the app settings is false.
 
-- [ ] **Step 1: Write failing tests**: publisher `refusesStepWithNoCitation`, `refusesStepNotQuotedFromItsChunk`, `acceptsVerbatimCitedStep`; each app parses `cards-valid`, rejects `cards-uncited-step`, and shows steps with their source.
-- [ ] **Step 2-5:** run, implement, run, commit `feat: cited action cards`. Content authoring and expert review of the first cards happens outside this plan.
+- [ ] **Step 1: Write `contract/model-cases.tsv` and the failing test** that reads it. Required rows: a shortened sentence using only passage words, expect `show`; a reply that adds a content word absent from the passages, expect `hide`; a reply that changes `72` to `3`, expect `hide`; `NONE`, expect `hide`; a reply longer than 600 characters, expect `hide`; a retrieval refusal, expect no model call. A widget test asserts the lead is absent while the flag is false even if a fake model would return supported text.
+- [ ] **Step 2: Run** `dart test` and `flutter test`. Expected: FAIL.
+- [ ] **Step 3: Implement** the check and the presentation. The answer screen takes `AnswerPresentation`. The fake model is a test double. No LiteRT import in `sheltr_core`.
+- [ ] **Step 4: Run** the tests. Expected: PASS.
+- [ ] **Step 5: Commit** `feat(flutter): hide unsupported model text`.
 
-### Task 16: Key rotation and revocation
+### Task 15: LiteRT-LM adapter and a signed model file
 
 **Files:**
-- Modify: `bundle.json` (`signedBy: String` key id), both apps (trusted key list: `[{id, publicKeyHex, notAfter}]`), `docs/publishing.md`, fixtures `rotated-key-valid`, `revoked-key`
+- Create: `apps/flutter/lib/model/litert_passage_model.dart`
+- Modify: `apps/flutter/pubspec.yaml`, `packages/sheltr_core` sync so an optional model file is downloaded after a successful content install, `contract/bundle-format.md` if Task 10's wording needs the download rule
+- Test: `apps/flutter/test/litert_passage_model_test.dart` with a fake `FlutterEdgeAi` wrapper. The real engine is not started in `flutter test`.
 
 **Interfaces:**
-- Produces: apps compile in up to two trusted keys; a bundle is accepted if `signedBy` names a trusted, unexpired key and the signature verifies under it; a key past `notAfter` is rejected with reason containing "key".
+- Produces: `LitertPassageModel implements PassageModel`. Construction takes a local file path that has already passed the SHA-256 in the signed manifest. The adapter calls:
 
-- [ ] **Step 1: Write failing tests**: `rotatedKeyBundleVerifies`, `revokedKeyBundleRejected`, `unknownKeyIdRejected` in all three codebases against the new fixtures.
-- [ ] **Step 2-5:** run, implement, run, commit `feat: key rotation`.
+```dart
+await FlutterEdgeAi.initialize(
+  inferenceEngines: const [LiteRtLmEngine()],
+);
+await FlutterEdgeAi.installModel(
+  modelType: modelTypeFromManifest,
+  fileType: ModelFileType.litertlm,
+).fromFile(verifiedPath).install();
+final model = await FlutterEdgeAi.getActiveModel(
+  maxTokens: 256,
+  preferredBackend: PreferredBackend.cpu,
+);
+```
 
-## Phase E: release and clean-up
+- `modelTypeFromManifest` maps the five strings from Task 10 onto `ModelType`. Any other string leaves the model off.
+- The session system instruction is the constant: `Restate only the quoted passages in plain language. Use no fact that is not in the passages. If the passages do not answer the question, reply with the single word NONE.`
+- The adapter passes no tools, no images, and no audio. It does not enable thinking mode. It closes the session in a `finally` block.
+- Sync: after content is installed, if `model` is present, download `${baseUrl}/${model.file}` over HTTPS, check the length and SHA-256, and move it into place with a staging rename. A model download or checksum failure returns the content `SyncResult` unchanged and leaves any previous verified model file in place. It does not roll back the content install.
+- `fromNetwork` and Hugging Face helpers are not called. A test greps `apps/flutter/lib` for `fromNetwork` and `huggingface` and fails on a hit.
 
-### Task 17: Release readiness, CI, and retiring the Expo app
+- [ ] **Step 1: Write the failing tests** `checksumMismatchLeavesPreviousModel`, `modelDownloadFailureDoesNotChangeContentResult`, `unknownModelTypeStaysOff`, `adapterSendsPassagesAndNoTools` (the fake records the session instruction and that no tool list was set), and the grep test.
+- [ ] **Step 2: Run** `flutter test`. Expected: FAIL.
+- [ ] **Step 3: Implement** the adapter and the download. Pin `flutter_edge_ai` 2.5.5 and `flutter_edge_ai_litertlm` 1.19.1 unless pub.dev shows a newer patch of the same majors. Record the resolved versions in the commit message.
+- [ ] **Step 4: Run** `flutter test` and `dart test`. Expected: PASS. Do not download a model in CI.
+- [ ] **Step 5: Commit** `feat(flutter): load a signed LiteRT-LM file on CPU`.
+
+### Task 16: Device eval, flag still off
 
 **Files:**
-- Modify: `.github/workflows/*`, `docs/publishing.md`, `docs/store/listing.md`, `docs/evaluation.md`, `README.md`, `CONTRIBUTING.md`, `CLAUDE.md`, `SECURITY.md`; Create: `docs/release-checklist.md`
-- Delete: `apps/mobile/` (after both native apps pass every contract fixture and case in CI), `.github/dependabot.yml` Expo entries
+- Modify: `docs/evaluation.md`
+- Create: `docs/model-eval.md`
 
 **Interfaces:**
-- Produces: CI jobs `publisher`, `android` (JVM tests, emulator FTS test, lint), `ios` (xcodebuild test), and `contract` (a job that fails if any platform's contract test list differs from `contract/fixtures/*`); `docs/release-checklist.md` listing: independent security review of signature and sync code, expert content review sign-off, iPhone and low-end Android device runs, sideloadable signed APK steps, F-Droid notes, store data-safety answers.
+- Produces: a written procedure, not a default-on flag. The maintainer places one `.litertlm` file outside the repo, publishes it through the bundle host with the signed checksum, and runs the answerable rows of `contract/retrieval-cases.tsv` on one Android phone and one iPhone. For each row, record whether a lead was shown and whether `modelTextIsSupported` was true. The run passes only when every shown lead passed the support check, retrieval refusals showed no lead, and the process was not killed. `docs/model-eval.md` has a table with device, OS, file sha256, byte size, licence name, and pass or fail. The settings default stays false. This task's commit does not change that default.
 
-- [ ] **Step 1: Write the failing check**: a script `contract/check-coverage.mjs` that fails when any fixture directory has no test reference in `apps/android` or `apps/ios`; wire it into CI.
-- [ ] **Step 2: Run** it — Expected: FAIL until all fixtures are referenced.
-- [ ] **Step 3: Delete** `apps/mobile` in its own commit, update every doc that mentions Expo (README, CLAUDE.md, CONTRIBUTING, ADR-0017 status, architecture notes).
-- [ ] **Step 4: Run** all three platforms' CI — Expected: PASS.
-- [ ] **Step 5: Commit** `chore: retire the Expo app; native apps are the product`.
+- [ ] **Step 1: Write the failing test** `modelFlagDefaultsOff` if Task 14's widget test does not already assert the settings default. Add a test that `docs/model-eval.md` exists and contains the column names `device`, `sha256`, `result`.
+- [ ] **Step 2: Run** `flutter test`. Expected: FAIL until the doc exists.
+- [ ] **Step 3: Write** `docs/model-eval.md` with the procedure and an empty result table. Extend `docs/evaluation.md` with a pointer to it. Do not claim a device run that has not happened.
+- [ ] **Step 4: Run** `flutter test`. Expected: PASS.
+- [ ] **Step 5: Commit** `docs: record how a LiteRT-LM file is accepted`.
+
+## Phase E: release
+
+### Task 17: Release checklist, then retire the Expo app
+
+**Files:**
+- Create: `docs/release-checklist.md`, `contract/check-coverage.mjs`
+- Modify: `.github/workflows/*`, `docs/publishing.md`, `docs/store/listing.md`, `README.md`, `CONTRIBUTING.md`, `CLAUDE.md`, `SECURITY.md`
+- Delete: `apps/mobile/` only in a commit that comes after the checklist file is ticked by a human. If the checklist is not done, this task stops after the docs and the coverage script. It does not delete the Expo app.
+
+**Interfaces:**
+- Produces: CI jobs `publisher`, `flutter` (`dart test`, `flutter test`, the coverage script), on `ubuntu-latest`. `contract/check-coverage.mjs` fails when a directory in `contract/fixtures` has no reference under `apps/flutter` or `packages/sheltr_core`. The checklist names: independent review of signature and sync code, the support-check tests, one Android phone and one iPhone run of search and a forced stale bundle, a model eval either passed or explicitly left off, sideloadable Android build, store data-safety answers. iOS background refresh is checked on the iPhone run and may be late. That does not fail the checklist.
+
+- [ ] **Step 1: Write the failing check** `contract/check-coverage.mjs` and a test or a dry run that fails while a fixture name is missing from the Flutter tree.
+- [ ] **Step 2: Run** it. Expected: FAIL until every fixture directory name appears in a Flutter test.
+- [ ] **Step 3: Wire** it into the workflow. Write `docs/release-checklist.md`. Update the docs that describe the app as Expo so they describe the Flutter app and point at `apps/mobile` as the oracle that remains until the checklist is done.
+- [ ] **Step 4: Run** publisher tests, `dart test`, and `flutter test`. Expected: PASS.
+- [ ] **Step 5: Commit** `chore: release checklist for the Flutter app`. Do not delete `apps/mobile` in this commit.
 
 ## Not in this plan
 
-Corpus re-approval and expansion, expert content review, store accounts and submissions, an on-device model, live hazard alerts. They need people or decisions, not code, and each gets its own plan.
+Corpus re-approval and expansion. `THIRD_PARTY_CONTENT.md` lists sources cleared to add (New Zealand Get Ready, the Queensland severe-weather guide, the IFRC 2018 key messages, Ready.gov, and the Canadian preparedness guide). None of them is in `corpus/manifest.yaml`. Adding one is a separate change with its own checksum. Expert content review, writing the first production action cards, store accounts and submissions, GPU or NPU backends, embeddings and RAG, speech-to-text, tool calling, and turning the model flag on stay out. Turning the flag on is a separate commit made after `docs/model-eval.md` shows a pass on both phones. Live hazard alerts stay out.
