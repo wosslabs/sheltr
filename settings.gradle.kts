@@ -1,6 +1,5 @@
 pluginManagement {
     repositories {
-        google()
         gradlePluginPortal()
         mavenCentral()
     }
@@ -9,5 +8,3 @@ pluginManagement {
 rootProject.name = "sheltr"
 
 include(":tools:publisher")
-include(":apps:mobile:shared")
-include(":apps:mobile:android")

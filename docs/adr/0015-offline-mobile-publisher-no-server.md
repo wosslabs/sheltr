@@ -1,7 +1,7 @@
 # ADR-0015: Offline mobile apps with a publisher, no server
 
 ## Status
-Accepted
+Accepted. The platform choice in decision 2 (Kotlin Multiplatform with native UIs) is replaced by ADR-0016 (Expo / React Native). Everything else stands.
 
 Date: 2026-10-05
 Design: `docs/design/offline-mobile-app.md`

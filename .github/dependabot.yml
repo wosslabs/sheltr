@@ -8,3 +8,12 @@ updates:
     directory: /
     schedule:
       interval: weekly
+  - package-ecosystem: npm
+    directory: /apps/mobile
+    schedule:
+      interval: weekly
+    # Expo pins its own SDK-compatible versions: bump them with `npx expo install --fix`, not one by one.
+    ignore:
+      - dependency-name: "expo*"
+      - dependency-name: "react"
+      - dependency-name: "react-native*"
