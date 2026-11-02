@@ -39,7 +39,7 @@ import java.util.concurrent.ConcurrentHashMap
  * `text`/`hazard` (Bundle-safe strings, unlike [RetrievalResult] itself) alongside `resultId` for exactly this
  * reason: the only way to tell these two `null` cases apart, and to recover correctly from the second one, is
  * for the caller to re-run the deterministic local retrieval with the same inputs rather than show a generic
- * failure. **Contract for Task 4's `AnswerViewModel`:** on `take(resultId) == null`, re-run
+ * failure. **Contract for `AnswerViewModel`:** on `take(resultId) == null`, re-run
  * `retriever.retrieve(RetrievalQuery(text, settingsStore.get().country, hazard?.let { setOf(it) } ?:
  * emptySet()))` (re-reading `country` fresh, not carried in the route) instead of treating it as a refusal --
  * retrieval is a deterministic local FTS5 query over a corpus that does not change between submit and
@@ -48,7 +48,7 @@ import java.util.concurrent.ConcurrentHashMap
  * Thread safety: [SearchViewModel][com.sheltr.android.ui.search.SearchViewModel]'s `onSubmit` calls [put] only
  * after hopping back onto the main thread following its `Dispatchers.IO` retrieval, so in practice this is
  * always touched from the main thread -- but a [ConcurrentHashMap] costs nothing here and removes any doubt,
- * including for Task 4's `take` call.
+ * including for the `take` call.
  */
 object RetrievalResultHolder {
     private val results = ConcurrentHashMap<String, RetrievalResult>()
