@@ -1,6 +1,6 @@
 /*
- * Files exactly as the Kotlin publisher (tools/publisher, BundleBuilder) wrote them, kept as test fixtures so the
- * TypeScript reader is checked against the real writer. Do not hand-edit; regenerate with the publisher.
+ * Reference output of the publisher (tools/publisher, bundle.ts), kept as test fixtures so the app's reader is
+ * checked against the real writer. Do not hand-edit; regenerate with the publisher.
  */
 
 export const PUBLISHER_BUNDLE_JSON = "{\n    \"formatVersion\": 1,\n    \"bundleVersion\": \"2026-10-05T12:00:00Z\",\n    \"documents\": [\n        {\n            \"id\": \"ece4699e6dbdd9f0b00437137cdb2573\",\n            \"title\": \"Flood guide\",\n            \"agency\": \"Example Agency\",\n            \"publishedDate\": \"2024-03-15\",\n            \"licence\": \"CC-BY-4.0\",\n            \"country\": \"NO\",\n            \"hazards\": [\n                \"FLOOD\"\n            ],\n            \"sourceUri\": \"https://example.org/fixture-flood-guide.pdf\",\n            \"sourceType\": \"pdf\",\n            \"checksum\": \"6d5a2a06d51e0cb85ef56188c4003243e92ef9ebcc44742a5b6ab72606c1eb15\",\n            \"fileChecksum\": \"b0906c50e44b8cc640e935446eab4dd77b4ce64eb9c80e366d4703e990e5e795\",\n            \"chunks\": [\n                {\n                    \"id\": \"ece4699e6dbdd9f0b00437137cdb2573-0\",\n                    \"checksum\": \"f7ea1e73ce643c95650ae22df1570325ff7a19c53ad26b18341d7f6564bea4ce\"\n                },\n                {\n                    \"id\": \"ece4699e6dbdd9f0b00437137cdb2573-1\",\n                    \"checksum\": \"5b23dc92adaafcfd0cb308003cfe67a6d5495166bcd4409209c8c873264362fa\"\n                }\n            ]\n        }\n    ]\n}";

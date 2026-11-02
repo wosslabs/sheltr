@@ -1,8 +1,6 @@
 # Sheltr Mobile — Offline-First App Design
 
-Note (2026-11-02): the platform in section 2 and the module layout in section 3 describe the original Kotlin Multiplatform plan. The app is now an Expo / React Native project (ADR-0016); the behaviour described here still applies.
-
-Status: Revised 2026-10-05: no server; the Spring backend is removed and its ingestion logic moves to the Kotlin publisher. Approved on platform (KMP with native UI) and on the open decisions in section 11 except where noted. On-device model: LiteRT-LM (user request, 2026-10-05). No code yet.
+Status: Revised 2026-11-02: no server; the server backend is removed and its ingestion logic lives in the TypeScript publisher. The app is Expo / React Native (ADR-0016). On-device model: LiteRT-LM (user request, 2026-10-05), not started.
 Date: 2026-10-05
 
 ## 1. Goal
@@ -17,30 +15,28 @@ Out of scope for v1: live hazard alerts, user accounts, analytics, advertising, 
 
 ## 2. Platform decision
 
-Kotlin Multiplatform (KMP). Shared Kotlin module for corpus, search, citations, sync and config. Native UI: Jetpack Compose on Android, SwiftUI on iOS.
+Expo (React Native) with TypeScript: one codebase for Android and iPhone, written once for the screens and for the logic (corpus, search, citations, sync and config). The publisher is also TypeScript (Node). See ADR-0016.
 
 Cost: Google Play one-time $25; Apple Developer Program $99 per year (required for iPhone distribution). Both apps are free to download and use.
 
 ## 3. Architecture
 
 ```
-Shared (Kotlin Multiplatform)
-  corpus/        bundle format, signature check, versioned content
-  store/         SQLite (SQLDelight), FTS5 keyword index
-  retrieval/     keyword ranking, country and hazard boost
-  answer/        citation selection, refusal rules (same rules as the server)
-  sync/          manifest fetch, diff, download, re-index, schedule policy
-  config/        user settings (sync frequency, country, text size)
+App (apps/mobile, Expo / React Native, TypeScript)
+  src/core/bundle/      bundle format, parser, checksums
+  src/core/signing.ts   Ed25519 signature check
+  src/core/store/       SQLite (expo-sqlite), FTS5 keyword index, atomic replace
+  src/core/retrieval/   keyword ranking, country and hazard boost, citations, refusal
+  src/core/sync/        manifest fetch, diff, download, retry policy
+  src/core/settings/    user settings (sync frequency, country, text size, language)
+  src/app/              screens: Home, Search, Answer, Settings, About
+  on-device model (optional, later)
 
-Android (Compose)            iOS (SwiftUI)
-  UI, WorkManager sync         UI, BGTaskScheduler sync
-  on-device model (optional)   on-device model (optional)
-
-Publisher (Kotlin/JVM command-line tool, run by the maintainer)
+Publisher (tools/publisher, Node and TypeScript, run by the maintainer)
   Approved manifest -> fetch and extract -> chunk -> signed bundle + manifest -> static hosting
 ```
 
-No server runs in production. The phone never talks to a backend. A command-line publisher (Kotlin/JVM, module tools/publisher) builds a signed corpus bundle from the approved manifest and the maintainer uploads it to free static hosting. The publisher is run by the maintainer, not by the phone.
+No server runs in production. The phone never talks to a backend. A command-line publisher (module tools/publisher) builds a signed corpus bundle from the approved manifest and the maintainer uploads it to free static hosting. The publisher is run by the maintainer, not by the phone.
 
 ## 4. Corpus bundle and sync
 
@@ -48,12 +44,12 @@ No server runs in production. The phone never talks to a backend. A command-line
 - Signature: the manifest is signed with an Ed25519 key held by the maintainer. The app verifies the signature before using any content. An invalid signature rejects the update and keeps the last good content.
 - Diff: the app compares each document's checksum with its local copy. It downloads and re-indexes only documents whose checksum changed, and removes documents no longer in the manifest.
 - Re-ingest on device: for an HTML source the app stores the extracted text and the checksum of that text. For PDF the publisher ships pre-extracted text, so the phone does not parse PDFs. This keeps the on-device pipeline small. Chunking and indexing run on the device.
-- Atomic update: new content is written to a staging database and swapped in only after every changed document indexes successfully.
+- Atomic update: the new content replaces the old inside one database transaction, which is rolled back unless every document and chunk is stored and the counts match the manifest.
 - Failure: a failed or interrupted sync leaves the previous content in place and retries on the next schedule.
 
 ## 5. Sync frequency (configurable)
 
-Options: manual only, daily, weekly, monthly. Default weekly. Sync runs only on an unmetered connection unless the user allows mobile data. Android uses WorkManager with network and battery constraints. iOS uses BGTaskScheduler, which iOS controls, so sync may run later than scheduled.
+Options: manual only, daily, weekly, monthly. Default weekly. Sync runs only on an unmetered connection unless the user allows mobile data. The app checks once per launch whether a sync is due (the schedule and the network type allow it) and retries a failed sync with a capped back-off. Background scheduling while the app is closed is not built; the operating system controls it on both platforms.
 
 ## 6. Retrieval and answers (v1)
 
@@ -62,7 +58,7 @@ Options: manual only, daily, weekly, monthly. Default weekly. Sync runs only on 
 - Answers: v1 returns the matching passages with their source, not a generated answer. This is the citation-first design already approved, and it needs no model.
 - Refusal: when no passage meets the relevance threshold, the app says it has no reliable source. It never invents guidance.
 - On-device model: Google LiteRT-LM (https://developers.google.com/edge/litert-lm). Facts checked on 2026-10-05:
-  - Android: Kotlin API (Engine, Conversation, EngineConfig, ConversationConfig), Gradle artifact litertlm-android, offline with local .litertlm model files, GPU/NPU optional with CPU fallback.
+  - Android: native API (Engine, Conversation, EngineConfig, ConversationConfig), offline with local .litertlm model files, GPU/NPU optional with CPU fallback. It would need a native module for React Native.
   - iOS: the overview page states native iOS Swift APIs (macOS "coming soon"). The Android page does not cover iOS, so the iOS integration must be proven in a spike before it is relied on.
   - Models: the two pages name different models (Android page: Gemma 3 1B-IT and Gemma 3n; overview: Gemma 4). Model choice is made by the eval, not by the page.
   - Status: the thinking feature is marked experimental. Core functionality is described as stable on Android. Pin versions.

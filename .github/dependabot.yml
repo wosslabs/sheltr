@@ -4,8 +4,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
-  - package-ecosystem: gradle
-    directory: /
+  - package-ecosystem: npm
+    directory: /tools/publisher
     schedule:
       interval: weekly
   - package-ecosystem: npm

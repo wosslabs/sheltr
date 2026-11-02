@@ -4,18 +4,18 @@ Guidance for AI coding assistants working in this repository. Humans: see `CONTR
 
 ## What this is
 
-Sheltr is an offline-first disaster-preparedness guide. No server runs in production. A Kotlin/JVM publisher (`tools/publisher`) builds an Ed25519-signed bundle of approved official documents. The app (`apps/mobile`, Expo / React Native / TypeScript) verifies it, stores it in SQLite FTS5, and answers by keyword retrieval with citations. Design: `docs/adr/0015-offline-mobile-publisher-no-server.md`, `docs/design/offline-mobile-app.md`.
+Sheltr is an offline-first disaster-preparedness guide. No server runs in production. A TypeScript publisher (`tools/publisher`, Node) builds an Ed25519-signed bundle of approved official documents. The app (`apps/mobile`, Expo / React Native / TypeScript) verifies it, stores it in SQLite FTS5, and answers by keyword retrieval with citations. Design: `docs/adr/0015-offline-mobile-publisher-no-server.md`, `docs/design/offline-mobile-app.md`.
 
 ## Layout
 
-- `tools/publisher`: Kotlin/JVM CLI (manifest, fetch, extract, chunk, sign).
+- `tools/publisher`: Node and TypeScript CLI (manifest, fetch, extract, chunk, sign). Node 24 runs the `.ts` files directly; use only erasable TypeScript syntax (no enums or parameter properties) and `.ts` import extensions.
 - `apps/mobile`: Expo app for Android and iOS. `src/core` is framework-free TypeScript (bundle, signature check, store, retrieval, sync, settings); `src/app` the screens; `src/platform` the Expo glue.
 - `corpus/manifest.yaml`: the approved corpus.
 
 ## Commands
 
 ```bash
-./gradlew :tools:publisher:test                                   # JDK 25
+cd tools/publisher && npm run typecheck && npm test               # Node 24
 cd apps/mobile && npm run typecheck && npm test                   # Node 24
 ```
 
