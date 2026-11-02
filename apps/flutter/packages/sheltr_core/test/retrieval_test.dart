@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:sheltr_core/bundle/format.dart';
 import 'package:sheltr_core/bundle/parser.dart';
 import 'package:sheltr_core/retrieval/citations.dart';
+import 'package:sheltr_core/retrieval/retrieval_rules.g.dart';
 import 'package:sheltr_core/retrieval/retriever.dart';
 import 'package:sheltr_core/retrieval/rules.dart';
 import 'package:sheltr_core/retrieval/stopwords.dart';
@@ -34,9 +35,9 @@ void main() {
     // The contract stores relevanceThreshold as the JSON integer 1.
     expect(raw['relevanceThreshold'], isA<int>());
     expect(raw['relevanceThreshold'], 1);
-    expect(packaged.readAsStringSync(), contract.readAsStringSync());
+    expect(packagedRetrievalRulesJson, contract.readAsStringSync());
 
-    final rules = Rules.parse(packaged.readAsStringSync());
+    final rules = Rules.parse(packaged);
     expect(rules.relevanceThreshold, 1.0);
     expect(Rules.packaged().relevanceThreshold, rules.relevanceThreshold);
     expect(Rules.packaged().minTermCoverage, 0.6);
@@ -107,7 +108,7 @@ void main() {
     late Rules rules;
 
     setUpAll(() {
-      rules = Rules.parse(copyRetrievalRules().readAsStringSync());
+      rules = Rules.parse(copyRetrievalRules());
       temp = Directory.systemTemp.createTempSync('sheltr-retrieval-');
       store = ContentStore.open(temp);
       installSample(store);
@@ -228,7 +229,7 @@ void main() {
   });
 
   test('country and hazard boosts reorder and do not answer a refusal', () {
-    final rules = Rules.parse(copyRetrievalRules().readAsStringSync());
+    final rules = Rules.parse(copyRetrievalRules());
     withStore((store) {
       store.install(_boostBundle().manifest, _boostBundle().source);
       final retriever = Retriever(store, rules: rules);
@@ -300,7 +301,7 @@ void main() {
   });
 
   test('rejects a non-positive limit', () {
-    final rules = Rules.parse(copyRetrievalRules().readAsStringSync());
+    final rules = Rules.parse(copyRetrievalRules());
     withStore((store) {
       store.install(_boostBundle().manifest, _boostBundle().source);
       final retriever = Retriever(store, rules: rules);
@@ -312,25 +313,20 @@ void main() {
   });
 }
 
-/// Copies `contract/retrieval-rules.json` into the package.
+/// Returns the text of `contract/retrieval-rules.json`.
 ///
-/// A copy that is already there and differs fails the test. The helper does
-/// not overwrite it.
-File copyRetrievalRules() {
+/// Fails when that text differs from [packagedRetrievalRulesJson]. The
+/// library parses the constant and does not read this file.
+String copyRetrievalRules() {
   final contract = findUpFile('contract/retrieval-rules.json');
-  final packaged = File('lib/retrieval/retrieval-rules.json');
   final source = contract.readAsStringSync();
-  if (!packaged.existsSync()) {
-    packaged.parent.createSync(recursive: true);
-    packaged.writeAsStringSync(source);
-    return packaged;
-  }
   expect(
-    packaged.readAsStringSync(),
+    packagedRetrievalRulesJson,
     source,
-    reason: 'packaged retrieval-rules.json differs from contract/retrieval-rules.json',
+    reason:
+        'packaged retrieval rules differ from contract/retrieval-rules.json',
   );
-  return packaged;
+  return source;
 }
 
 File findUpFile(String relative) {

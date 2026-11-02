@@ -1,11 +1,13 @@
 import 'dart:convert';
-import 'dart:io';
+
+import 'retrieval_rules.g.dart';
 
 /// Relevance threshold, coverage, boosts, and the word lists they use.
 ///
-/// Loaded from the packaged copy of `contract/retrieval-rules.json`. Every
-/// numeric field is read as [num] and stored as [double], because the
-/// contract writes `relevanceThreshold` as the JSON integer 1.
+/// [packaged] parses the copy of `contract/retrieval-rules.json` compiled
+/// into this library. Every numeric field is read as [num] and stored as
+/// [double], because the contract writes `relevanceThreshold` as the JSON
+/// integer 1.
 class Rules {
   const Rules({
     required this.relevanceThreshold,
@@ -54,9 +56,9 @@ class Rules {
     );
   }
 
-  /// The copy of the contract that lives in this package.
+  /// The contract rules compiled into this library.
   static Rules packaged() {
-    return Rules.parse(_packagedFile().readAsStringSync());
+    return Rules.parse(packagedRetrievalRulesJson);
   }
 }
 
@@ -91,30 +93,4 @@ Map<String, String> _stringMap(Map<String, dynamic> json, String key) {
     mapped[name] = target;
   }
   return mapped;
-}
-
-File _packagedFile() {
-  const relative = 'lib/retrieval/retrieval-rules.json';
-  var dir = Directory.current;
-  while (true) {
-    final candidate = File('${dir.path}/$relative');
-    if (candidate.existsSync()) {
-      return candidate;
-    }
-    final inPackage = File(
-      '${dir.path}/apps/flutter/packages/sheltr_core/$relative',
-    );
-    if (inPackage.existsSync()) {
-      return inPackage;
-    }
-    final inApp = File('${dir.path}/packages/sheltr_core/$relative');
-    if (inApp.existsSync()) {
-      return inApp;
-    }
-    final parent = dir.parent;
-    if (parent.path == dir.path) {
-      throw StateError('retrieval-rules.json was not copied into the package');
-    }
-    dir = parent;
-  }
 }

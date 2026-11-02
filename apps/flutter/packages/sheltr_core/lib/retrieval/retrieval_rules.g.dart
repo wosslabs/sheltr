@@ -1,4 +1,8 @@
-{
+/// JSON text of `contract/retrieval-rules.json`, compiled into the library.
+///
+/// An installed app has no readable package directory, so Rules.packaged
+/// parses this constant instead of opening a file.
+const String packagedRetrievalRulesJson = r'''{
   "relevanceThreshold": 1,
   "minTermCoverage": 0.6,
   "countryBoost": 0.15,
@@ -167,3 +171,4 @@
     "DROUGHT"
   ]
 }
+''';
