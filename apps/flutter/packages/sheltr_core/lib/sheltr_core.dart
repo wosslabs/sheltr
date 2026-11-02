@@ -13,3 +13,7 @@ export 'retrieval/citations.dart';
 export 'retrieval/retriever.dart';
 export 'retrieval/rules.dart';
 export 'retrieval/stopwords.dart';
+export 'sync/client.dart';
+export 'sync/engine.dart';
+export 'sync/result.dart';
+export 'sync/retry_policy.dart';
