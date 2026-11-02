@@ -1,24 +1,21 @@
-# Java compiled output
-*.class
+# Dependencies and build output
+node_modules/
+build/
+dist/
 
 # IDE
 .idea/
 *.iml
 .vscode/
-.kotlin/
 
 # OS
 .DS_Store
 
-# Gradle build output (root and publisher)
-build/
-.gradle/
-
 # Env files and secrets
 .env
 .env.local
-local.properties
 keystore.properties
+local.properties
 *.pem
 *.key
 *.p8
@@ -35,10 +32,3 @@ keystore.properties
 
 # Eval run output; chosen reports are copied to docs/eval/
 eval/reports/
-
-# Publisher compiled output
-bin/
-
-# Android local
-*.apk
-*.aab

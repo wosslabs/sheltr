@@ -1,7 +1,7 @@
 ## What and why
 
 ## How it was tested
-- [ ] Publisher changes: `./gradlew :tools:publisher:test`
+- [ ] Publisher changes: `cd tools/publisher && npm run typecheck && npm test`
 - [ ] App changes: `cd apps/mobile && npm run typecheck && npm test`
 
 ## Checklist
