@@ -10,7 +10,7 @@
 # OS
 .DS_Store
 
-# Gradle build output (root, publisher and shared module)
+# Gradle build output (root and publisher)
 build/
 .gradle/
 
