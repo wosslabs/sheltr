@@ -33,7 +33,17 @@ export function isBlank(text: string): boolean {
   return true;
 }
 
-/** Collapses runs of spaces and tabs, limits blank lines to one, and trims. */
+// A line that is only a crest, coat of arms, logo, emblem or wordmark. A sentence that mentions one of those
+// words is kept. The words before the mark are limited to the names that appear on official mark lines.
+const MARK_LINE =
+  /^(?:the\s+|©\s*)?(?:(?:commonwealth|royal|australian|new|zealand|state|of|queensland|government|canada|fema|ifrc|nema|national|emergency|management|agency|ready|get|united|states|kingdom)\s+)*(?:coat of arms|royal arms|logos?|emblems?|crests?|wordmarks?)\.?$/i;
+
+function isOfficialMarkLine(line: string): boolean {
+  return MARK_LINE.test(line);
+}
+
+/** Collapses runs of spaces and tabs, drops lines that are only an official mark, limits blank lines to one, and trims. */
 export function clean(rawText: string): string {
-  return javaTrim(rawText.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n'));
+  const lines = rawText.replace(/[ \t]+/g, ' ').split('\n').filter((line) => !isOfficialMarkLine(javaTrim(line)));
+  return javaTrim(lines.join('\n').replace(/\n{3,}/g, '\n\n'));
 }

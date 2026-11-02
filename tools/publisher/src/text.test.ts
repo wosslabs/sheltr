@@ -8,6 +8,11 @@ describe('clean', () => {
   it('collapses excessive blank lines', () => assert.equal(clean('Line one.\n\n\n\n\nLine two.'), 'Line one.\n\nLine two.'));
   it('trims leading and trailing whitespace', () => assert.equal(clean('   Boil water.   '), 'Boil water.'));
   it('trims control characters like Java', () => assert.equal(clean('\u0001\u0002 text \u0003'), 'text'));
+  it('drops a line that is only an official mark and keeps a sentence that mentions one', () =>
+    assert.equal(
+      clean('Commonwealth Coat of Arms\nBoil water for one minute.\nFEMA logo\nDo not use the agency logo on your kit.\nRoyal Arms.'),
+      'Boil water for one minute.\nDo not use the agency logo on your kit.',
+    ));
 });
 
 describe('javaTrim and isBlank', () => {

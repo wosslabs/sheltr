@@ -5,6 +5,10 @@ import { rejectionMessage, type SourcePolicy } from './policy.ts';
 import { javaTrim } from './text.ts';
 
 const REMOVED_TAGS = new Set(['nav', 'footer', 'header', 'script', 'style', 'noscript']);
+// Pictures, crests and coats of arms are not guidance. img alt text is not visited, but svg text and a
+// logo-labelled element are, so those elements are removed before the text walk.
+const MEDIA_TAGS = new Set(['img', 'svg', 'picture', 'canvas', 'video', 'audio', 'object', 'embed', 'map', 'area']);
+const MARK_LABEL = /\b(logos?|crests?|emblems?|wordmarks?|coat-of-arms|coat of arms|royal arms)\b/;
 const BLOCK_TAGS = new Set([
   'address', 'article', 'aside', 'blockquote', 'br', 'dd', 'div', 'dl', 'dt', 'figcaption', 'figure',
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'li', 'main', 'ol', 'p', 'pre', 'section', 'table',
@@ -16,7 +20,8 @@ const HORIZONTAL_WHITESPACE = /[ \t\n\v\f\r ]+/g;
 /**
  * Extracts the main readable text of an HTML page. The first of `main`, `article` and `body` whose text is
  * non-empty after cleaning is used; a candidate that is missing or empty is skipped. Within the chosen root,
- * descendants that are navigation, header, footer, scripts, styles or cookie-consent elements are removed. The
+ * descendants that are navigation, header, footer, scripts, styles, cookie-consent elements, images, or
+ * logo, crest, emblem or coat-of-arms elements are removed. The
  * root itself is never removed. Block elements become line breaks, whitespace is collapsed, and blank lines are
  * dropped, so the same HTML always yields the same text. Returns an empty string when no candidate has text.
  */
@@ -54,9 +59,11 @@ function textOf($: cheerio.CheerioAPI, root: cheerio.Cheerio<AnyNode>): string {
 
 function isUnwanted(element: cheerio.Cheerio<Element>): boolean {
   const name = element.prop('tagName')?.toLowerCase() ?? '';
-  if (REMOVED_TAGS.has(name)) return true;
+  if (REMOVED_TAGS.has(name) || MEDIA_TAGS.has(name)) return true;
   const hasCookie = (value: string | undefined) => (value ?? '').toLowerCase().includes('cookie');
-  return hasCookie(element.attr('class')) || hasCookie(element.attr('id'));
+  if (hasCookie(element.attr('class')) || hasCookie(element.attr('id'))) return true;
+  const label = `${element.attr('class') ?? ''} ${element.attr('id') ?? ''} ${element.attr('role') ?? ''} ${element.attr('aria-label') ?? ''} ${element.attr('alt') ?? ''}`.toLowerCase();
+  return MARK_LABEL.test(label);
 }
 
 function normalise(raw: string): string {
