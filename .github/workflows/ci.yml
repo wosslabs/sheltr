@@ -13,29 +13,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  publisher:
+    name: publisher (Kotlin)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 25
-      # ubuntu-latest ships the Android SDK; AGP finds it through ANDROID_HOME.
       - uses: gradle/actions/setup-gradle@v6
-      - name: Test publisher, shared module and Android unit tests
-        run: ./gradlew :tools:publisher:test :apps:mobile:shared:jvmTest :apps:mobile:android:testDebugUnitTest
+      - run: ./gradlew :tools:publisher:test
 
-  ios-compile:
-    # Compile only: the shared module's iOS targets must keep building. iOS tests and the SwiftUI app are not done.
-    runs-on: macos-latest
-    timeout-minutes: 45
+  mobile:
+    name: mobile (Expo)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/mobile
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-java@v6
+      - uses: actions/setup-node@v5
         with:
-          distribution: temurin
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@v6
-      - run: ./gradlew :apps:mobile:shared:compileKotlinIosSimulatorArm64 :apps:mobile:shared:compileKotlinIosArm64
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - run: npm ci --legacy-peer-deps
+      - run: npx expo-doctor
+      - run: npm run typecheck
+      - run: npm test
+      # Metro must be able to bundle both platforms (Hermes bytecode is produced), which catches broken imports
+      # and unresolvable packages that unit tests do not reach.
+      - run: npx expo export --platform android --platform ios --output-dir "$RUNNER_TEMP/export"
+        env:
+          CI: '1'

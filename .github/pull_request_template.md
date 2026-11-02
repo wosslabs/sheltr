@@ -1,7 +1,8 @@
 ## What and why
 
 ## How it was tested
-- [ ] `./gradlew :tools:publisher:test :apps:mobile:shared:jvmTest :apps:mobile:android:testDebugUnitTest`
+- [ ] Publisher changes: `./gradlew :tools:publisher:test`
+- [ ] App changes: `cd apps/mobile && npm run typecheck && npm test`
 
 ## Checklist
 - [ ] No secrets, signing keys or personal data added

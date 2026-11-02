@@ -1,9 +1,9 @@
 # Search evaluation
 
-How well the on-device keyword search answers, measured on the shipped sample bundle (two documents, 127 chunks). The test is `RetrievalEvaluationTest` in `apps/mobile/shared`; the questions are in `apps/mobile/shared/src/jvmTest/resources/retrieval-eval.tsv`. Run it with:
+How well the on-device keyword search answers, measured on the shipped sample bundle (two documents, 127 chunks). The test is `src/core/retrieval/evaluation.test.ts` in `apps/mobile`; the questions are in `apps/mobile/src/core/testing/retrieval-eval.tsv`. Run it with:
 
 ```bash
-./gradlew :apps:mobile:shared:jvmTest --tests '*RetrievalEvaluationTest*' -i
+cd apps/mobile && npx jest src/core/retrieval/evaluation.test.ts --verbose
 ```
 
 ## Result (2026-11-01)

@@ -2,7 +2,7 @@
 
 The Apache-2.0 licence in `LICENSE` covers Sheltr's source code only. The document text that Sheltr bundles and quotes belongs to its publishers and keeps its own licence. The per-document licence and attribution are recorded in `corpus/manifest.yaml` and carried into every bundle. The apps show them to users.
 
-Text from these documents appears in `apps/mobile/android-sample-bundle/` and in published bundles:
+Text from these documents appears in `apps/mobile/assets/sample-bundle/` and in published bundles:
 
 | Document | Publisher | Licence |
 |---|---|---|

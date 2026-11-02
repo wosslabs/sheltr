@@ -1,5 +1,7 @@
 # Sheltr Mobile — Offline-First App Design
 
+Note (2026-11-02): the platform in section 2 and the module layout in section 3 describe the original Kotlin Multiplatform plan. The app is now an Expo / React Native project (ADR-0016); the behaviour described here still applies.
+
 Status: Revised 2026-10-05: no server; the Spring backend is removed and its ingestion logic moves to the Kotlin publisher. Approved on platform (KMP with native UI) and on the open decisions in section 11 except where noted. On-device model: LiteRT-LM (user request, 2026-10-05). No code yet.
 Date: 2026-10-05
 
