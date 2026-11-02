@@ -49,26 +49,20 @@ class SheltrApplication : Application() {
         private set
 
     /**
-     * Built lazily, not eagerly in [onCreate]: constructing `HttpClient()` resolves an HTTP engine from the
-     * classpath immediately, and apps/mobile/android (like apps/mobile/shared's androidMain, see that module's
-     * build.gradle.kts comment on `ktor-client-okhttp`) deliberately has no such engine dependency. **Calling
-     * this property today throws**: `HttpClient()` finds no `HttpClientEngineContainer` on the classpath and
-     * fails at construction, every time. Nothing in this app calls it yet -- the one planned caller, a future
-     * "sync now" action, must check `publisherBaseUrl != null` first, which is always false until a bundle-hosting
-     * plan exists, so that caller never reaches this in practice -- but any new caller must not assume this
-     * property merely "works but does nothing": it is unusable until a future task adds an HTTP engine
-     * dependency, not just unused.
+     * Built lazily, not eagerly in [onCreate]: constructing `HttpClient()` resolves the HTTP engine (Ktor CIO, see
+     * build.gradle.kts) immediately, which is wasted work on every launch where nobody syncs. Callers must still
+     * check `publisherBaseUrl != null` first: with no bundle host configured, a sync has nowhere to go.
      */
     val syncEngine: SyncEngine by lazy { SyncEngine(HttpClient()) }
 
     /**
-     * Null until a bundle host exists; see [syncEngine]'s doc comment. Task 5's SettingsViewModel consumes this.
+     * Null until a bundle host is configured (docs/publishing.md). SettingsViewModel consumes this.
      * A `val` initializer, not a `get()`: [BuildConfig] fields are compile-time constants, so this is computed
      * once, not re-decoded on every access.
      */
     val publisherBaseUrl: String? = BuildConfig.PUBLISHER_BASE_URL.ifEmpty { null }
 
-    /** Null until a bundle host exists; see [syncEngine]'s doc comment and [publisherBaseUrl]'s. */
+    /** Null until a bundle host is configured, like [publisherBaseUrl]. */
     val publisherPublicKey: ByteArray? = BuildConfig.PUBLISHER_PUBLIC_KEY_HEX.ifEmpty { null }?.let(::decodeHex)
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
