@@ -6,8 +6,8 @@ import { NodeSqliteDatabase } from '../testing/nodeSqlite';
 import { Retriever } from './retriever';
 
 /**
- * Measures keyword retrieval on the shipped sample bundle with a fixed question set
- * (src/core/testing/retrieval-eval.tsv). It is a regression gate for the two properties that matter:
+ * Measures keyword retrieval on the shipped sample bundle with the shared question set
+ * (contract/retrieval-cases.tsv). It is a regression gate for the two properties that matter:
  *
  * - false accepts (an off-topic question that gets an answer) must stay at zero: the app must refuse rather than
  *   present unrelated guidance;
@@ -23,7 +23,7 @@ const bundleDir = path.join(__dirname, '..', '..', '..', 'assets', 'sample-bundl
 
 function loadCases(): Case[] {
   return fs
-    .readFileSync(path.join(__dirname, '..', 'testing', 'retrieval-eval.tsv'), 'utf8')
+    .readFileSync(path.join(__dirname, '..', '..', '..', '..', '..', 'contract', 'retrieval-cases.tsv'), 'utf8')
     .split('\n')
     .filter((line) => line.trim() !== '' && !line.startsWith('#'))
     .map((line) => {

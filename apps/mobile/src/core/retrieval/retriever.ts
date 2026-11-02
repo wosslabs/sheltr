@@ -1,3 +1,4 @@
+import rules from '../../../../../contract/retrieval-rules.json';
 import type { StoreReader, StoredChunk, StoredDocument } from '../store/types';
 import { countryFactor, hazardFactor } from './boost';
 import { correctTypos, expandWithSynonyms } from './queryExpansion';
@@ -14,7 +15,7 @@ import { synonymOf } from './vocabulary';
  * while one rare query word is enough to answer. This is a starting value; it is measured by the evaluation set
  * (see docs/evaluation.md).
  */
-export const KEYWORD_RELEVANCE_THRESHOLD = 1.0;
+export const KEYWORD_RELEVANCE_THRESHOLD = rules.relevanceThreshold;
 
 /**
  * Share of the question's topical words that a passage must contain to count as an answer. Without it a single
@@ -22,10 +23,10 @@ export const KEYWORD_RELEVANCE_THRESHOLD = 1.0;
  * Chosen with the evaluation set: at 0.5 two-word off-topic questions with one corpus word ("lose weight") still
  * pass; at 0.6 they are refused and nearly every answerable question of the set is still answered.
  */
-export const MIN_TERM_COVERAGE = 0.6;
+export const MIN_TERM_COVERAGE = rules.minTermCoverage;
 
-/** How much larger the ranked pool is when a boost applies. */
-const POOL_MULTIPLIER = 5;
+/** How much larger the ranked pool is when a boost applies. Loaded from contract/retrieval-rules.json. */
+const POOL_MULTIPLIER = rules.poolMultiplier;
 
 export interface RetrievalQuery {
   /** The user's words. FTS5 syntax in it is not interpreted. */

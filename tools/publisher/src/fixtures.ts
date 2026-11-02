@@ -228,54 +228,12 @@ function retrievalRules(): {
   hazardTerms: string[];
   disasterTypes: string[];
 } {
-  const retriever = readMobile('core/retrieval/retriever.ts');
-  const boost = readMobile('core/retrieval/boost.ts');
-  const vocabulary = readMobile('core/retrieval/vocabulary.ts');
-  return {
-    relevanceThreshold: constNumber(retriever, 'KEYWORD_RELEVANCE_THRESHOLD'),
-    minTermCoverage: constNumber(retriever, 'MIN_TERM_COVERAGE'),
-    countryBoost: constNumber(boost, 'COUNTRY_BOOST'),
-    hazardBoost: constNumber(boost, 'HAZARD_BOOST'),
-    poolMultiplier: constNumber(retriever, 'POOL_MULTIPLIER'),
-    stopwords: quotedList(readMobile('core/retrieval/stopwords.ts'), 'STOPWORDS'),
-    synonyms: synonymMap(vocabulary),
-    hazardTerms: quotedList(vocabulary, 'HAZARD_TERMS'),
-    disasterTypes: hazardIconNames(readMobile('ui/hazards.ts')),
-  };
+  // The Expo app reads this file. Regenerating copies it so the committed rules stay the source.
+  return JSON.parse(readFileSync(new URL('../../../contract/retrieval-rules.json', import.meta.url), 'utf8'));
 }
 
 function readMobile(path: string): string {
   return readFileSync(join(MOBILE, path), 'utf8');
-}
-
-function constNumber(source: string, name: string): number {
-  const match = new RegExp(`const ${name} = ([0-9.]+)`).exec(source);
-  if (match === null) throw new Error(`Cannot read ${name}`);
-  return Number(match[1]);
-}
-
-function quotedList(source: string, name: string): string[] {
-  const match = new RegExp(`const ${name}[\\s\\S]*?=\\s*new Set\\(\\[([\\s\\S]*?)\\]\\)`).exec(source);
-  if (match === null) throw new Error(`Cannot read ${name}`);
-  return [...match[1].matchAll(/'([^']*)'/g)].map((found) => found[1]);
-}
-
-function synonymMap(source: string): Record<string, string> {
-  const match = /const SYNONYMS[\s\S]*?=\s*\{([\s\S]*?)\n\};/.exec(source);
-  if (match === null) throw new Error('Cannot read SYNONYMS');
-  const synonyms: Record<string, string> = {};
-  for (const found of match[1].matchAll(/^\s*([A-Za-z0-9_]+)\s*:\s*'([^']*)'/gm)) {
-    synonyms[found[1]] = found[2];
-  }
-  return synonyms;
-}
-
-function hazardIconNames(source: string): string[] {
-  const match = /const HAZARD_ICONS[\s\S]*?=\s*\{([\s\S]*?)\n\};/.exec(source);
-  if (match === null) throw new Error('Cannot read HAZARD_ICONS');
-  const names = [...match[1].matchAll(/^\s*([A-Z][A-Z0-9_]*)\s*:/gm)].map((found) => found[1]);
-  if (names.length !== 12) throw new Error(`Expected 12 disaster types, found ${names.length}`);
-  return names;
 }
 
 function stringsTsv(): string {

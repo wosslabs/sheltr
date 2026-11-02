@@ -10,7 +10,7 @@ The private key is never written. Each fixture directory holds `public-key.hex`,
 
 - `bundle-format.md` — bundle layout version 1.
 - `retrieval-rules.json` — relevance threshold, term coverage, boosts, pool size, stopwords, synonyms, hazard terms, and the twelve disaster types.
-- `retrieval-cases.tsv` — question cases, copied from `apps/mobile/src/core/testing/retrieval-eval.tsv`.
+- `retrieval-cases.tsv` — question cases. The Expo evaluation test reads this file.
 - `word-cases.tsv` — columns `left`, `right`, `match` (`true` or `false`).
 - `strings.tsv` — columns `key`, `placeholders`. One row per key in `apps/mobile/src/i18n/locales/en.json`. Placeholders are the `%{pN}` tokens in that string, in order, separated by spaces. Spanish and French are not copied.
 - `fixtures/<name>/` — `bundle.json`, `bundle.json.sig`, `documents/`, `public-key.hex`, `expect.json`.

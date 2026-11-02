@@ -1,11 +1,13 @@
-/** Multiplicative boost for passages whose document country equals the user's country. */
-export const COUNTRY_BOOST = 0.15;
+import rules from '../../../../../contract/retrieval-rules.json';
+
+/** Multiplicative boost for passages whose document country equals the user's country. Loaded from contract/retrieval-rules.json. */
+export const COUNTRY_BOOST = rules.countryBoost;
 
 /**
  * Multiplicative boost for passages whose document covers one of the active hazards. There is no related-hazard
  * table yet, so only active hazards are boosted.
  */
-export const HAZARD_BOOST = 0.15;
+export const HAZARD_BOOST = rules.hazardBoost;
 
 /**
  * Ranking factors. A factor only reorders: it is 1.0 or more, so no passage is ever removed by country or hazard.

@@ -1,20 +1,12 @@
+import rules from '../../../../../contract/retrieval-rules.json';
 import { wordsOf } from './words';
 
 /**
  * English function and question words. They carry no topic, but appear in many chunks, so searching them lets an
  * off-topic question ("how do I file my taxes") collect enough keyword score to pass the relevance gate. The corpus
- * is English; revisit this list if non-English documents are added.
+ * is English; revisit this list if non-English documents are added. The list is contract/retrieval-rules.json.
  */
-const STOPWORDS: ReadonlySet<string> = new Set([
-  'a', 'about', 'after', 'again', 'all', 'am', 'an', 'and', 'any', 'are', 'as', 'at', 'be', 'because', 'been',
-  'before', 'being', 'but', 'by', 'can', 'could', 'did', 'do', 'does', 'doing', 'done', 'during', 'for', 'from',
-  'get', 'got', 'had', 'has', 'have', 'having', 'he', 'her', 'here', 'him', 'his', 'how', 'i', 'if', 'in', 'into',
-  'is', 'it', 'its', 'just', 'keep', 'know', 'let', 'make', 'me', 'more', 'most', 'my', 'need', 'no', 'nor', 'not',
-  'now', 'of', 'off', 'on', 'once', 'only', 'or', 'other', 'our', 'out', 'over', 'own', 'same', 'she', 'should',
-  'so', 'some', 'such', 'take', 'than', 'that', 'the', 'their', 'them', 'then', 'there', 'these', 'they', 'this',
-  'those', 'through', 'to', 'too', 'under', 'until', 'up', 'use', 'very', 'was', 'we', 'were', 'what', 'when',
-  'where', 'which', 'while', 'who', 'want', 'whom', 'why', 'will', 'with', 'would', 'you', 'your',
-]);
+const STOPWORDS: ReadonlySet<string> = new Set(rules.stopwords);
 
 /**
  * Removes stopwords from [text], keeping the remaining words in order, separated by single spaces. Returns an
