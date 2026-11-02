@@ -4,5 +4,7 @@
 library;
 
 export 'src/sheltr_core_base.dart';
-
-// TODO: Export any libraries intended for clients of this package.
+export 'bundle/format.dart';
+export 'bundle/parser.dart';
+export 'bundle/sha256.dart';
+export 'signing/verifier.dart';
