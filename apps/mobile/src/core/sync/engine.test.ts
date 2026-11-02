@@ -61,7 +61,7 @@ async function setup() {
   };
 }
 
-describe('SyncEngine with a bundle written by the Kotlin publisher', () => {
+describe('SyncEngine with a bundle written by the publisher', () => {
   it('installs it into an empty store', async () => {
     const t = await setup();
     t.host.served.set('bundle.json', enc(SIGNED_BUNDLE_JSON));

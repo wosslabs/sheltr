@@ -31,7 +31,7 @@ Add packages with `npx expo install <package> -- --legacy-peer-deps`.
 
 ```bash
 npx expo prebuild --clean
-cd android && ./gradlew assembleRelease      # needs ANDROID_HOME and a JDK
+npx expo run:android --variant release       # needs the Android SDK; or build in the cloud with EAS Build
 ```
 
 ## Sync configuration

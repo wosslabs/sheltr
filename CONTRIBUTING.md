@@ -10,10 +10,10 @@ Thank you for helping. Sheltr is a free, non-profit, offline-first guide to disa
 
 ## Setup
 
-Requirements: Node 24 and npm for the app; JDK 25 for the publisher (the Gradle wrapper is committed).
+Requirements: Node 24 and npm. Everything in this repository is TypeScript.
 
 ```bash
-./gradlew :tools:publisher:test                       # publisher
+(cd tools/publisher && npm ci && npm run typecheck && npm test)                  # publisher
 (cd apps/mobile && npm ci --legacy-peer-deps && npm run typecheck && npm test)   # app
 ```
 

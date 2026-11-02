@@ -25,7 +25,7 @@ const messageOf = (fn: () => unknown): string => {
 };
 
 describe('bundle parser', () => {
-  it('parses a manifest written by the Kotlin publisher', () => {
+  it('parses a manifest written by the publisher', () => {
     expect(manifest.formatVersion).toBe(1);
     expect(manifest.bundleVersion).toBe('2026-10-05T12:00:00Z');
     expect(manifest.documents).toHaveLength(1);
