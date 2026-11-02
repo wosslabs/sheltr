@@ -1,6 +1,11 @@
 plugins {
     kotlin("jvm") version "2.4.21"
     kotlin("plugin.serialization") version "2.4.21"
+    application
+}
+
+application {
+    mainClass.set("com.sheltr.publisher.MainKt")
 }
 
 repositories {
@@ -18,4 +23,9 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+// Relative paths in --args (for example corpus/manifest.yaml) are resolved from the repository root.
+tasks.named<JavaExec>("run") {
+    workingDir = rootProject.projectDir
 }

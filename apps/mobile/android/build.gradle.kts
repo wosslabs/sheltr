@@ -26,10 +26,14 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        // Both null/empty in every build until a bundle-hosting plan exists; SheltrApplication exposes them as
-        // String?/ByteArray? (null when empty). Task 5's SettingsViewModel is the one future consumer.
-        buildConfigField("String", "PUBLISHER_BASE_URL", "\"\"")
-        buildConfigField("String", "PUBLISHER_PUBLIC_KEY_HEX", "\"\"")
+        // Where the app fetches the signed bundle, and the Ed25519 public key (64 hex characters, raw 32 bytes) it
+        // verifies it with. Empty means sync is off and the app only has the bundled sample content. Set them per
+        // build, never in source: ./gradlew -Psheltr.publisherBaseUrl=https://... -Psheltr.publisherPublicKeyHex=...
+        // See docs/publishing.md.
+        val baseUrl = providers.gradleProperty("sheltr.publisherBaseUrl").getOrElse("")
+        val publicKeyHex = providers.gradleProperty("sheltr.publisherPublicKeyHex").getOrElse("")
+        buildConfigField("String", "PUBLISHER_BASE_URL", "\"$baseUrl\"")
+        buildConfigField("String", "PUBLISHER_PUBLIC_KEY_HEX", "\"$publicKeyHex\"")
     }
 
     compileOptions {
@@ -93,8 +97,10 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     // Same version as :apps:mobile:shared's commonMain (which declares it `implementation`, not `api`, so it
     // isn't exposed transitively -- this module needs its own direct dependency to reference HttpClient).
-    // Deliberately NOT adding an io.ktor HTTP client engine here: see SheltrApplication's syncEngine doc comment.
     implementation("io.ktor:ktor-client-core:3.6.0")
+    // The HTTP engine for bundle sync. CIO is pure Kotlin: unlike ktor-client-okhttp it does not pull in
+    // okhttp-android:5.5.0, which would force compileSdk 37 (this project is capped at 35 by AGP 8.7.3).
+    implementation("io.ktor:ktor-client-cio:3.6.0")
 
     testImplementation("junit:junit:4.13.2")
     // Same version as the main-source kotlinx-coroutines-android above. SearchViewModelTest/SearchScreenTest

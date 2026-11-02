@@ -18,16 +18,18 @@ Built:
 
 - **Publisher** (`tools/publisher`): manifest parsing, PDF and HTML extraction, text cleaning, chunking, bundle building, Ed25519 signing, the `publish` command, and a check that refuses a signing key inside the repository.
 - **Shared module** (`apps/mobile/shared`): bundle parsing, signature verification, SQLite store with FTS5 and atomic swap, keyword retrieval with country and hazard boosts, citation selection and refusal, sync engine with retry policy, and the settings model.
-- **Android app** (`apps/mobile/android`, Jetpack Compose): Home, Search, Answer and Settings screens, with English, Spanish and French UI text. It installs an offline sample bundle (`apps/mobile/android-sample-bundle`).
+- **Android app** (`apps/mobile/android`, Jetpack Compose): Home, Search, Answer, Settings and About screens (with the privacy statement and the source licences), in English, Spanish and French. It installs an offline sample bundle (`apps/mobile/android-sample-bundle`).
 - **Corpus**: two approved entries in `corpus/manifest.yaml`.
 
 Not done:
 
+- **Bundle hosting and the first published bundle**: the guide is in `docs/publishing.md`, but nothing is hosted, and both approved corpus entries currently fail to fetch (the UK site moved, the IFRC mirror answers 403). They need a maintainer to re-approve the sources.
 - **iOS app** (SwiftUI): not created. The iOS targets are declared in the shared module but not built or tested.
-- **Bundle hosting**: no hosting location is configured and no bundle has been published.
-- **On-device model** (LiteRT-LM): not started. Search is keyword only.
-- **Search evaluation on the phone**: not started.
-- **About screen, privacy statement and store listings**: not started.
+- **On-device model** (LiteRT-LM): not started. Search is keyword only. Only worth adding if `docs/evaluation.md`, extended with real questions, shows too many refusals.
+- **Corpus beyond two documents**: needs sources with a licence that allows storing and quoting them.
+- **Store listings**: drafts are in `docs/store`; accounts and screenshots are the maintainer's.
+
+Search is evaluated on the sample bundle: 0 of 20 off-topic questions answered, 29 of 31 answerable questions answered (`docs/evaluation.md`).
 
 ## Repository layout
 
@@ -53,7 +55,7 @@ publish --manifest <file> --out <dir> --key <path> [--public-key <path>]
 
 The output directory contains `bundle.json` (the manifest, with each document's checksum and chunks), `bundle.json.sig` (its signature) and `documents/`. If an entry fails, it is listed as `FAILED`, left out of the bundle, and the command exits with status 1. If no bundle can be built, nothing is left at the output path.
 
-There is no Gradle run task for the publisher yet. Run `com.sheltr.publisher.MainKt` from the IDE with the arguments above, or compile it and run it with `java` on a classpath that includes its dependencies.
+Run it with Gradle: `./gradlew :tools:publisher:run --args="publish --manifest corpus/manifest.yaml --out <dir> --key <path>"`. See `docs/publishing.md` for hosting, key handling and the current blockers.
 
 ### Signing key
 
