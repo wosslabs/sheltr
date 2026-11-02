@@ -99,9 +99,8 @@ class RetrieverStoreTest {
 
     @Test
     fun refusesWhenOnlyCommonWordsOrNothingMatches() {
-        // "the" is in more than half of the chunks: FTS5 gives it an idf of 1e-6.
-        val common = retriever.rank(RetrievalQuery("the", limit = 3))
-        assertTrue(common.isNotEmpty() && common.all { it.score < KEYWORD_RELEVANCE_THRESHOLD })
+        // "the" is a stopword: it is not searched at all, so there is nothing to rank.
+        assertTrue(retriever.rank(RetrievalQuery("the how do I", limit = 3)).isEmpty())
         assertSame(RetrievalResult.Refusal, retriever.retrieve(RetrievalQuery("the")))
         assertSame(RetrievalResult.Refusal, retriever.retrieve(RetrievalQuery("volcano")))
     }
