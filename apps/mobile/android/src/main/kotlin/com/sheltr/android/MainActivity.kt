@@ -33,7 +33,7 @@ import com.sheltr.shared.settings.AppSettings
  *
  * [SettingsStore][com.sheltr.shared.settings.SettingsStore] is a synchronous port with no change notifications,
  * so there is no reactive settings `Flow` to collect here; instead, [SheltrNavHost]'s `onSettingsChanged`
- * callback is the mechanism by which a future write (Task 5's Settings screen, after calling
+ * callback is the mechanism by which a future write (the Settings screen, after calling
  * `settingsStore.put`) updates this hoisted state and triggers recomposition.
  *
  * [AppCompatActivity], not a plain `ComponentActivity`: `SettingsScreen`'s language picker calls

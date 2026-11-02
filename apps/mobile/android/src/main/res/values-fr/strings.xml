@@ -3,7 +3,7 @@
     <string name="app_name">Sheltr</string>
     <string name="preparing_offline_content">Préparation du contenu hors connexion…</string>
 
-    <!-- Home screen (Task 2). -->
+    <!-- Home screen. -->
     <string name="home_title">Préparez-vous à une catastrophe</string>
     <string name="home_search_placeholder">Rechercher des conseils</string>
     <string name="home_search_hint_description">Rechercher dans les conseils de préparation aux catastrophes de Sheltr</string>
@@ -21,13 +21,13 @@
     <string name="hazard_volcano">Volcan</string>
     <string name="hazard_drought">Sécheresse</string>
 
-    <!-- Search screen (Task 3). -->
+    <!-- Search screen. -->
     <string name="search_title">Rechercher</string>
     <string name="search_placeholder">Que voulez-vous savoir ?</string>
     <string name="search_active_hazard_chip_description">Effacer le filtre de risque</string>
     <string name="search_submit_description">Rechercher</string>
 
-    <!-- Answer screen (Task 4). -->
+    <!-- Answer screen. -->
     <string name="answer_source_label">Source</string>
     <string name="answer_source_published">Publié le %1$s</string>
     <string name="answer_source_page">Page %1$d</string>
@@ -36,7 +36,7 @@
     <string name="answer_refusal_title">Nous ne pouvons pas encore répondre à cette question</string>
     <string name="answer_refusal_body">Nous ne disposons pas encore d\'informations fiables sur ce sujet. Essayez d\'autres mots de recherche ou, en cas d\'urgence, contactez les services d\'urgence locaux.</string>
 
-    <!-- Settings screen (Task 5). -->
+    <!-- Settings screen. -->
     <string name="settings_title">Paramètres</string>
     <string name="settings_country_label">Pays</string>
     <string name="settings_country_not_set">Non défini</string>

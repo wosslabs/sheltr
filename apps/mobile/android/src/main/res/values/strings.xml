@@ -5,7 +5,7 @@
     <!-- Shown by MainActivity while it awaits the first-run sample bundle install, before any screen is composed. -->
     <string name="preparing_offline_content">Preparing offline content…</string>
 
-    <!-- Home screen (Task 2). -->
+    <!-- Home screen. -->
     <string name="home_title">Prepare for a disaster</string>
     <string name="home_search_placeholder">Search for guidance</string>
     <string name="home_search_hint_description">Search Sheltr\'s disaster preparedness guidance</string>
@@ -23,13 +23,13 @@
     <string name="hazard_volcano">Volcano</string>
     <string name="hazard_drought">Drought</string>
 
-    <!-- Search screen (Task 3). -->
+    <!-- Search screen. -->
     <string name="search_title">Search</string>
     <string name="search_placeholder">What do you need to know?</string>
     <string name="search_active_hazard_chip_description">Clear hazard filter</string>
     <string name="search_submit_description">Search</string>
 
-    <!-- Answer screen (Task 4). -->
+    <!-- Answer screen. -->
     <string name="answer_source_label">Source</string>
     <string name="answer_source_published">Published %1$s</string>
     <string name="answer_source_page">Page %1$d</string>
@@ -41,7 +41,7 @@
          string): this is the only text AnswerScreen is allowed to show for a refusal. -->
     <string name="answer_refusal_body">Sheltr doesn\'t have reliable guidance on this yet. Try different search words, or contact local emergency services for urgent help.</string>
 
-    <!-- Settings screen (Task 5). -->
+    <!-- Settings screen. -->
     <string name="settings_title">Settings</string>
     <string name="settings_country_label">Country</string>
     <string name="settings_country_not_set">Not set</string>

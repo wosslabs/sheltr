@@ -92,7 +92,7 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.navigation:navigation-compose:2.8.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
-    // Per-app language support (Task 5's Settings screen language picker, via AppCompatDelegate/LocaleListCompat).
+    // Per-app language support (the Settings screen language picker, via AppCompatDelegate/LocaleListCompat).
     implementation("androidx.appcompat:appcompat:1.8.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     // Same version as :apps:mobile:shared's commonMain (which declares it `implementation`, not `api`, so it
@@ -104,7 +104,7 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     // Same version as the main-source kotlinx-coroutines-android above. SearchViewModelTest/SearchScreenTest
-    // (Task 3) need TestDispatcher/runTest/advanceUntilIdle to drive SearchViewModel's Dispatchers.IO hop
+    // need TestDispatcher/runTest/advanceUntilIdle to drive SearchViewModel's Dispatchers.IO hop
     // deterministically instead of racing a real thread pool.
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
     testImplementation("org.robolectric:robolectric:4.17")

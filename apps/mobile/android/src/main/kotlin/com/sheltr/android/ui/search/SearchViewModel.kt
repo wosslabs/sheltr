@@ -34,7 +34,7 @@ fun interface RetrieverPort {
  * [country] is [com.sheltr.shared.settings.AppSettings.country] read once, at construction time, by
  * [com.sheltr.android.ui.SheltrNavHost] -- not observed reactively. Settings rarely change mid-search, and a
  * fresh [SearchViewModel] is built the next time this screen is navigated to anyway (same "no reactive settings
- * Flow needed" simplicity level this plan's Task 1 already established for `MainActivity`).
+ * Flow needed" simplicity level already established for `MainActivity`).
  *
  * [initialHazard]/[initialQuery] come from [com.sheltr.android.ui.SheltrNavHost]'s Search route's nav arguments
  * (`Route.Search.destination(hazard, query)`) and seed [_activeHazard]/[_query] exactly once, here at

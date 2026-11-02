@@ -43,8 +43,8 @@ sealed class Route(val path: String) {
      * Registered with `hazard`/`query` as query parameters (`?key={key}`, not path segments), which Navigation
      * Compose always treats as optional/nullable -- navigating to plain `"search"` (no params) still matches
      * this same route, and `backStackEntry.arguments?.getString(...)` returns null for whichever one wasn't
-     * supplied. This lets Home (Task 2) carry an optional pre-selected hazard and/or pre-filled search text
-     * into Search (Task 3) without Task 3 needing its own separate route.
+     * supplied. This lets Home carry an optional pre-selected hazard and/or pre-filled search text
+     * into Search without Search needing its own separate route.
      */
     data object Search : Route("search?hazard={hazard}&query={query}") {
         /**
@@ -65,7 +65,7 @@ sealed class Route(val path: String) {
      * `resultId` carries the key into [RetrievalResultHolder] for the
      * [com.sheltr.shared.retrieval.RetrievalResult] Search retrieved -- not the result itself, which can't be
      * a type-safe nav argument (Bundle-backed arguments can't carry a non-Parcelable domain type; see
-     * [RetrievalResultHolder]'s doc comment for the full design this task, Task 3, built for Task 4 to
+     * [RetrievalResultHolder]'s doc comment for the full design Search built for the Answer screen to
      * consume: `AnswerViewModel` reads it with `RetrievalResultHolder.take(resultId)`).
      *
      * `text`/`hazard` are *also* carried here, alongside `resultId`, even though they are redundant with what
@@ -75,12 +75,12 @@ sealed class Route(val path: String) {
      * a process restart, Answer composes again with the *same* `resultId`, `take(resultId)` correctly returns
      * `null` (a fresh process never put anything under that id), and `text`/`hazard` are the only way left to
      * answer the same question again. See [RetrievalResultHolder]'s doc comment for the full reasoning and the
-     * exact fallback contract Task 4's `AnswerViewModel` must implement on that `null`.
+     * exact fallback contract `AnswerViewModel` must implement on that `null`.
      *
      * Unlike Search's `hazard`/`query` (both genuinely optional), `text` here is always supplied by the one
      * caller that builds this route (the Search composable below) -- `SearchViewModel.onSubmit` never invokes
      * its callback with a blank query (see that method's blank-guard). Navigation Compose still parses it as a
-     * nullable query parameter like every other one here (Task 2's established, verified behavior), so
+     * nullable query parameter like every other one here (verified behavior), so
      * `Route.Answer`'s composable below, and `AnswerViewModel` itself, still null-check it -- there is just
      * never a real path that reaches either with `text` actually absent.
      */
@@ -103,7 +103,7 @@ sealed class Route(val path: String) {
  * once in [com.sheltr.android.SheltrApplication.onCreate]), not re-fetched from a singleton inside each screen,
  * so screens stay testable with fakes (see SheltrNavHostTest).
  *
- * Home (Task 2), Search (Task 3), Answer (Task 4) and Settings (Task 5) are now the real
+ * Home, Search, Answer and Settings are now the real
  * [HomeScreen]/`SearchScreen`/`AnswerScreen`/`SettingsScreen`.
  *
  * Search hands its [com.sheltr.shared.retrieval.RetrievalResult] to Answer via [RetrievalResultHolder]: the
@@ -116,7 +116,7 @@ sealed class Route(val path: String) {
  * implements the `take()`-then-fallback recovery itself; see [RetrievalResultHolder]'s doc comment for the full
  * reasoning, and [Route.Answer]'s for the route shape this produces.
  *
- * [onSettingsChanged] is the callback Task 5's Settings screen calls after writing new [AppSettings], so
+ * [onSettingsChanged] is the callback the Settings screen calls after writing new [AppSettings], so
  * [com.sheltr.android.MainActivity] can update the [SheltrTheme][com.sheltr.android.ui.theme.SheltrTheme]
  * parameters it hoists. [syncEngine] is a provider, not the engine itself:
  * [com.sheltr.android.SheltrApplication.syncEngine] is built lazily to avoid constructing an HTTP client (and

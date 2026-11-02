@@ -43,7 +43,7 @@ import com.sheltr.shared.retrieval.RetrievalResult
  * constant "FLOOD" when a user arrives here from a Home hazard tap.
  *
  * Deliberately duplicated from `HomeViewModel.hazardTiles` rather than reused directly: this screen only needs
- * the hazard-name -> label half of that list (not the icon or the ViewModel itself), and importing Task 2's
+ * the hazard-name -> label half of that list (not the icon or the ViewModel itself), and importing the Home screen's
  * ViewModel here purely for a string lookup would be a worse coupling than twelve duplicated map entries. If a
  * thirteenth hazard is ever added, both this map and `HomeViewModel.hazardTiles` must be updated together --
  * the same constraint `HomeViewModel`'s own doc comment already documents for its hand-copied names.
