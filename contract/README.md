@@ -32,6 +32,6 @@ When `prior` is `valid-signed`, install that fixture first, then sync the fixtur
 | `bad-file-checksum` | A document file changed after signing. The manifest signature still verifies. The file hash does not match `fileChecksum`. |
 | `missing-document` | A document listed in the manifest has no file. The manifest signature still verifies. |
 | `unsupported-format` | `formatVersion` is not 1. The edited manifest was signed again, so the signature verifies and the format check is what fails. |
-| `plain-http-url` | A normal signed bundle. Serve every other fixture from an `https` base URL. Serve this one from `http://example.org/bundle`. The app refuses that URL before it reads the bundle. |
+| `plain-http-url` | A normal signed bundle. Serve every other fixture from an `https` base URL. Serve this one from the URL in `fixtures/plain-http-url/base-url.txt` (`http://example.org/bundle`). The app refuses that URL before it reads the bundle. |
 
 `rejectedSignature` carries no reason on the current sync result, so those fixtures use `null` for `reasonContains`.

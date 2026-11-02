@@ -82,6 +82,7 @@ const RETRIEVAL_RULES = {
 };
 
 const ENGLISH_LOCALE = fileURLToPath(new URL('../../../apps/mobile/src/i18n/locales/en.json', import.meta.url));
+const COMMITTED_FIXTURES = fileURLToPath(new URL('../../../contract/fixtures', import.meta.url));
 
 interface BundleFile {
   formatVersion: number;
@@ -203,6 +204,24 @@ describe('fixtures', () => {
       first.cleanup();
       second.cleanup();
     }
+  });
+
+  it('committed contract/fixtures verify and match expect.json', () => {
+    assert.deepEqual(readdirSync(COMMITTED_FIXTURES).sort(), [...FIXTURES].sort());
+    for (const name of FIXTURES) {
+      const dir = join(COMMITTED_FIXTURES, name);
+      assert.deepEqual(JSON.parse(readFileSync(join(dir, 'expect.json'), 'utf8')), {
+        ...EXPECTED[name],
+        documentsDownloaded: documentsDownloaded(name, COMMITTED_FIXTURES),
+      });
+    }
+    assert.ok(bundleVerifies(join(COMMITTED_FIXTURES, 'valid-signed')));
+    assert.ok(!bundleVerifies(join(COMMITTED_FIXTURES, 'tampered-manifest')));
+    assert.ok(!bundleVerifies(join(COMMITTED_FIXTURES, 'wrong-key')));
+    assert.equal(
+      readFileSync(join(COMMITTED_FIXTURES, 'plain-http-url', 'base-url.txt'), 'utf8'),
+      'http://example.org/bundle\n',
+    );
   });
 
   it('writes word-cases.tsv and strings.tsv with their header columns', async () => {
