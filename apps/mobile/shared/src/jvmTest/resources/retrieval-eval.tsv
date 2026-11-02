@@ -1,0 +1,54 @@
+# kind	country	question	expectedTerm
+# answerable: some top-5 passage must contain expectedTerm (case-insensitive) and the app must answer.
+# unanswerable: the app must refuse.
+answerable		what should I do during an earthquake	cover your head
+answerable		where should my family meet after an emergency	meeting places
+answerable		how do I stop a grease fire	grease
+answerable		how can I save water during a drought	taps
+answerable		how do I collect rainwater	rainwater
+answerable	GB	what number do I call to report a power cut	105
+answerable		how much drinking water should I store per person	litres
+answerable		how do I prepare for aftershocks	aftershock
+answerable		what should I know about carbon monoxide	carbon monoxide
+answerable		do I need a smoke alarm	smoke alarm
+answerable		how often should I practise emergency drills	drill
+answerable		should I keep a battery powered radio	radio
+answerable		how do I stop bleeding	bleeding
+answerable		what do I do about sewage damage after a flood	sewage
+answerable		how do I use a fire extinguisher	fire extinguisher
+answerable		how do I protect my pets in a disaster	pet
+answerable		how do I protect livestock during a drought	livestock
+answerable		how do I stay safe in a tsunami	tsunami
+answerable		what should I do in a hurricane	cyclone
+answerable		what should I do in a wildfire	wildfire
+answerable		how do I prepare for flooding	flood
+answerable		is food safe to eat after a power outage	refrigerated food
+answerable		what first aid supplies should I keep	first aid
+answerable		what are the warning signs of a landslide	landslide
+answerable		how do I stay safe in extreme heat	heat
+answerable		does home insurance cover disasters	insurance
+answerable		what should I do in a tornado	tornado
+answerable		how do I evacuate safely	evacuat
+answerable		what vaccinations matter after a disaster	vaccin
+answerable		eartquake safety tips	earthquake
+answerable		what to do in a quake	earthquake
+unanswerable		how do I file my income taxes	
+unanswerable		best pizza recipe	
+unanswerable		who won the football world cup	
+unanswerable		what is the price of bitcoin	
+unanswerable		how do I change a flat tire	
+unanswerable		how do I learn python programming	
+unanswerable		what is the capital of France	
+unanswerable		how do I train for a marathon	
+unanswerable		how do I renew my passport	
+unanswerable		explain quantum computing	
+unanswerable		latest smartphone reviews	
+unanswerable		how do I bake sourdough bread	
+unanswerable		movie recommendations for tonight	
+unanswerable		how do I lose weight	
+unanswerable		translate hello into Japanese	
+unanswerable		how do I knit a scarf	
+unanswerable		book a hotel in Paris	
+unanswerable		stock market advice for beginners	
+unanswerable		how do I write a cover letter	
+unanswerable		what is the meaning of life	

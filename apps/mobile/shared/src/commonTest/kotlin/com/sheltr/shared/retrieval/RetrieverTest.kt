@@ -168,6 +168,6 @@ class RetrieverTest {
         )
 
         fun hit(id: String, documentId: String, bm25: Double) =
-            SearchHit(StoredChunk(id, documentId, "text $id", null, 0), bm25)
+            SearchHit(StoredChunk(id, documentId, "text $id water earthquake shelter quake", null, 0), bm25)
     }
 }

@@ -15,6 +15,14 @@ import com.sheltr.shared.store.StoredDocument
  */
 const val KEYWORD_RELEVANCE_THRESHOLD: Double = 1.0
 
+/**
+ * Share of the question's topical words that a passage must contain to count as an answer. Without it a single
+ * generic word the corpus happens to use ("cover", "change", "world") is enough to answer an off-topic question.
+ * Chosen with RetrievalEvaluationTest: at 0.5 two-word off-topic questions with one corpus word ("lose weight")
+ * still pass; at 0.6 they are refused and every answerable question of the set is still answered.
+ */
+const val MIN_TERM_COVERAGE: Double = 0.6
+
 data class RetrievalQuery(
     /** The user's words. FTS5 syntax in it is not interpreted (see StoreReader.search). */
     val text: String,
@@ -58,13 +66,13 @@ class Retriever(
     fun retrieve(query: RetrievalQuery): RetrievalResult {
         require(query.limit > 0) { "limit must be positive" }
         val passages = rank(query)
-        if (isAnswerable(passages, threshold)) return RetrievalResult.Passages(passages)
+        if (isAnswerable(passages, threshold, query.text)) return RetrievalResult.Passages(passages)
         // Keyword search found nothing good enough: retry once with likely typos fixed, e.g. "eartquake" ->
         // "earthquake". Most queries have no typo to fix; skip the second search when correction is a no-op.
         val corrected = correctTypos(query.text)
         if (corrected == query.text) return RetrievalResult.Refusal
         val correctedPassages = rank(query.copy(text = corrected))
-        return if (isAnswerable(correctedPassages, threshold)) {
+        return if (isAnswerable(correctedPassages, threshold, corrected)) {
             RetrievalResult.Passages(correctedPassages)
         } else {
             RetrievalResult.Refusal
@@ -78,8 +86,8 @@ class Retriever(
         val pool = if (boosting) query.limit * POOL_MULTIPLIER else query.limit
         val documents = mutableMapOf<String, StoredDocument>()
         // Append known synonyms' canonical terms (e.g. "quake" -> also "earthquake") so the store search can match
-        // either wording; the original text is kept as written.
-        val passages = store.search(expandWithSynonyms(query.text), pool).map { hit ->
+        // either wording; stopwords are dropped so only topical words are searched.
+        val passages = store.search(removeStopwords(expandWithSynonyms(query.text)), pool).map { hit ->
             val document = documents.getOrPut(hit.chunk.documentId) {
                 checkNotNull(store.document(hit.chunk.documentId)) { "chunk ${hit.chunk.id} has no document" }
             }
@@ -99,6 +107,33 @@ class Retriever(
     }
 }
 
-/** True when the best passage's keyword relevance is at or above [threshold]. No passages: false. */
-internal fun isAnswerable(passages: List<Passage>, threshold: Double): Boolean =
-    passages.isNotEmpty() && passages.maxOf { it.score } >= threshold
+/**
+ * True when some passage reaches [threshold] and also contains at least [MIN_TERM_COVERAGE] of the topical words
+ * of [questionText]. No passages: false. A question with no topical words is never answerable.
+ */
+internal fun isAnswerable(passages: List<Passage>, threshold: Double, questionText: String): Boolean {
+    val terms = contentTerms(questionText)
+    if (terms.isEmpty()) return false
+    return passages.any { it.score >= threshold && coverage(terms, it.chunk.content) >= MIN_TERM_COVERAGE }
+}
+
+/** A term counts as present when the chunk has a form of it or, for a colloquial synonym, of the canonical term. */
+private fun coverage(terms: Set<String>, content: String): Double {
+    val present = contentTerms(content)
+    val covered = terms.count { term ->
+        present.any { sameWord(term, it) } ||
+            HazardVocabulary.SYNONYMS[term]?.let { canonical -> present.any { sameWord(canonical, it) } } == true
+    }
+    return covered.toDouble() / terms.size
+}
+
+/**
+ * True when [a] and [b] are the same word up to an ending ("aftershocks"/"aftershock", "evacuate"/"evacuation"):
+ * they share a prefix of at least 4 letters that covers all but at most 1 letter of the shorter word. The store
+ * does no stemming, so exact comparison would refuse questions that merely use another form of a word.
+ */
+internal fun sameWord(a: String, b: String): Boolean {
+    if (a == b) return true
+    val shared = a.commonPrefixWith(b).length
+    return shared >= 4 && shared >= minOf(a.length, b.length) - 1
+}
