@@ -51,15 +51,16 @@ Check it before announcing it: download `bundle.json` and `bundle.json.sig` from
 
 ## Pointing the app at the host
 
-Pass the base URL and the hex public key when building the release. They are compiled into the app, not stored in source:
+The base URL and the hex public key are build-time settings, read by `apps/mobile/app.config.js` from the environment. They are compiled into the app, never stored in source:
 
 ```bash
-./gradlew :apps:mobile:android:assembleRelease \
-  -Psheltr.publisherBaseUrl=https://<org>.github.io/sheltr-bundles/ \
-  -Psheltr.publisherPublicKeyHex=<64 hex characters>
+cd apps/mobile
+SHELTR_PUBLISHER_BASE_URL=https://<org>.github.io/sheltr-bundles/ \
+SHELTR_PUBLISHER_PUBLIC_KEY_HEX=<64 hex characters> \
+  npx expo prebuild --clean && (cd android && ./gradlew assembleRelease)
 ```
 
-With both empty (the default), "Sync now" says sync is not available in this build and the app only has the bundled sample content.
+With either missing (the default), "Sync now" says sync is not available in this build and the app only has the bundled sample content. A key that is not 64 hex characters is treated as missing.
 
 ## Key rotation and loss
 
@@ -70,7 +71,7 @@ With both empty (the default), "Sync now" says sync is not available in this bui
 ## Before every publication
 
 1. `corpus/manifest.yaml` changes reviewed: licence, attribution and checksum recorded for every entry.
-2. `./gradlew :tools:publisher:test :apps:mobile:shared:jvmTest` passes, including the retrieval evaluation (`docs/evaluation.md`), extended with questions for any new document.
+2. `./gradlew :tools:publisher:test` and, in `apps/mobile`, `npm test` pass, including the retrieval evaluation (`docs/evaluation.md`), extended with questions for any new document.
 3. `THIRD_PARTY_CONTENT.md` updated for new sources.
 
 ## Known blockers (checked 2026-11-02)
