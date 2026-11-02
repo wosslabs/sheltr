@@ -1,0 +1,78 @@
+key	placeholders
+about_code_licence	
+about_description	
+about_disclaimer	
+about_disclaimer_title	
+about_privacy	
+about_privacy_title	
+about_source_details	%{p1} %{p2} %{p3}
+about_source_licence	%{p1}
+about_source_link	%{p1}
+about_sources_empty	
+about_sources_intro	
+about_sources_title	
+about_title	
+answer_loading	
+answer_read_aloud_description	
+answer_read_aloud_unavailable	
+answer_refusal_body	
+answer_refusal_title	
+answer_source_label	
+answer_source_page	%{p1}
+answer_source_published	%{p1}
+app_name	
+back	
+error_start_body	
+error_start_title	
+hazard_drought	
+hazard_earthquake	
+hazard_extreme_heat	
+hazard_flood	
+hazard_glacial_lake_flood	
+hazard_landslide	
+hazard_tornado	
+hazard_tropical_cyclone	
+hazard_tsunami	
+hazard_volcano	
+hazard_wildfire	
+hazard_winter_storm	
+home_search_hint_description	
+home_search_placeholder	
+home_settings_button_label	
+home_title	
+preparing_offline_content	
+search_active_hazard_chip_description	
+search_clear_description	
+search_hazard_chip	%{p1}
+search_placeholder	
+search_submit_description	
+search_title	
+settings_about_button_label	
+settings_country_label	
+settings_country_not_set	
+settings_country_search_placeholder	
+settings_high_contrast_label	
+settings_language_label	
+settings_language_notice	
+settings_language_system_default	
+settings_last_sync_label	%{p1}
+settings_last_sync_never	
+settings_mobile_data_hint	
+settings_mobile_data_label	
+settings_sync_dismiss_label	
+settings_sync_failed_message	%{p1}
+settings_sync_frequency_label	
+settings_sync_now_label	
+settings_sync_rejected_signature_message	
+settings_sync_unavailable_message	
+settings_sync_up_to_date_message	%{p1}
+settings_sync_updated_message	%{p1} %{p2}
+settings_text_size_extra_large	
+settings_text_size_label	
+settings_text_size_large	
+settings_text_size_normal	
+settings_title	
+sync_frequency_daily	
+sync_frequency_manual	
+sync_frequency_monthly	
+sync_frequency_weekly	

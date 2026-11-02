@@ -1,0 +1,355 @@
+import { type KeyObject } from 'node:crypto';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { buildBundle, type BundleManifest } from './bundle.ts';
+import { rawContent, type ConnectorMap } from './connector.ts';
+import { parseManifest } from './manifest.ts';
+import { hostAllowlistPolicy } from './policy.ts';
+import { sha256Hex } from './sha256.ts';
+import { generateKeyPair, sign } from './signing.ts';
+
+const MOBILE = fileURLToPath(new URL('../../../apps/mobile/src/', import.meta.url));
+
+interface SampleDocument {
+  readonly uri: string;
+  readonly title: string;
+  readonly hazards: string;
+  readonly text: string;
+}
+
+interface FixtureExpect {
+  readonly prior: 'empty' | 'valid-signed';
+  readonly result: 'updated' | 'rejectedSignature' | 'failed';
+  readonly reasonContains: string | null;
+  readonly documentsDownloaded: number | null;
+}
+
+const BOIL: SampleDocument = {
+  uri: 'https://example.org/boil-water.html',
+  title: 'Boil water',
+  hazards: 'FLOOD',
+  text: 'Boil water for one minute before drinking.',
+};
+
+const EVACUATE: SampleDocument = {
+  uri: 'https://example.org/evacuate.html',
+  title: 'Evacuate',
+  hazards: 'EARTHQUAKE',
+  text: 'Evacuate immediately if instructed by officials.',
+};
+
+const EVACUATE_CHANGED: SampleDocument = {
+  ...EVACUATE,
+  text: 'Move to high ground when the warning sounds.',
+};
+
+const WORD_CASES = `left\tright\tmatch
+aftershocks\taftershock\ttrue
+evacuate\tevacuation\ttrue
+disasters\tdisaster\ttrue
+heat\theating\ttrue
+programming\tprogrammes\tfalse
+pet\tpetrol\tfalse
+flood\tfloor\tfalse
+heat\theal\tfalse
+`;
+
+/**
+ * Writes the shared contract into [outDir]: retrieval rules, word cases, English string keys, the bundle
+ * format note, and the eight signed fixture directories.
+ *
+ * buildBundle can only read a signing key from a file. The key is generated in memory, written as PKCS#8 PEM
+ * under the system temp directory (outside the repository), and deleted before this returns. Fixture
+ * directories receive the raw public key and the signature only.
+ */
+export async function generateFixtures(outDir: string, now: () => Date): Promise<void> {
+  mkdirSync(outDir, { recursive: true });
+  writeFileSync(join(outDir, 'retrieval-rules.json'), `${JSON.stringify(retrievalRules(), null, 2)}\n`);
+  writeFileSync(join(outDir, 'word-cases.tsv'), WORD_CASES);
+  writeFileSync(join(outDir, 'strings.tsv'), stringsTsv());
+  writeFileSync(join(outDir, 'bundle-format.md'), BUNDLE_FORMAT_MD);
+  await writeFixtureBundles(join(outDir, 'fixtures'), now);
+}
+
+async function writeFixtureBundles(fixturesDir: string, now: () => Date): Promise<void> {
+  const keyDir = mkdtempSync(join(tmpdir(), 'sheltr-fixture-key-'));
+  const keyPath = join(keyDir, 'key.pem');
+  const { privateKey, publicKey } = generateKeyPair();
+  writeFileSync(keyPath, privateKey.export({ format: 'pem', type: 'pkcs8' }));
+  const publicHex = rawPublicKeyHex(publicKey);
+  try {
+    const base = now();
+    const signedDir = join(fixturesDir, 'valid-signed');
+    const signed = await buildSample(signedDir, keyPath, () => base, [BOIL, EVACUATE]);
+    finish(signedDir, publicHex, {
+      prior: 'empty',
+      result: 'updated',
+      reasonContains: null,
+      documentsDownloaded: signed.documents.length,
+    });
+
+    const unchangedDir = join(fixturesDir, 'valid-unchanged-doc');
+    const unchanged = await buildSample(unchangedDir, keyPath, () => new Date(base.getTime() + 1000), [BOIL, EVACUATE_CHANGED]);
+    finish(unchangedDir, publicHex, {
+      prior: 'valid-signed',
+      result: 'updated',
+      reasonContains: null,
+      documentsDownloaded: changedDocumentCount(signed, unchanged),
+    });
+
+    deriveCopy(signedDir, join(fixturesDir, 'tampered-manifest'), (dir) => {
+      editFile(join(dir, 'bundle.json'), 'Boil water', 'Boil wat3r');
+    }, { prior: 'empty', result: 'rejectedSignature', reasonContains: null, documentsDownloaded: null });
+
+    deriveCopy(signedDir, join(fixturesDir, 'wrong-key'), (dir) => {
+      writeFileSync(join(dir, 'public-key.hex'), `${rawPublicKeyHex(generateKeyPair().publicKey)}\n`);
+    }, { prior: 'empty', result: 'rejectedSignature', reasonContains: null, documentsDownloaded: null });
+
+    deriveCopy(signedDir, join(fixturesDir, 'bad-file-checksum'), (dir) => {
+      const id = readManifest(dir).documents[0].id;
+      editFile(join(dir, 'documents', `${id}.json`), 'one minute', 'two minutes');
+    }, { prior: 'empty', result: 'failed', reasonContains: 'does not match the manifest', documentsDownloaded: null });
+
+    deriveCopy(signedDir, join(fixturesDir, 'missing-document'), (dir) => {
+      const id = readManifest(dir).documents.at(-1)?.id;
+      if (id === undefined) throw new Error('missing-document has no document to remove');
+      rmSync(join(dir, 'documents', `${id}.json`));
+    }, { prior: 'empty', result: 'failed', reasonContains: null, documentsDownloaded: null });
+
+    // The app verifies the signature before it reads formatVersion, so the edited manifest is signed again.
+    // Otherwise this fixture would be rejectedSignature and the format error would never be reached.
+    deriveCopy(signedDir, join(fixturesDir, 'unsupported-format'), (dir) => {
+      const manifestPath = join(dir, 'bundle.json');
+      editFile(manifestPath, '"formatVersion": 1', '"formatVersion": 2');
+      writeFileSync(join(dir, 'bundle.json.sig'), sign(privateKey, readFileSync(manifestPath)));
+    }, { prior: 'empty', result: 'failed', reasonContains: 'format', documentsDownloaded: null });
+
+    // The bytes are a normal signed bundle. The app refuses this fixture because its sync base URL is
+    // http://example.org/bundle, which is not part of the bundle files. See contract/README.md.
+    deriveCopy(signedDir, join(fixturesDir, 'plain-http-url'), () => {}, {
+      prior: 'empty',
+      result: 'failed',
+      reasonContains: 'https',
+      documentsDownloaded: null,
+    });
+  } finally {
+    rmSync(keyDir, { recursive: true, force: true });
+  }
+}
+
+async function buildSample(
+  outputDir: string,
+  keyPath: string,
+  now: () => Date,
+  documents: readonly SampleDocument[],
+): Promise<BundleManifest> {
+  const bytes = new Map(documents.map((doc) => [doc.uri, new TextEncoder().encode(doc.text)]));
+  const yaml = [
+    'documents:',
+    ...documents.map((doc) => `  - source_uri: ${doc.uri}
+    source_type: html
+    title: ${doc.title}
+    source_agency: Example Agency
+    hazards: [${doc.hazards}]
+    published_date: 2024-03-15
+    license: CC-BY-4.0
+    country: "NO"
+    checksum: ${sha256Hex(bytes.get(doc.uri)!)}`),
+  ].join('\n');
+  const connectors: ConnectorMap = {
+    html: {
+      async fetch(uri: string) {
+        const body = bytes.get(uri);
+        if (body === undefined) throw new Error(`No fixture body for ${uri}`);
+        return rawContent(body);
+      },
+    },
+  };
+  const result = await buildBundle(
+    parseManifest(yaml),
+    connectors,
+    hostAllowlistPolicy(['example.org']),
+    outputDir,
+    keyPath,
+    now,
+  );
+  return result.manifest;
+}
+
+function finish(dir: string, publicHex: string, expected: FixtureExpect): void {
+  writeFileSync(join(dir, 'public-key.hex'), `${publicHex}\n`);
+  writeExpect(dir, expected);
+}
+
+function deriveCopy(from: string, to: string, edit: (dir: string) => void, expected: FixtureExpect): void {
+  cpSync(from, to, { recursive: true });
+  edit(to);
+  writeExpect(to, expected);
+}
+
+function writeExpect(dir: string, expected: FixtureExpect): void {
+  writeFileSync(join(dir, 'expect.json'), `${JSON.stringify(expected, null, 2)}\n`);
+}
+
+function editFile(path: string, from: string, to: string): void {
+  const text = readFileSync(path, 'utf8');
+  const at = text.indexOf(from);
+  if (at < 0 || text.indexOf(from, at + from.length) >= 0) {
+    throw new Error(`${path} does not contain exactly one "${from}"`);
+  }
+  writeFileSync(path, text.slice(0, at) + to + text.slice(at + from.length));
+}
+
+function readManifest(dir: string): BundleManifest {
+  return JSON.parse(readFileSync(join(dir, 'bundle.json'), 'utf8')) as BundleManifest;
+}
+
+function changedDocumentCount(prior: BundleManifest, next: BundleManifest): number {
+  const installed = new Map(prior.documents.map((doc) => [doc.id, doc.fileChecksum]));
+  return next.documents.filter((doc) => installed.get(doc.id) !== doc.fileChecksum).length;
+}
+
+function rawPublicKeyHex(publicKey: KeyObject): string {
+  const jwk = publicKey.export({ format: 'jwk' });
+  if (jwk.x === undefined) throw new Error('Ed25519 public key is missing x');
+  return Buffer.from(jwk.x, 'base64url').toString('hex');
+}
+
+function retrievalRules(): {
+  relevanceThreshold: number;
+  minTermCoverage: number;
+  countryBoost: number;
+  hazardBoost: number;
+  poolMultiplier: number;
+  stopwords: string[];
+  synonyms: Record<string, string>;
+  hazardTerms: string[];
+  disasterTypes: string[];
+} {
+  const retriever = readMobile('core/retrieval/retriever.ts');
+  const boost = readMobile('core/retrieval/boost.ts');
+  const vocabulary = readMobile('core/retrieval/vocabulary.ts');
+  return {
+    relevanceThreshold: constNumber(retriever, 'KEYWORD_RELEVANCE_THRESHOLD'),
+    minTermCoverage: constNumber(retriever, 'MIN_TERM_COVERAGE'),
+    countryBoost: constNumber(boost, 'COUNTRY_BOOST'),
+    hazardBoost: constNumber(boost, 'HAZARD_BOOST'),
+    poolMultiplier: constNumber(retriever, 'POOL_MULTIPLIER'),
+    stopwords: quotedList(readMobile('core/retrieval/stopwords.ts'), 'STOPWORDS'),
+    synonyms: synonymMap(vocabulary),
+    hazardTerms: quotedList(vocabulary, 'HAZARD_TERMS'),
+    disasterTypes: hazardIconNames(readMobile('ui/hazards.ts')),
+  };
+}
+
+function readMobile(path: string): string {
+  return readFileSync(join(MOBILE, path), 'utf8');
+}
+
+function constNumber(source: string, name: string): number {
+  const match = new RegExp(`const ${name} = ([0-9.]+)`).exec(source);
+  if (match === null) throw new Error(`Cannot read ${name}`);
+  return Number(match[1]);
+}
+
+function quotedList(source: string, name: string): string[] {
+  const match = new RegExp(`const ${name}[\\s\\S]*?=\\s*new Set\\(\\[([\\s\\S]*?)\\]\\)`).exec(source);
+  if (match === null) throw new Error(`Cannot read ${name}`);
+  return [...match[1].matchAll(/'([^']*)'/g)].map((found) => found[1]);
+}
+
+function synonymMap(source: string): Record<string, string> {
+  const match = /const SYNONYMS[\s\S]*?=\s*\{([\s\S]*?)\n\};/.exec(source);
+  if (match === null) throw new Error('Cannot read SYNONYMS');
+  const synonyms: Record<string, string> = {};
+  for (const found of match[1].matchAll(/^\s*([A-Za-z0-9_]+)\s*:\s*'([^']*)'/gm)) {
+    synonyms[found[1]] = found[2];
+  }
+  return synonyms;
+}
+
+function hazardIconNames(source: string): string[] {
+  const match = /const HAZARD_ICONS[\s\S]*?=\s*\{([\s\S]*?)\n\};/.exec(source);
+  if (match === null) throw new Error('Cannot read HAZARD_ICONS');
+  const names = [...match[1].matchAll(/^\s*([A-Z][A-Z0-9_]*)\s*:/gm)].map((found) => found[1]);
+  if (names.length !== 12) throw new Error(`Expected 12 disaster types, found ${names.length}`);
+  return names;
+}
+
+function stringsTsv(): string {
+  const locale = JSON.parse(readMobile('i18n/locales/en.json')) as Record<string, unknown>;
+  const lines = ['key\tplaceholders'];
+  for (const [key, value] of Object.entries(locale)) {
+    if (typeof value !== 'string') throw new Error(`English locale value for ${key} is not a string`);
+    lines.push(`${key}\t${[...value.matchAll(/%\{p\d+\}/g)].map((found) => found[0]).join(' ')}`);
+  }
+  return `${lines.join('\n')}\n`;
+}
+
+const BUNDLE_FORMAT_MD = `# Bundle format
+
+Version 1. The app reads exactly this version. Any other \`formatVersion\` is rejected before the rest of the file is used, with a message that names the format.
+
+This is the corpus bundle from section 4 of \`docs/design/offline-mobile-app.md\`, with the field names and nullability in \`apps/mobile/src/core/bundle/format.ts\`.
+
+## Files
+
+\`\`\`
+bundle.json
+bundle.json.sig
+documents/<id>.json
+\`\`\`
+
+\`bundle.json.sig\` is the raw 64-byte Ed25519 signature of the exact bytes of \`bundle.json\`. The app verifies that signature before it trusts the manifest. An invalid signature rejects the update and leaves the last good content in place.
+
+JSON is UTF-8 with four-space indentation, explicit nulls, and no trailing newline. The signature covers those exact bytes. Every checksum is lower-case hex SHA-256.
+
+## bundle.json
+
+- \`formatVersion\` (number): \`1\`.
+- \`bundleVersion\` (string): UTC build time, ISO-8601 to the second, for example \`2026-10-05T12:00:00Z\`.
+- \`documents\` (array): one entry per document.
+
+Each document:
+
+- \`id\` (string): first 32 hex characters of the SHA-256 of the source URI. Stable across builds. Not blank.
+- \`title\` (string).
+- \`agency\` (string).
+- \`publishedDate\` (string): \`YYYY-MM-DD\`.
+- \`licence\` (string).
+- \`country\` (string or null): ISO 3166-1 alpha-2, or null for global guidance.
+- \`hazards\` (array of strings): disaster type names.
+- \`sourceUri\` (string).
+- \`sourceType\` (string): \`pdf\` or \`html\`.
+- \`checksum\` (string): SHA-256 of the approved PDF bytes, or of the extracted HTML text.
+- \`fileChecksum\` (string): SHA-256 of the exact bytes of \`documents/<id>.json\`.
+- \`chunks\` (array of \`{ id, checksum }\`): \`id\` is \`<documentId>-<index>\` with \`index\` starting at 0. \`checksum\` is the SHA-256 of the chunk content in UTF-8.
+
+## documents/<id>.json
+
+- \`id\` (string): the document id. Not blank.
+- \`chunks\` (array of \`{ id, content, pageNumber }\`): \`pageNumber\` is the 1-based PDF page, or null for HTML.
+
+The phone does not parse PDFs. The publisher ships the extracted text, and for an HTML source it ships the extracted text. Chunking of that text is already done.
+
+A document file whose SHA-256 is not the manifest \`fileChecksum\` is a format error: the message says the file does not match the manifest. Compute the hash over the bytes read, not over a re-encoded string.
+
+## Sync
+
+The app compares each document's \`fileChecksum\` with the installed copy. It downloads only documents whose file checksum changed, or that are new, and drops documents the manifest no longer lists. The new content replaces the old in one database transaction, which is rolled back unless every document and chunk is stored. A failed or interrupted sync leaves the previous content in place.
+`;
+
+const isDirectRun = process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+if (isDirectRun) {
+  const outDir = process.argv[2] === undefined
+    ? fileURLToPath(new URL('../../../contract', import.meta.url))
+    : resolve(process.argv[2]);
+  try {
+    await generateFixtures(outDir, () => new Date());
+  } catch (e) {
+    console.error(e instanceof Error ? e.message : e);
+    process.exitCode = 1;
+  }
+}

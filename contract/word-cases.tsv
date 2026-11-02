@@ -1,0 +1,9 @@
+left	right	match
+aftershocks	aftershock	true
+evacuate	evacuation	true
+disasters	disaster	true
+heat	heating	true
+programming	programmes	false
+pet	petrol	false
+flood	floor	false
+heat	heal	false
