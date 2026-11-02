@@ -82,6 +82,15 @@ void main() {
     );
   });
 
+  test('rejects invalid UTF-8 document bytes', () {
+    expect(
+      messageOf(
+        () => parseDocumentFileBytes(Uint8List.fromList([0xFF, 0xFE, 0xFD])),
+      ),
+      contains('not valid UTF-8'),
+    );
+  });
+
   test('matches document chunks to the manifest', () {
     final file = parseDocumentFileBytes(documentBytes);
     expect(file.id, document.id);

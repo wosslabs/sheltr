@@ -108,7 +108,13 @@ DocumentFile parseDocumentFile(String text) {
 
 /// Parses `documents/<id>.json` from the exact bytes read (UTF-8).
 DocumentFile parseDocumentFileBytes(Uint8List bytes) {
-  return parseDocumentFile(utf8.decode(bytes));
+  final String text;
+  try {
+    text = utf8.decode(bytes);
+  } on FormatException {
+    throw BundleFormatError('The document is not valid UTF-8.');
+  }
+  return parseDocumentFile(text);
 }
 
 /// SHA-256 (lower-case hex) of the exact bytes of `documents/<id>.json`.
