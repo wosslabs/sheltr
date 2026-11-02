@@ -8,7 +8,7 @@ There is no server. The phones work offline from a signed content bundle. The ma
 flowchart LR
   subgraph Maintainer["Maintainer machine"]
     M["corpus/manifest.yaml (approved)"]
-    P["tools/publisher (Kotlin/JVM CLI)"]
+    P["tools/publisher (Node and TypeScript CLI)"]
     K["Ed25519 private key (outside the repo)"]
     M --> P
     K --> P

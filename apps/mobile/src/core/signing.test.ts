@@ -58,7 +58,7 @@ describe('verifySignature', () => {
     expect(verifySignature(new Uint8Array(32).fill(0xff), rfcMessage, rfcSignature)).toBe(false);
   });
 
-  describe('a bundle signed by the Kotlin publisher', () => {
+  describe('a bundle signed by the publisher', () => {
     const bundle = new TextEncoder().encode(SIGNED_BUNDLE_JSON);
     const publicKey = hexToBytes(SIGNED_BUNDLE_PUBLIC_KEY_HEX);
     const signature = hexToBytes(SIGNED_BUNDLE_SIGNATURE_HEX);

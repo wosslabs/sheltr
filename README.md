@@ -16,7 +16,7 @@ Early development. The core is built and tested; distribution is not.
 
 Built:
 
-- **Publisher** (`tools/publisher`, Kotlin/JVM): manifest parsing, PDF and HTML extraction, text cleaning, chunking, bundle building, Ed25519 signing, the `publish` command, and a check that refuses a signing key inside the repository.
+- **Publisher** (`tools/publisher`, Node and TypeScript): manifest parsing, PDF and HTML extraction, text cleaning, chunking, bundle building, Ed25519 signing, the `publish` command, and a check that refuses a signing key inside the repository.
 - **Mobile app** (`apps/mobile`, Expo / React Native / TypeScript, Android and iOS from one codebase):
   - A pure-TypeScript core (`src/core`): bundle parsing, signature verification, SQLite store with FTS5 and atomic replace, keyword retrieval with country and hazard boosts, citation selection and refusal, sync engine with retry policy, settings.
   - Home, Search, Answer, Settings and About screens (with the privacy statement and the source licences), in English, Spanish and French, with text-size and high-contrast options and read-aloud.
@@ -36,7 +36,7 @@ Search is evaluated on the sample bundle: 0 of 20 off-topic questions answered, 
 ## Repository layout
 
 - `apps/mobile`: the Expo app (Android and iOS). `src/core` is the framework-free library, `src/app` the screens, `assets/sample-bundle` the offline sample content.
-- `tools/publisher`: Kotlin/JVM command-line publisher.
+- `tools/publisher`: the command-line publisher (Node and TypeScript).
 - `corpus/manifest.yaml`: the approved corpus.
 - `docs/adr`: architecture decision records (ADR-0015 is the current design).
 - `docs/design`: design documents. `docs/architecture`: diagrams.
@@ -56,7 +56,7 @@ publish --manifest <file> --out <dir> --key <path> [--public-key <path>]
 
 The output directory contains `bundle.json` (the manifest, with each document's checksum and chunks), `bundle.json.sig` (its signature) and `documents/`. If an entry fails, it is listed as `FAILED`, left out of the bundle, and the command exits with status 1. If no bundle can be built, nothing is left at the output path.
 
-Run it with Gradle: `./gradlew :tools:publisher:run --args="publish --manifest corpus/manifest.yaml --out <dir> --key <path>"`. See `docs/publishing.md` for hosting, key handling and the current blockers.
+Run it with Node 24: `cd tools/publisher && npm ci && npm run bundle -- --manifest ../../corpus/manifest.yaml --out <dir> --key <path>`. See `docs/publishing.md` for hosting, key handling and the current blockers.
 
 ### Signing key
 
@@ -69,26 +69,19 @@ chmod 600 ~/sheltr-keys/sheltr-publisher.key.pem
 openssl pkey -in ~/sheltr-keys/sheltr-publisher.key.pem -pubout -out ~/sheltr-keys/sheltr-publisher.pub.pem
 ```
 
-- The private key must stay outside this repository. The publisher finds the repository root (the nearest parent of its working directory that contains `settings.gradle.kts`) and refuses to read a key from inside it, following symlinks. Pass the key's path with `--key`.
+- The private key must stay outside this repository. The publisher finds the repository root (the nearest parent of its working directory that contains `.git`) and refuses to read a key from inside it, following symlinks. Pass the key's path with `--key`.
 - Never commit the key, copy it to the phone or upload it to hosting. The `.gitignore` patterns for key files are a backstop, not the control.
 - Keep an offline backup. A lost key means no new signed bundles can be trusted by the apps. A leaked key lets anyone sign content the apps accept.
 - The apps verify against the public key they ship with, so rotating the key requires an app update.
 
 ## Building and testing
 
-Publisher (Kotlin): JDK 25. The Gradle wrapper is committed.
+Everything is TypeScript. You need Node 24 and npm.
 
 ```bash
-./gradlew :tools:publisher:test
-```
-
-App (TypeScript): Node 24 and npm.
-
-```bash
-cd apps/mobile
-npm ci --legacy-peer-deps
-npm run typecheck && npm test      # types, then core and UI tests
-npx expo start                     # run on a device or emulator with Expo Go or a dev build
+cd tools/publisher && npm ci && npm run typecheck && npm test           # publisher
+cd apps/mobile && npm ci --legacy-peer-deps && npm run typecheck && npm test   # app
+cd apps/mobile && npx expo start                                          # run the app (Expo Go or an emulator)
 ```
 
 CI runs both on every pull request and also bundles the app for Android and iOS. See `apps/mobile/README.md`.
