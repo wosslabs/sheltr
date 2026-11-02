@@ -49,6 +49,18 @@ class ContentStoreTest {
     }
 
     @Test
+    fun listsEveryDocumentWithItsHazardsOrderedByTitle() {
+        assertEquals(emptyList(), store.documents())
+
+        store.install(V2.manifest, V2.source)
+
+        val documents = store.documents()
+        assertEquals(documents.map { it.title }.sorted(), documents.map { it.title })
+        assertEquals(V2.manifest.documents.map { it.id }.toSet(), documents.map { it.id }.toSet())
+        for (listed in documents) assertEquals(store.document(listed.id), listed)
+    }
+
+    @Test
     fun successfulSwapMakesNewContentQueryable() {
         store.install(V1.manifest, V1.source)
         assertEquals("2026-10-01T00:00:00Z", store.bundleVersion())

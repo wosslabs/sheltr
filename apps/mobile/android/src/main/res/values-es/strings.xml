@@ -57,4 +57,20 @@
     <string name="settings_sync_rejected_signature_message">Sincronización rechazada: no se pudo verificar la firma del paquete publicado.</string>
     <string name="settings_sync_failed_message">Error de sincronización: %1$s</string>
     <string name="settings_sync_dismiss_label">Descartar</string>
+
+    <!-- About screen. -->
+    <string name="settings_about_button_label">Acerca de Sheltr</string>
+    <string name="about_title">Acerca de Sheltr</string>
+    <string name="about_description">Sheltr es una guía gratuita y sin fines de lucro para prepararse y responder ante desastres. Responde solo con documentos oficiales aprobados y muestra la fuente de cada respuesta.</string>
+    <string name="about_disclaimer_title">No es un sistema oficial de alertas</string>
+    <string name="about_disclaimer">Sheltr es un proyecto independiente. No es un servicio oficial de ningún gobierno ni organismo y no envía alertas. En una emergencia, siga las instrucciones de las autoridades locales.</string>
+    <string name="about_privacy_title">Privacidad</string>
+    <string name="about_privacy">Sheltr no tiene cuentas, ni analíticas, ni rastreo. Sus búsquedas y ajustes permanecen en su dispositivo. La aplicación no usa su ubicación. Su única solicitud de red descarga orientación actualizada, y la aplicación comprueba la firma digital de ese contenido antes de usarlo.</string>
+    <string name="about_sources_title">Fuentes y licencias</string>
+    <string name="about_sources_intro">Cada respuesta proviene de uno de estos documentos. Cada uno conserva su propia licencia.</string>
+    <string name="about_sources_empty">Aún no hay contenido instalado.</string>
+    <string name="about_source_details">%1$s · %2$s · %3$s</string>
+    <string name="about_source_licence">Licencia: %1$s</string>
+    <string name="about_source_link">Original: %1$s</string>
+    <string name="about_code_licence">La aplicación Sheltr es de código abierto bajo la Licencia Apache 2.0.</string>
 </resources>

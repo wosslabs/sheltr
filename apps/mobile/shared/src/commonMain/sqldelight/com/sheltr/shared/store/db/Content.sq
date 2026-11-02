@@ -93,6 +93,12 @@ SELECT count(*) FROM chunks_fts;
 documentById:
 SELECT * FROM documents WHERE id = ?;
 
+allDocuments:
+SELECT * FROM documents ORDER BY title, id;
+
+allDocumentHazards:
+SELECT document_id, hazard FROM document_hazards ORDER BY document_id, hazard;
+
 hazardsForDocument:
 SELECT hazard FROM document_hazards WHERE document_id = ? ORDER BY hazard;
 
