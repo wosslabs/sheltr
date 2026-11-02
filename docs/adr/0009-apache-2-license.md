@@ -8,7 +8,7 @@ Sheltr is open source. Needed a license that: grants an explicit patent
 license (relevant given multiple potential contributors and enterprise
 adopters), is widely understood/accepted by enterprises wanting to deploy
 or contribute, and is consistent with the license of major dependencies in
-this stack (Spring, much of the Google ecosystem).
+this stack (React Native, Expo and the npm ecosystem).
 
 ## Decision
 License the project under Apache License 2.0.

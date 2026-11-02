@@ -35,14 +35,16 @@ Any HTTPS static host works. GitHub Pages is free and simple: create a repositor
 
 ## Publishing a bundle
 
-From the repository root (the output directory must not exist yet):
+You need Node 24. The output directory must not exist yet.
 
 ```bash
-./gradlew :tools:publisher:run --args="publish \
-  --manifest corpus/manifest.yaml \
+cd tools/publisher
+npm ci
+npm run bundle -- \
+  --manifest ../../corpus/manifest.yaml \
   --out $HOME/sheltr-bundle \
   --key $HOME/sheltr-keys/sheltr-publisher.key.pem \
-  --public-key $HOME/sheltr-keys/sheltr-publisher.pub.pem"
+  --public-key $HOME/sheltr-keys/sheltr-publisher.pub.pem
 ```
 
 The publisher fetches every source from the hosts named in the manifest, checks it against the approved checksum, and writes `bundle.json`, `bundle.json.sig` and `documents/`. If any entry fails it is listed as `FAILED`, left out, and the command exits with status 1: look at the list before uploading. Copy the output directory to the hosting repository, commit and push.
@@ -57,8 +59,10 @@ The base URL and the hex public key are build-time settings, read by `apps/mobil
 cd apps/mobile
 SHELTR_PUBLISHER_BASE_URL=https://<org>.github.io/sheltr-bundles/ \
 SHELTR_PUBLISHER_PUBLIC_KEY_HEX=<64 hex characters> \
-  npx expo prebuild --clean && (cd android && ./gradlew assembleRelease)
+  npx expo run:android --variant release
 ```
+
+For store builds use EAS Build (`eas build`) and set the same two variables as EAS environment variables.
 
 With either missing (the default), "Sync now" says sync is not available in this build and the app only has the bundled sample content. A key that is not 64 hex characters is treated as missing.
 
@@ -71,7 +75,7 @@ With either missing (the default), "Sync now" says sync is not available in this
 ## Before every publication
 
 1. `corpus/manifest.yaml` changes reviewed: licence, attribution and checksum recorded for every entry.
-2. `./gradlew :tools:publisher:test` and, in `apps/mobile`, `npm test` pass, including the retrieval evaluation (`docs/evaluation.md`), extended with questions for any new document.
+2. `npm test` passes in both `tools/publisher` and `apps/mobile`, including the retrieval evaluation (`docs/evaluation.md`), extended with questions for any new document.
 3. `THIRD_PARTY_CONTENT.md` updated for new sources.
 
 ## Known blockers (checked 2026-11-02)

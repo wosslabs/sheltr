@@ -2,7 +2,7 @@
  * Hazard words the keyword retriever recognises, and colloquial synonyms that map onto them. Lets a query such as
  * "quake safety" match documents about earthquakes.
  *
- * Source of truth: the DisasterType enum in tools/publisher/src/main/kotlin/com/sheltr/publisher/DisasterType.kt;
+ * Source of truth: DISASTER_TYPES in tools/publisher/src/disasterType.ts;
  * each name is lower-cased and split on '_'.
  */
 export const HAZARD_TERMS: ReadonlySet<string> = new Set([

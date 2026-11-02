@@ -14,17 +14,22 @@ concurrency:
 
 jobs:
   publisher:
-    name: publisher (Kotlin)
+    name: publisher (Node)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: tools/publisher
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-java@v6
+      - uses: actions/setup-node@v5
         with:
-          distribution: temurin
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@v6
-      - run: ./gradlew :tools:publisher:test
+          node-version: 24
+          cache: npm
+          cache-dependency-path: tools/publisher/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
 
   mobile:
     name: mobile (Expo)
