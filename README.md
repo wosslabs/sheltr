@@ -24,7 +24,7 @@ Built:
 Not done:
 
 - **Bundle hosting and the first published bundle**: the guide is in `docs/publishing.md`, but nothing is hosted, and both approved corpus entries currently fail to fetch (the UK site moved, the IFRC mirror answers 403). They need a maintainer to re-approve the sources.
-- **iOS app** (SwiftUI): not created. The iOS targets are declared in the shared module but not built or tested.
+- **iOS app** (SwiftUI): not created. The shared module compiles for iOS (checked in CI), but its tests have not been run on iOS: that needs an iOS simulator runtime (`xcodebuild -downloadPlatform iOS`) on a Mac.
 - **On-device model** (LiteRT-LM): not started. Search is keyword only. Only worth adding if `docs/evaluation.md`, extended with real questions, shows too many refusals.
 - **Corpus beyond two documents**: needs sources with a licence that allows storing and quoting them.
 - **Store listings**: drafts are in `docs/store`; accounts and screenshots are the maintainer's.

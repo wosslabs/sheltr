@@ -26,3 +26,16 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
       - name: Test publisher, shared module and Android unit tests
         run: ./gradlew :tools:publisher:test :apps:mobile:shared:jvmTest :apps:mobile:android:testDebugUnitTest
+
+  ios-compile:
+    # Compile only: the shared module's iOS targets must keep building. iOS tests and the SwiftUI app are not done.
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ./gradlew :apps:mobile:shared:compileKotlinIosSimulatorArm64 :apps:mobile:shared:compileKotlinIosArm64
