@@ -82,6 +82,22 @@ class ContentStore(
         }
     }
 
+    override fun documents(): List<StoredDocument> {
+        val queries = active?.contentQueries ?: return emptyList()
+        // Separate queries for the same reason as in [document].
+        val rows = queries.allDocuments().executeAsList()
+        val hazardsByDocument = queries.allDocumentHazards().executeAsList()
+            .groupBy({ it.document_id }, { it.hazard })
+        return rows.map { row ->
+            with(row) {
+                StoredDocument(
+                    id, title, agency, published_date, licence, country, hazardsByDocument[id].orEmpty(),
+                    source_uri, source_type, checksum, file_checksum,
+                )
+            }
+        }
+    }
+
     override fun chunks(documentId: String): List<StoredChunk> =
         active?.contentQueries?.chunksForDocument(documentId, ::storedChunk)?.executeAsList().orEmpty()
 

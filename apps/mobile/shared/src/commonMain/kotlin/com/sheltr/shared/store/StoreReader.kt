@@ -7,6 +7,9 @@ interface StoreReader {
 
     fun document(id: String): StoredDocument?
 
+    /** Every document in the active content, ordered by title. Empty if no content is installed. */
+    fun documents(): List<StoredDocument> = emptyList()
+
     /** The chunks of one document in bundle order. */
     fun chunks(documentId: String): List<StoredChunk>
 

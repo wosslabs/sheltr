@@ -66,4 +66,20 @@
     <string name="settings_sync_rejected_signature_message">Sync rejected: the published bundle\'s signature did not verify.</string>
     <string name="settings_sync_failed_message">Sync failed: %1$s</string>
     <string name="settings_sync_dismiss_label">Dismiss</string>
+
+    <!-- About screen. -->
+    <string name="settings_about_button_label">About Sheltr</string>
+    <string name="about_title">About Sheltr</string>
+    <string name="about_description">Sheltr is a free, non-profit guide to disaster preparedness and response. It answers only from approved official documents and shows the source of every answer.</string>
+    <string name="about_disclaimer_title">Not an official warning system</string>
+    <string name="about_disclaimer">Sheltr is an independent project. It is not an official government or agency service and it does not send alerts. In an emergency, follow the instructions of your local authorities.</string>
+    <string name="about_privacy_title">Privacy</string>
+    <string name="about_privacy">Sheltr has no accounts, no analytics and no tracking. Your searches and settings stay on your device. The app does not use your location. Its only network request downloads updated guidance, and the app checks the digital signature of that content before using it.</string>
+    <string name="about_sources_title">Sources and licences</string>
+    <string name="about_sources_intro">Every answer comes from one of these documents. Each keeps its own licence.</string>
+    <string name="about_sources_empty">No content is installed yet.</string>
+    <string name="about_source_details">%1$s · %2$s · %3$s</string>
+    <string name="about_source_licence">Licence: %1$s</string>
+    <string name="about_source_link">Original: %1$s</string>
+    <string name="about_code_licence">The Sheltr app is open source under the Apache License 2.0.</string>
 </resources>

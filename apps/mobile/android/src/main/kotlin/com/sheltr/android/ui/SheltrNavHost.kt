@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -15,6 +16,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.sheltr.android.ui.about.AboutScreen
 import com.sheltr.android.ui.answer.AnswerScreen
 import com.sheltr.android.ui.answer.AnswerViewModel
 import com.sheltr.android.ui.answer.TextToSpeechController
@@ -28,6 +30,9 @@ import com.sheltr.shared.retrieval.Retriever
 import com.sheltr.shared.settings.AppSettings
 import com.sheltr.shared.settings.SettingsStore
 import com.sheltr.shared.store.ContentStore
+import com.sheltr.shared.store.StoredDocument
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.sheltr.shared.sync.SyncEngine
 
 /** The app's four top-level destinations. [path] is the navigation-compose route string. */
@@ -90,6 +95,7 @@ sealed class Route(val path: String) {
         }
     }
     data object Settings : Route("settings")
+    data object About : Route("about")
 }
 
 /**
@@ -210,7 +216,18 @@ fun SheltrNavHost(
                     }
                 },
             )
-            SettingsScreen(viewModel = viewModel, onSettingsChanged = onSettingsChanged)
+            SettingsScreen(
+                viewModel = viewModel,
+                onSettingsChanged = onSettingsChanged,
+                onAboutTapped = { navController.navigate(Route.About.path) },
+            )
+        }
+        composable(Route.About.path) {
+            // Read off the main thread: the document list comes from the SQLite content store.
+            val documents by produceState(emptyList<StoredDocument>()) {
+                value = withContext(Dispatchers.IO) { contentStore.documents() }
+            }
+            AboutScreen(documents = documents)
         }
     }
 }

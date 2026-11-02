@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -103,6 +104,7 @@ private val textScaleLabels: Map<TextScale, Int> = mapOf(
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     onSettingsChanged: (AppSettings) -> Unit,
+    onAboutTapped: () -> Unit = {},
 ) {
     val settings by viewModel.settings.collectAsState()
     val lastSyncEpochSeconds by viewModel.lastSyncEpochSeconds.collectAsState()
@@ -147,6 +149,17 @@ fun SettingsScreen(
             onDismissMessage = { syncOutcome = null },
             onSyncNowTapped = { viewModel.onSyncNowTapped { outcome -> syncOutcome = outcome } },
         )
+        Spacer(Modifier.heightIn(min = 24.dp))
+
+        OutlinedButton(
+            onClick = onAboutTapped,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .testTag("settings-about-button"),
+        ) {
+            Text(stringResource(R.string.settings_about_button_label))
+        }
     }
 }
 
