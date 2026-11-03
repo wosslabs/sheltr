@@ -15,6 +15,9 @@ about_sources_intro
 about_sources_title	
 about_title	
 answer_clock_unsure	
+answer_expired_warning	
+answer_expiring_soon_and_sync_old_warning	
+answer_expiring_soon_warning	
 answer_loading	
 answer_read_aloud_description	
 answer_read_aloud_unavailable	
@@ -23,7 +26,7 @@ answer_refusal_title
 answer_source_label	
 answer_source_page	%{p1}
 answer_source_published	%{p1}
-answer_stale_warning	
+answer_sync_old_warning	
 app_name	
 back	
 error_start_body	

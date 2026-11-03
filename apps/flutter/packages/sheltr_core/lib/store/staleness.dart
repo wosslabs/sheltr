@@ -1,16 +1,28 @@
 /// How current the installed guidance is, compared with the device clock.
 enum Staleness { fresh, expiringSoon, expired }
 
+/// Why a result is [Staleness.expiringSoon].
+enum ExpiringSoonReason { documentDate, lastSync, both }
+
 /// Review-date state for one answer.
 ///
 /// When [clockUnsure] is true the device instant is earlier than the bundle's
 /// published timestamp. Document dates are ignored then, so [staleness] is
-/// not [Staleness.expired].
+/// not [Staleness.expired]. [expiringSoonReason] is set only for
+/// [Staleness.expiringSoon].
 class Freshness {
-  const Freshness({required this.staleness, required this.clockUnsure});
+  const Freshness({
+    required this.staleness,
+    required this.clockUnsure,
+    this.expiringSoonReason,
+  });
 
   final Staleness staleness;
   final bool clockUnsure;
+
+  /// The document date, the last sync, or both. Null unless [staleness] is
+  /// [Staleness.expiringSoon].
+  final ExpiringSoonReason? expiringSoonReason;
 }
 
 /// A document expiring on this calendar day or within the next 30 is
@@ -29,12 +41,13 @@ Freshness assessFreshness({
     return Freshness(
       staleness: syncOld ? Staleness.expiringSoon : Staleness.fresh,
       clockUnsure: true,
+      expiringSoonReason: syncOld ? ExpiringSoonReason.lastSync : null,
     );
   }
 
   final today = _utcDate(now);
   final soonUntil = today.add(const Duration(days: 30));
-  var expiringSoon = syncOld;
+  var dateSoon = false;
   for (final raw in expiresOn) {
     final expiry = _parseIsoDate(raw);
     if (expiry == null) {
@@ -44,20 +57,52 @@ Freshness assessFreshness({
       return const Freshness(staleness: Staleness.expired, clockUnsure: false);
     }
     if (!expiry.isAfter(soonUntil)) {
-      expiringSoon = true;
+      dateSoon = true;
     }
   }
+  final reason = _expiringSoonReason(dateSoon: dateSoon, syncOld: syncOld);
   return Freshness(
-    staleness: expiringSoon ? Staleness.expiringSoon : Staleness.fresh,
+    staleness: reason == null ? Staleness.fresh : Staleness.expiringSoon,
     clockUnsure: false,
+    expiringSoonReason: reason,
   );
 }
 
+ExpiringSoonReason? _expiringSoonReason({
+  required bool dateSoon,
+  required bool syncOld,
+}) {
+  if (dateSoon && syncOld) {
+    return ExpiringSoonReason.both;
+  }
+  if (dateSoon) {
+    return ExpiringSoonReason.documentDate;
+  }
+  if (syncOld) {
+    return ExpiringSoonReason.lastSync;
+  }
+  return null;
+}
+
 bool _clockIsBeforePublish(DateTime now, String? bundleVersion) {
-  if (bundleVersion == null) {
+  final published = _parseBundleVersion(bundleVersion);
+  if (published == null) {
     return false;
   }
-  return now.toUtc().isBefore(DateTime.parse(bundleVersion).toUtc());
+  return now.toUtc().isBefore(published.toUtc());
+}
+
+/// Null when [bundleVersion] is missing or not a timestamp. A bad value is
+/// not treated as an early clock.
+DateTime? _parseBundleVersion(String? bundleVersion) {
+  if (bundleVersion == null) {
+    return null;
+  }
+  try {
+    return DateTime.parse(bundleVersion);
+  } on FormatException {
+    return null;
+  }
 }
 
 bool _syncOlderThan90Days(DateTime now, int? lastSyncEpochSeconds) {

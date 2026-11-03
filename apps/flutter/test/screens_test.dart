@@ -335,7 +335,29 @@ void main() {
       answer: _fixturePassage(store, 'boil water'),
     );
 
-    expect(find.text(_staleWarning), findsOneWidget);
+    expect(find.text(_expiredWarning), findsOneWidget);
+    expect(find.text(_reviewDateWarning), findsNothing);
+    expect(find.text(_clockWarning), findsNothing);
+  });
+
+  testWidgets('answerShowsDateOnlyExpiringSoon', (tester) async {
+    // Sample documents expire on 2027-11-02. Twenty days earlier is still
+    // inside the 30-day window, and the sync is recorded at that instant.
+    final now = DateTime.utc(2027, 11, 2).subtract(const Duration(days: 20));
+    final store = await _openSampleStore();
+    store.recordSync(now.toUtc().millisecondsSinceEpoch ~/ 1000);
+    await _pump(
+      tester,
+      route: '/answer',
+      store: store,
+      now: () => now,
+      answer: _fixturePassage(store, 'cover your head'),
+    );
+
+    expect(find.text(_expiringSoonWarning), findsOneWidget);
+    expect(find.text(_reviewDateWarning), findsNothing);
+    expect(find.text(_expiredWarning), findsNothing);
+    expect(find.text(_syncOldWarning), findsNothing);
     expect(find.text(_clockWarning), findsNothing);
   });
 
@@ -383,7 +405,8 @@ void main() {
     );
 
     expect(find.text(_clockWarning), findsOneWidget);
-    expect(find.text(_staleWarning), findsNothing);
+    expect(find.text(_expiredWarning), findsNothing);
+    expect(find.text(_reviewDateWarning), findsNothing);
     expect(
       find.text('Boil water for one minute before drinking.'),
       findsOneWidget,
@@ -391,7 +414,13 @@ void main() {
   });
 }
 
-const _staleWarning =
+const _expiredWarning = 'This document is past its expiry date.';
+
+const _expiringSoonWarning = 'This document expires within 30 days.';
+
+const _syncOldWarning = 'The last sync is more than 90 days old.';
+
+const _reviewDateWarning =
     'This document is past its review date, or the last sync is old.';
 
 const _clockWarning =

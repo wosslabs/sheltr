@@ -19,18 +19,18 @@ void main() {
     );
     expect(freshness.clockUnsure, isFalse);
     expect(freshness.staleness, Staleness.expired);
+    expect(freshness.expiringSoonReason, isNull);
   });
 
   test('expiringSoon inside the 30 day window, including the 30th day', () {
-    expect(
-      assessFreshness(
-        now: now,
-        bundleVersion: '2026-10-01T00:00:00Z',
-        lastSyncEpochSeconds: _epoch(now),
-        expiresOn: const ['2026-11-02'],
-      ).staleness,
-      Staleness.expiringSoon,
+    final today = assessFreshness(
+      now: now,
+      bundleVersion: '2026-10-01T00:00:00Z',
+      lastSyncEpochSeconds: _epoch(now),
+      expiresOn: const ['2026-11-02'],
     );
+    expect(today.staleness, Staleness.expiringSoon);
+    expect(today.expiringSoonReason, ExpiringSoonReason.documentDate);
     expect(
       assessFreshness(
         now: now,
@@ -64,15 +64,26 @@ void main() {
     );
 
     final older = exactly.subtract(const Duration(seconds: 1));
-    expect(
-      assessFreshness(
-        now: now,
-        bundleVersion: '2026-01-01T00:00:00Z',
-        lastSyncEpochSeconds: _epoch(older),
-        expiresOn: const ['2027-11-02'],
-      ).staleness,
-      Staleness.expiringSoon,
+    final freshness = assessFreshness(
+      now: now,
+      bundleVersion: '2026-01-01T00:00:00Z',
+      lastSyncEpochSeconds: _epoch(older),
+      expiresOn: const ['2027-11-02'],
     );
+    expect(freshness.staleness, Staleness.expiringSoon);
+    expect(freshness.expiringSoonReason, ExpiringSoonReason.lastSync);
+  });
+
+  test('expiringSoon records both a near expiry and an old sync', () {
+    final older = now.subtract(const Duration(days: 91));
+    final freshness = assessFreshness(
+      now: now,
+      bundleVersion: '2026-01-01T00:00:00Z',
+      lastSyncEpochSeconds: _epoch(older),
+      expiresOn: const ['2026-11-22'],
+    );
+    expect(freshness.staleness, Staleness.expiringSoon);
+    expect(freshness.expiringSoonReason, ExpiringSoonReason.both);
   });
 
   test('expired wins over an old sync', () {
@@ -120,6 +131,18 @@ void main() {
     );
     expect(freshness.clockUnsure, isTrue);
     expect(freshness.staleness, Staleness.expiringSoon);
+    expect(freshness.expiringSoonReason, ExpiringSoonReason.lastSync);
+  });
+
+  test('a malformed bundleVersion does not throw', () {
+    final freshness = assessFreshness(
+      now: now,
+      bundleVersion: 'not-a-timestamp',
+      lastSyncEpochSeconds: _epoch(now),
+      expiresOn: const ['2020-01-01'],
+    );
+    expect(freshness.clockUnsure, isFalse);
+    expect(freshness.staleness, Staleness.expired);
   });
 
   test('a missing sync and a blank expiry stay fresh', () {

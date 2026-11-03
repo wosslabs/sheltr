@@ -19,6 +19,9 @@ const catalogs = <String, Map<String, String>>{
     'about_title': 'About Sheltr',
     'answer_clock_unsure':
         'The device date is earlier than when this content was published.',
+    'answer_expired_warning': 'This document is past its expiry date.',
+    'answer_expiring_soon_and_sync_old_warning': 'This document expires within 30 days, and the last sync is more than 90 days old.',
+    'answer_expiring_soon_warning': 'This document expires within 30 days.',
     'answer_loading': 'Searching…',
     'answer_read_aloud_description': 'Read answer aloud',
     'answer_read_aloud_unavailable':
@@ -28,8 +31,7 @@ const catalogs = <String, Map<String, String>>{
     'answer_source_label': 'Source',
     'answer_source_page': 'Page %{p1}',
     'answer_source_published': 'Published %{p1}',
-    'answer_stale_warning':
-        'This document is past its review date, or the last sync is old.',
+    'answer_sync_old_warning': 'The last sync is more than 90 days old.',
     'app_name': 'Sheltr',
     'back': 'Back',
     'error_start_body': 'The offline content could not be opened. Close and reopen the app. If this keeps happening, reinstall it.',
@@ -107,6 +109,9 @@ const catalogs = <String, Map<String, String>>{
     'about_sources_title': 'Fuentes y licencias',
     'about_title': 'Acerca de Sheltr',
     'answer_clock_unsure': 'La fecha del dispositivo es anterior al momento en que se publicó este contenido.',
+    'answer_expired_warning': 'Este documento superó su fecha de caducidad.',
+    'answer_expiring_soon_and_sync_old_warning': 'Este documento caduca dentro de 30 días y la última sincronización es de hace más de 90 días.',
+    'answer_expiring_soon_warning': 'Este documento caduca dentro de 30 días.',
     'answer_loading': 'Buscando…',
     'answer_read_aloud_description': 'Leer la respuesta en voz alta',
     'answer_read_aloud_unavailable':
@@ -116,7 +121,8 @@ const catalogs = <String, Map<String, String>>{
     'answer_source_label': 'Fuente',
     'answer_source_page': 'Página %{p1}',
     'answer_source_published': 'Publicado el %{p1}',
-    'answer_stale_warning': 'Este documento superó su fecha de revisión, o la última sincronización es antigua.',
+    'answer_sync_old_warning':
+        'La última sincronización es de hace más de 90 días.',
     'app_name': 'Sheltr',
     'back': 'Atrás',
     'error_start_body': 'No se pudo abrir el contenido sin conexión. Cierre y vuelva a abrir la aplicación. Si sigue ocurriendo, reinstálela.',
@@ -196,6 +202,9 @@ const catalogs = <String, Map<String, String>>{
     'about_sources_title': 'Sources et licences',
     'about_title': 'À propos de Sheltr',
     'answer_clock_unsure': 'La date de l\'appareil est antérieure au moment où ce contenu a été publié.',
+    'answer_expired_warning': 'Ce document a dépassé sa date d\'expiration.',
+    'answer_expiring_soon_and_sync_old_warning': 'Ce document expire dans les 30 jours et la dernière synchronisation date de plus de 90 jours.',
+    'answer_expiring_soon_warning': 'Ce document expire dans les 30 jours.',
     'answer_loading': 'Recherche…',
     'answer_read_aloud_description': 'Lire la réponse à voix haute',
     'answer_read_aloud_unavailable':
@@ -206,7 +215,8 @@ const catalogs = <String, Map<String, String>>{
     'answer_source_label': 'Source',
     'answer_source_page': 'Page %{p1}',
     'answer_source_published': 'Publié le %{p1}',
-    'answer_stale_warning': 'Ce document a dépassé sa date de révision, ou la dernière synchronisation est ancienne.',
+    'answer_sync_old_warning':
+        'La dernière synchronisation date de plus de 90 jours.',
     'app_name': 'Sheltr',
     'back': 'Retour',
     'error_start_body': 'Le contenu hors ligne n\'a pas pu être ouvert. Fermez puis rouvrez l\'application. Si cela continue, réinstallez-la.',
