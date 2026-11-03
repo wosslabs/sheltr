@@ -158,21 +158,21 @@ describe('buildBundle', () => {
   });
 
   it('leaves no output when the key is unreadable', async () => {
-    await assert.rejects(buildBundle(manifest, connectors(), policy, out(), join(scratch.dir, 'missing.pem')), /Cannot read the signing key/);
+    await assert.rejects(buildBundle(manifest, connectors(), policy, out(), join(scratch.dir, 'missing.pem'), fixedNow), /Cannot read the signing key/);
     assert.ok(!existsSync(out()));
     assert.deepEqual(readdirSync(scratch.dir).filter((n) => n.includes('.tmp-')), []);
   });
 
   it('leaves no output when no entry builds', async () => {
     const bad = parseManifest(manifestYaml('0'.repeat(64), '1'.repeat(64)));
-    await assert.rejects(buildBundle(bad, connectors(), policy, out(), keyPath), /No document built; nothing to publish/);
+    await assert.rejects(buildBundle(bad, connectors(), policy, out(), keyPath, fixedNow), /No document built; nothing to publish/);
     assert.ok(!existsSync(out()));
     assert.deepEqual(readdirSync(scratch.dir).filter((n) => n.includes('.tmp-')), []);
   });
 
   it('does not overwrite an existing output', async () => {
     writeFileSync(out(), 'in the way');
-    await assert.rejects(buildBundle(manifest, connectors(), policy, out(), keyPath), /Output already exists/);
+    await assert.rejects(buildBundle(manifest, connectors(), policy, out(), keyPath, fixedNow), /Output already exists/);
     assert.equal(readFileSync(out(), 'utf8'), 'in the way');
   });
 

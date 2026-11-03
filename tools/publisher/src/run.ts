@@ -39,7 +39,8 @@ const messageOf = (e: unknown): string => (e instanceof Error ? e.message || e.n
  * Runs the publisher command line and returns the exit code: 0 on success, 1 when the build or verification fails
  * (failed entries are listed on [err]), 2 for a malformed command line. [cwd] is the directory relative paths and
  * the repository search start from. [connectorsFor] builds the source connectors from the source policy; tests
- * replace it to serve fixtures without a network.
+ * replace it to serve fixtures without a network. [now] is the clock for the expiry check and the bundle version.
+ * Tests pass a fixed clock. The command line uses the wall clock.
  */
 export async function runPublisher(
   args: readonly string[],
@@ -47,6 +48,7 @@ export async function runPublisher(
   out: Output,
   err: Output,
   connectorsFor: (policy: SourcePolicy) => ConnectorMap = defaultConnectors,
+  now: () => Date = () => new Date(),
 ): Promise<number> {
   let command;
   try {
@@ -87,7 +89,7 @@ export async function runPublisher(
   let result;
   try {
     const previous = command.previous === null ? null : resolve(cwd, command.previous);
-    result = await buildBundle(manifest, connectorsFor(policy), policy, resolve(cwd, command.out), keyPath, () => new Date(), previous);
+    result = await buildBundle(manifest, connectorsFor(policy), policy, resolve(cwd, command.out), keyPath, now, previous);
   } catch (e) {
     if (e instanceof BundleBuildError) for (const f of e.failures) err.println(`FAILED ${f.sourceUri}: ${f.reason}`);
     err.println(`publisher: build failed: ${messageOf(e)}`);

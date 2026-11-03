@@ -32,6 +32,7 @@ describe('parsePublish', () => {
 });
 
 describe('runPublisher', () => {
+  const fixedNow = () => new Date('2026-10-05T12:00:00.789Z');
   const PDF_URI = 'https://example.org/flood.pdf';
   const pdfBytes = new TextEncoder().encode('%PDF fake bytes for the fixture connector');
   let scratch: ReturnType<typeof scratchDir>;
@@ -40,7 +41,7 @@ describe('runPublisher', () => {
   const run = async (args: string[], connectorsFor?: () => ConnectorMap) => {
     const out = collector();
     const err = collector();
-    const code = await runPublisher(args, work, out, err, connectorsFor);
+    const code = await runPublisher(args, work, out, err, connectorsFor, fixedNow);
     return { code, out: out.text(), err: err.text() };
   };
   // A fixture connector: no network, and a "PDF" that the real extractor cannot read, so entries fail at extraction.
@@ -123,7 +124,7 @@ describe('runPublisher', () => {
     const err = collector();
     const code = await runPublisher(
       ['publish', '--manifest', 'manifest.yaml', '--out', 'bundle', '--key', join(scratch.dir, 'inside.pem')],
-      work, out, err, fixture,
+      work, out, err, fixture, fixedNow,
     );
     assert.equal(code, EXIT_FAILURE);
     assert.match(err.text(), /Refusing to read the signing key from inside the repository/);
@@ -135,7 +136,7 @@ describe('runPublisher', () => {
     writeManifest(sha256Hex(pdf));
     const r = await run(args(['--public-key', join(scratch.dir, 'pub.pem')]), () => ({ pdf: { fetch: async () => rawContent(pdf) } }));
     assert.equal(r.code, EXIT_OK);
-    assert.match(r.out, /^Bundle version: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/m);
+    assert.match(r.out, /^Bundle version: 2026-10-05T12:00:00Z$/m);
     assert.match(r.out, /^Documents: 1$/m);
     assert.match(r.out, /^Signature: verified$/m);
     assert.match(r.out, /^Written to: .*bundle$/m);

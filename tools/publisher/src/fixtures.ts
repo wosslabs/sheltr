@@ -179,6 +179,8 @@ async function writeFixtureBundles(fixturesDir: string, now: () => Date): Promis
 
 const FIXTURE_REVIEWED_ON = '2026-10-05';
 const FIXTURE_EXPIRES_ON = '2027-11-02';
+/** Before [FIXTURE_EXPIRES_ON], so `npm run fixtures` does not read the wall clock. */
+const fixtureNow = (): Date => new Date('2026-10-05T12:00:00.000Z');
 
 async function buildSample(
   outputDir: string,
@@ -361,7 +363,7 @@ if (isDirectRun) {
     ? fileURLToPath(new URL('../../../contract', import.meta.url))
     : resolve(process.argv[2]);
   try {
-    await generateFixtures(outDir, () => new Date());
+    await generateFixtures(outDir, fixtureNow);
   } catch (e) {
     console.error(e instanceof Error ? e.message : e);
     process.exitCode = 1;
