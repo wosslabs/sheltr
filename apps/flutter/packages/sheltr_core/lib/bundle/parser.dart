@@ -55,10 +55,37 @@ BundleManifest parseBundleManifest(String text) {
     bundleVersion: _string(root['bundleVersion'], 'bundleVersion'),
     documents: List<BundleDocument>.unmodifiable(parsed),
     cards: List<BundleCard>.unmodifiable(_parseCards(root['cards'])),
+    model: _parseModel(root['model']),
   );
 }
 
 const _phases = {'before', 'during', 'after'};
+final _modelSha256 = RegExp(r'^[0-9a-f]{64}$');
+
+/// Missing `model` means the bundle has no model file.
+BundleModel? _parseModel(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  final raw = _object(value, 'bundle.json model');
+  final sha256 = _string(raw['sha256'], 'model sha256');
+  if (!_modelSha256.hasMatch(sha256)) {
+    throw BundleFormatError('model sha256 must be lower-case hex SHA-256.');
+  }
+  final byteSize = _integer(raw['byteSize'], 'model byteSize');
+  if (byteSize < 0) {
+    throw BundleFormatError('model byteSize must not be negative.');
+  }
+  return BundleModel(
+    file: _notBlank(_string(raw['file'], 'model file'), 'model file'),
+    sha256: sha256,
+    byteSize: byteSize,
+    modelType: _notBlank(
+      _string(raw['modelType'], 'model modelType'),
+      'model modelType',
+    ),
+  );
+}
 
 /// Missing `cards` is an empty list so bundles written before cards still parse.
 List<BundleCard> _parseCards(Object? value) {

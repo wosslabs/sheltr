@@ -14,6 +14,12 @@ abstract interface class SyncClient {
 
   /// `documents/<id>.json`.
   Future<Uint8List> fetchDocumentFile(String id);
+
+  /// A bundle-relative file, such as the optional model.
+  ///
+  /// [relativePath] is appended to the base URL. A path that could leave that
+  /// directory is refused.
+  Future<Uint8List> fetchBundleFile(String relativePath);
 }
 
 /// Thrown for a base URL that is not https, or a response that is not a success.
@@ -40,6 +46,26 @@ class SyncResponse {
 typedef SyncFetch = Future<SyncResponse> Function(String url);
 
 final RegExp _documentId = RegExp(r'^[\p{L}\p{N}_-]+$', unicode: true);
+final RegExp _bundleSegment = RegExp(r'^[A-Za-z0-9._-]+$');
+
+/// True when [relativePath] stays inside the bundle directory.
+bool _safeBundlePath(String relativePath) {
+  if (relativePath.isEmpty ||
+      relativePath.startsWith('/') ||
+      relativePath.contains('\\')) {
+    return false;
+  }
+  final parts = relativePath.split('/');
+  for (final part in parts) {
+    if (part.isEmpty ||
+        part == '.' ||
+        part == '..' ||
+        !_bundleSegment.hasMatch(part)) {
+      return false;
+    }
+  }
+  return true;
+}
 
 /// [SyncClient] over an injected fetch.
 ///
@@ -73,6 +99,16 @@ class FetchSyncClient implements SyncClient {
       );
     }
     return _fetchBytes('$bundleDocumentsDir/$id.json');
+  }
+
+  @override
+  Future<Uint8List> fetchBundleFile(String relativePath) {
+    if (!_safeBundlePath(relativePath)) {
+      return Future<Uint8List>.error(
+        SyncHttpError('refusing bundle path: $relativePath'),
+      );
+    }
+    return _fetchBytes(relativePath);
   }
 
   Future<Uint8List> _fetchBytes(String path) async {

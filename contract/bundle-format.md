@@ -62,4 +62,6 @@ The app compares each document's `fileChecksum` with the installed copy. It down
 
 A bundle whose `sequence` is lower than the installed sequence is rejected. A different bundle with the same `sequence` is rejected too. The failure reason contains `older`. The same publication already installed (the same `sequence` and the same `bundleVersion`) is up to date. A document past `expiresOn` still installs.
 
+When `model` is present, the app downloads it after that content install has succeeded. The URL is the bundle base URL, then `/`, then `model.file`, and it must be HTTPS. The app checks `byteSize` and `sha256`, writes the bytes to a staging file, and renames that file over the previous model file. A download or checksum failure leaves the content install in place and leaves any previous verified model file in place. The content sync result does not change. The content install is not rolled back.
+
 A compiled list holds at most two keys, each `{ id, publicKeyHex, notAfter }`. `notAfter` is `YYYY-MM-DD` and is not part of the bundle. A bundle is accepted when `signedBy` names a key on that list and the signature verifies under it. An unknown id is `rejectedSignature`. A listed key past `notAfter` still verifies. Removing a key from the list is what revokes it.

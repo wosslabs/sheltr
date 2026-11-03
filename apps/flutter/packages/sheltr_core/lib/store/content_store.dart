@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:sqlite3/sqlite3.dart';
 
 import '../bundle/format.dart';
+import '../bundle/sha256.dart';
 
 /// A content update that did not become the active database.
 class StoreUpdateError implements Exception {
@@ -155,6 +158,7 @@ class ContentStore {
   factory ContentStore.open(Directory directory, {SqlDriver? driver}) {
     final resolved = driver ?? const SqliteDriver();
     _deleteStaging(directory);
+    _deleteModelStaging(directory);
     final db = resolved.open(_path(directory, _contentFile));
     try {
       db.exec(_schemaSql);
@@ -313,6 +317,71 @@ class ContentStore {
     return rows.first['last_sync_epoch_seconds'] as int?;
   }
 
+  /// The verified model file, or null when this store has none.
+  InstalledModel? installedModel() {
+    final file = File(_path(_directory, _modelFile));
+    final meta = File(_path(_directory, _modelMetaFile));
+    if (!file.existsSync() || !meta.existsSync()) {
+      return null;
+    }
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(meta.readAsStringSync());
+    } on FormatException {
+      return null;
+    }
+    if (decoded is! Map) {
+      return null;
+    }
+    final sha256 = decoded['sha256'];
+    final byteSize = decoded['byteSize'];
+    final modelType = decoded['modelType'];
+    if (sha256 is! String || byteSize is! int || modelType is! String) {
+      return null;
+    }
+    return InstalledModel(
+      path: file.path,
+      sha256: sha256,
+      byteSize: byteSize,
+      modelType: modelType,
+    );
+  }
+
+  /// Replaces the verified model file by renaming a staging file.
+  ///
+  /// Refuses bytes that are not [model]'s length and SHA-256, and leaves the
+  /// previous file in place. The rename is the moment the new file becomes
+  /// the verified one.
+  void commitVerifiedModel(Uint8List bytes, BundleModel model) {
+    if (bytes.length != model.byteSize || sha256Hex(bytes) != model.sha256) {
+      throw StateError(
+        'refusing to store a model file that failed verification',
+      );
+    }
+    final staging = File(_path(_directory, _modelStagingFile));
+    final target = File(_path(_directory, _modelFile));
+    final metaStaging = File(_path(_directory, _modelMetaStagingFile));
+    final metaTarget = File(_path(_directory, _modelMetaFile));
+    _deleteModelStaging(_directory);
+    try {
+      staging.writeAsBytesSync(bytes, flush: true);
+      metaStaging.writeAsStringSync(
+        jsonEncode({
+          'file': model.file,
+          'sha256': model.sha256,
+          'byteSize': model.byteSize,
+          'modelType': model.modelType,
+        }),
+        flush: true,
+      );
+      staging.renameSync(target.path);
+      metaStaging.renameSync(metaTarget.path);
+    } on Object {
+      _deleteModelStaging(_directory);
+      rethrow;
+    }
+  }
+
   /// Records a successful sync. Throws [StoreUpdateError] if nothing is installed.
   void recordSync(int epochSeconds) {
     if (bundleVersion() == null) {
@@ -449,6 +518,27 @@ class _SqliteDatabase implements SqlDatabase {
 
 const _contentFile = 'content.db';
 const _stagingFile = 'content.db.staging';
+const _modelFile = 'verified-model';
+const _modelStagingFile = 'verified-model.staging';
+const _modelMetaFile = 'model.json';
+const _modelMetaStagingFile = 'model.json.staging';
+
+/// The model file [ContentStore] keeps beside `content.db` after its checksum
+/// matches the signed manifest.
+class InstalledModel {
+  const InstalledModel({
+    required this.path,
+    required this.sha256,
+    required this.byteSize,
+    required this.modelType,
+  });
+
+  /// Absolute path of the verified model file.
+  final String path;
+  final String sha256;
+  final int byteSize;
+  final String modelType;
+}
 
 const _stagingFiles = [
   _stagingFile,
@@ -461,6 +551,15 @@ String _path(Directory directory, String name) => '${directory.path}/$name';
 
 void _deleteStaging(Directory directory) {
   for (final name in _stagingFiles) {
+    final file = File(_path(directory, name));
+    if (file.existsSync()) {
+      file.deleteSync();
+    }
+  }
+}
+
+void _deleteModelStaging(Directory directory) {
+  for (final name in [_modelStagingFile, _modelMetaStagingFile]) {
     final file = File(_path(directory, name));
     if (file.existsSync()) {
       file.deleteSync();

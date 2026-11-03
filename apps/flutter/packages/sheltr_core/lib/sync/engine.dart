@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import '../bundle/format.dart';
 import '../bundle/parser.dart';
+import '../bundle/sha256.dart';
 import '../signing/trusted_keys.dart';
 import '../signing/verifier.dart';
 import '../store/content_store.dart';
@@ -22,9 +23,14 @@ import 'result.dart';
 ///    one, and check each download's SHA-256 against the signed manifest.
 /// 5. Install through [ContentStore.install], which replaces the content
 ///    atomically or leaves it unchanged.
+/// 6. When the manifest names a model, download that file, check its length
+///    and SHA-256, and rename a staging file over the previous model. A model
+///    download or checksum failure keeps the content result from step 5 and
+///    leaves any previous verified model file in place.
 ///
 /// Every download finishes and is verified before the store is changed, so a
 /// failure at any step returns [SyncFailed] with the old content active.
+/// A model failure is the exception: the content install is already committed.
 /// Downloaded files are held in memory until the install. The engine does not
 /// schedule, wait, or retry.
 class SyncEngine {
@@ -109,11 +115,40 @@ class SyncEngine {
       (document) => _documentFor(document, downloaded, store),
     );
     store.recordSync(_nowEpochSeconds());
-    return SyncUpdated(
+    final result = SyncUpdated(
       bundleVersion: manifest.bundleVersion,
       documentsDownloaded: downloaded.length,
     );
+    await _installOptionalModel(client, manifest, store);
+    return result;
   }
+}
+
+/// Downloads [manifest.model] after the content install. Failures are swallowed
+/// so the content [SyncResult] stays the one the install already produced.
+Future<void> _installOptionalModel(
+  SyncClient client,
+  BundleManifest manifest,
+  ContentStore store,
+) async {
+  final model = manifest.model;
+  if (model == null) {
+    return;
+  }
+  try {
+    final bytes = await client.fetchBundleFile(model.file);
+    if (!_modelBytesMatch(model, bytes)) {
+      return;
+    }
+    store.commitVerifiedModel(bytes, model);
+  } on Object {
+    // The content install is already the active bundle. Keep it, and keep
+    // the previous verified model file.
+  }
+}
+
+bool _modelBytesMatch(BundleModel model, Uint8List bytes) {
+  return bytes.length == model.byteSize && sha256Hex(bytes) == model.sha256;
 }
 
 /// The single public key when no list is compiled in. Otherwise the public key

@@ -16,6 +16,7 @@ class BundleManifest {
     required this.bundleVersion,
     required this.documents,
     this.cards = const [],
+    this.model,
   });
 
   final int formatVersion;
@@ -31,6 +32,33 @@ class BundleManifest {
   /// Quoted action cards. Empty when the bundle has none, including old bundles
   /// that omit the field.
   final List<BundleCard> cards;
+
+  /// Optional on-device model. Null when the bundle omits `model`.
+  final BundleModel? model;
+}
+
+/// The signed model file named by bundle.json. The publisher omits it until a
+/// model is part of the publication.
+class BundleModel {
+  const BundleModel({
+    required this.file,
+    required this.sha256,
+    required this.byteSize,
+    required this.modelType,
+  });
+
+  /// Bundle-relative path, appended to the bundle base URL.
+  final String file;
+
+  /// Lower-case hex SHA-256 of the file.
+  final String sha256;
+
+  /// Size in bytes.
+  final int byteSize;
+
+  /// One of `gemma4`, `gemmaIt`, `qwen`, `qwen3`, `general`. Any other string
+  /// is stored and leaves the on-device model off.
+  final String modelType;
 }
 
 class BundleCard {
