@@ -2,6 +2,10 @@
 
 Builds the signed content bundle the app downloads. Node 24 and TypeScript; Node runs the `.ts` files directly, so there is no build step.
 
+**Maintainer:** [Tenzing Wangdi](https://www.linkedin.com/in/tenzing/) · GitHub [`wosslabs`](https://github.com/wosslabs)
+
+See the repository root [`README.md`](../../README.md) for the full project overview.
+
 ```bash
 npm ci
 npm run bundle -- --manifest ../../corpus/manifest.yaml --out <dir> --key <private-key.pem> [--public-key <public-key.pem>] [--previous <bundle.json>]

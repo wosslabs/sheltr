@@ -2,6 +2,8 @@
 
 Sheltr is a free, non-profit, offline-first guide to disaster preparedness and response. The app is designed to work with no network connection once the approved content is on the phone, and to sync updates whenever a network is available.
 
+**Maintainer:** [Tenzing Wangdi](https://www.linkedin.com/in/tenzing/) · GitHub [`wosslabs`](https://github.com/wosslabs)
+
 Every answer is designed to show the official source it came from: the agency, the document title, the date and a link to the original. Sheltr answers only from approved official documents. It refuses when no source passes its relevance check, rather than inventing guidance.
 
 Sheltr is not an official warning system. Follow official alerts from your local authorities.
