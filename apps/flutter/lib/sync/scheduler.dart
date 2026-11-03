@@ -52,12 +52,12 @@ Future<DateTime?> scheduleSyncOnLaunch({
   await _registerBackground(
     settings,
     Duration(seconds: seconds),
-    _initialDelay(schedule, clock),
+    syncInitialDelay(schedule, clock),
   );
   return due;
 }
 
-Duration? _initialDelay(DateTime? due, DateTime clock) {
+Duration? syncInitialDelay(DateTime? due, DateTime clock) {
   if (due == null || !due.isAfter(clock)) {
     return null;
   }

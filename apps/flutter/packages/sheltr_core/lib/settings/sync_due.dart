@@ -8,13 +8,12 @@ import 'app_settings.dart';
 /// or 2592000 seconds.
 ///
 /// [onUnmeteredNetwork] is the boundary the launch check already applies:
-/// sync waits for an unmetered link unless mobile data is allowed. It
-/// defaults to true so a caller that only has the schedule can omit it.
+/// sync waits for an unmetered link unless mobile data is allowed.
 DateTime? nextSyncDue(
   AppSettings settings,
   DateTime? lastSync,
   DateTime now, {
-  bool onUnmeteredNetwork = true,
+  required bool onUnmeteredNetwork,
 }) {
   final intervalSeconds = syncIntervalSeconds[settings.syncFrequency];
   if (intervalSeconds == null) {
