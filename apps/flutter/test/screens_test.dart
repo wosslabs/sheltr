@@ -521,6 +521,20 @@ void main() {
     expect(find.text('Earthquake'), findsOneWidget);
     expect(find.text('Example Agency'), findsOneWidget);
   });
+
+  testWidgets('modelFlagOffHidesSupportedLead', (tester) async {
+    final model = _ScriptedModel('Boil water before drinking.');
+    await _pump(tester, route: '/answer', answer: _boilWater(), model: model);
+
+    expect(AppSettings.defaults.modelEnabled, isFalse);
+    expect(model.calls, 0);
+    expect(find.text('Boil water before drinking.'), findsNothing);
+    expect(
+      find.text('Boil water for one minute before drinking.'),
+      findsOneWidget,
+    );
+    expect(find.text('Example Agency'), findsOneWidget);
+  });
 }
 
 const _hazards = [
@@ -570,6 +584,7 @@ Future<void> _pump(
   ContentStore? store,
   DateTime Function()? now,
   List<TrustedKey> trustedKeys = const [],
+  PassageModel? model,
 }) async {
   if (locales != null) {
     tester.platformDispatcher.localesTestValue = locales;
@@ -583,6 +598,7 @@ Future<void> _pump(
       store: store,
       now: now ?? DateTime.now,
       trustedKeys: trustedKeys,
+      model: model,
     ),
   );
   await tester.pumpAndSettle();
@@ -707,6 +723,50 @@ SemanticsNode _searchButton(WidgetTester tester) {
       .where((node) => node.flagsCollection.isButton && node.label == 'Search');
   expect(matches, hasLength(1));
   return matches.single;
+}
+
+class _ScriptedModel implements PassageModel {
+  _ScriptedModel(this.text);
+
+  final String text;
+  var calls = 0;
+
+  @override
+  Future<String> rewrite(String question, List<CitedPassage> passages) async {
+    calls += 1;
+    return text;
+  }
+}
+
+RetrievalResult _boilWater() {
+  return RetrievalResult.passages([
+    Passage(
+      chunk: const StoredChunk(
+        id: 'boil-0',
+        documentId: 'boil',
+        content: 'Boil water for one minute before drinking.',
+        pageNumber: null,
+        position: 0,
+      ),
+      document: const StoredDocument(
+        id: 'boil',
+        title: 'Boil water',
+        agency: 'Example Agency',
+        publishedDate: '2024-03-15',
+        reviewedOn: '2026-10-05',
+        expiresOn: '2027-11-02',
+        licence: 'CC-BY-4.0',
+        country: 'NO',
+        hazards: ['FLOOD'],
+        sourceUri: 'https://example.org/boil-water.html',
+        sourceType: 'html',
+        checksum: '0',
+        fileChecksum: '1',
+      ),
+      score: 2,
+      rankScore: 2,
+    ),
+  ]);
 }
 
 RetrievalResult _passages() {

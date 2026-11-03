@@ -33,6 +33,7 @@ class SheltrApp extends StatefulWidget {
     this.store,
     this.now = _deviceNow,
     this.trustedKeys = const [],
+    this.model,
   });
 
   final AppSettings settings;
@@ -46,6 +47,9 @@ class SheltrApp extends StatefulWidget {
 
   /// Compiled publisher keys. At most two.
   final List<TrustedKey> trustedKeys;
+
+  /// Passage rewriter. Unused while [AppSettings.modelEnabled] is false.
+  final PassageModel? model;
 
   @override
   State<SheltrApp> createState() => _SheltrAppState();
@@ -114,6 +118,7 @@ class _SheltrAppState extends State<SheltrApp> {
           now: widget.now,
           trustedKeys: widget.trustedKeys,
           updateSettings: _updateSettings,
+          model: widget.model,
           child: MediaQuery(
             data: MediaQuery.of(context)
                 .copyWith(textScaler: TextScaler.linear(_settings.textScale)),

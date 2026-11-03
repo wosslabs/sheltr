@@ -1,0 +1,10 @@
+# question, passages, model, expect.
+# expect is show, hide, or nocall. Passages quote contract/fixtures boil-water text.
+question	passages	model	expect
+what should I do before drinking water	Boil water for one minute before drinking.	Boil water before drinking.	show
+what should I do before drinking water	Boil water for one minute before drinking. 72	Boil water before drinking. 72	show
+what should I do before drinking water	Boil water for one minute before drinking.	Boil water with chlorine before drinking.	hide
+what should I do before drinking water	Boil water for one minute before drinking. 72	Boil water for one minute before drinking. 3	hide
+what should I do before drinking water	Boil water for one minute before drinking.	NONE	hide
+what should I do before drinking water	Boil water for one minute before drinking.	Boil water before drinking. Boil water before drinking. Boil water before drinking. Boil water before drinking. Boil water before drinking. Boil water before drinking. Boil water before drinking. Boil water before drinking. Boil water before drinking. Boil water before drinking. Boil water before drinking. Boil water before drinking. Boil water before drinking. Boil water before drinking. Boil water before drinking. Boil water before drinking. Boil water before drinking. Boil water before drinking. Boil water before drinking. Boil water before drinking. Boil water before drinking. Boil water before drinking. 	hide
+what should I do before drinking water	Boil water for one minute before drinking.	Boil water before drinking.	nocall

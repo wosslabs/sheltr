@@ -16,6 +16,7 @@ class SheltrScope extends InheritedWidget {
     required this.trustedKeys,
     required this.updateSettings,
     required super.child,
+    this.model,
     super.key,
   });
 
@@ -34,6 +35,10 @@ class SheltrScope extends InheritedWidget {
   /// Compiled publisher keys. At most two. Empty when this build has none.
   final List<TrustedKey> trustedKeys;
   final ValueChanged<AppSettings> updateSettings;
+
+  /// Optional passage rewriter. The answer screen does not call it while
+  /// [AppSettings.modelEnabled] is false.
+  final PassageModel? model;
 
   String t(String key, [Map<String, Object?> values = const {}]) {
     return strings.t(languageCode, key, values);
@@ -54,7 +59,8 @@ class SheltrScope extends InheritedWidget {
         oldWidget.store != store ||
         oldWidget.now != now ||
         oldWidget.trustedKeys != trustedKeys ||
-        oldWidget.strings != strings;
+        oldWidget.strings != strings ||
+        oldWidget.model != model;
   }
 }
 

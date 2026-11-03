@@ -32,6 +32,7 @@ class AppSettings {
     this.textScale = 1.0,
     this.highContrast = false,
     this.language = Language.system,
+    this.modelEnabled = false,
   }) : assert(
          textScale == 1.0 || textScale == 1.2 || textScale == 1.4,
          'text scale must be 1.0, 1.2, or 1.4',
@@ -51,6 +52,9 @@ class AppSettings {
   final bool highContrast;
   final Language language;
 
+  /// On-device restatement of cited passages. Off until a device eval passes.
+  final bool modelEnabled;
+
   AppSettings copyWith({
     SyncFrequency? syncFrequency,
     bool? allowMobileData,
@@ -58,6 +62,7 @@ class AppSettings {
     double? textScale,
     bool? highContrast,
     Language? language,
+    bool? modelEnabled,
   }) {
     return AppSettings(
       syncFrequency: syncFrequency ?? this.syncFrequency,
@@ -66,6 +71,7 @@ class AppSettings {
       textScale: textScale ?? this.textScale,
       highContrast: highContrast ?? this.highContrast,
       language: language ?? this.language,
+      modelEnabled: modelEnabled ?? this.modelEnabled,
     );
   }
 
@@ -77,7 +83,8 @@ class AppSettings {
         other.country == country &&
         other.textScale == textScale &&
         other.highContrast == highContrast &&
-        other.language == language;
+        other.language == language &&
+        other.modelEnabled == modelEnabled;
   }
 
   @override
@@ -88,13 +95,14 @@ class AppSettings {
     textScale,
     highContrast,
     language,
+    modelEnabled,
   );
 
   @override
   String toString() {
     return 'AppSettings(syncFrequency: $syncFrequency, allowMobileData: $allowMobileData, '
         'country: $country, textScale: $textScale, highContrast: $highContrast, '
-        'language: $language)';
+        'language: $language, modelEnabled: $modelEnabled)';
   }
 }
 
@@ -144,6 +152,9 @@ AppSettings parseSettings(String? json) {
         ? decoded['highContrast'] as bool
         : false,
     language: _oneOf(Language.values, decoded['language'], Language.system),
+    modelEnabled: decoded['modelEnabled'] is bool
+        ? decoded['modelEnabled'] as bool
+        : false,
   );
 }
 

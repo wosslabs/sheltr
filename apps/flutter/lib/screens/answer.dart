@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:sheltr_core/sheltr_core.dart';
@@ -21,6 +23,34 @@ class AnswerScreen extends StatefulWidget {
 class _AnswerScreenState extends State<AnswerScreen> {
   FlutterTts? _speech;
   var _speechUnavailable = false;
+  AnswerPresentation? _loaded;
+  var _asked = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final model = SheltrScope.of(context).model;
+    if (model == null || _asked) {
+      return;
+    }
+    _asked = true;
+    final scope = SheltrScope.of(context);
+    final result = _result(scope);
+    final question = widget.query;
+    final enabled = scope.settings.modelEnabled;
+    unawaited(() async {
+      final presentation = await presentWithModel(
+        model: model,
+        question: question,
+        retrieval: result,
+        modelEnabled: enabled,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() => _loaded = presentation);
+    }());
+  }
 
   @override
   void dispose() {
@@ -80,14 +110,48 @@ class _AnswerScreenState extends State<AnswerScreen> {
   Widget build(BuildContext context) {
     final scope = SheltrScope.of(context);
     final result = _result(scope);
-    if (result.kind != 'passages' || result.passages.isEmpty) {
+    final presentation =
+        _loaded ??
+        present(
+          retrieval: result,
+          modelText: null,
+          modelEnabled: scope.settings.modelEnabled,
+        );
+    if (presentation.passages.isEmpty) {
       return const _Refusal();
     }
-    final freshness = _freshness(scope, result);
+    return _AnswerBody(
+      presentation: presentation,
+      freshness: _freshness(scope, result),
+      speechUnavailable: _speechUnavailable,
+      onReadAloud: _readAloud,
+    );
+  }
+}
+
+/// Cited passages, and a model lead only when [AnswerPresentation.lead] is set.
+class _AnswerBody extends StatelessWidget {
+  const _AnswerBody({
+    required this.presentation,
+    required this.freshness,
+    required this.speechUnavailable,
+    required this.onReadAloud,
+  });
+
+  final AnswerPresentation presentation;
+  final Freshness freshness;
+  final bool speechUnavailable;
+  final Future<void> Function(String text) onReadAloud;
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = SheltrScope.of(context);
     final warningKey = stalenessWarningKey(freshness);
-    final spoken = result.passages
-        .map((passage) => passage.chunk.content)
-        .join('\n\n');
+    final lead = presentation.lead;
+    final spoken = [
+      if (lead != null) lead,
+      for (final passage in presentation.passages) passage.chunk.content,
+    ].join('\n\n');
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -100,14 +164,15 @@ class _AnswerScreenState extends State<AnswerScreen> {
           const SizedBox(height: 12),
         ],
         FilledButton(
-          onPressed: () => _readAloud(spoken),
+          onPressed: () => onReadAloud(spoken),
           child: Text(scope.t('answer_read_aloud_description')),
         ),
-        if (_speechUnavailable) ...[
+        if (speechUnavailable) ...[
           const SizedBox(height: 8),
           Text(scope.t('answer_read_aloud_unavailable')),
         ],
-        for (final passage in result.passages) ...[
+        if (lead != null) ...[const SizedBox(height: 16), Text(lead)],
+        for (final passage in presentation.passages) ...[
           const SizedBox(height: 16),
           Text(
             passage.chunk.content,

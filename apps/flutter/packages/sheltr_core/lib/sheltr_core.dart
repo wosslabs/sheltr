@@ -19,6 +19,7 @@ export 'sync/client.dart';
 export 'sync/engine.dart';
 export 'sync/result.dart';
 export 'sync/retry_policy.dart';
+export 'model/rewriter.dart';
 export 'settings/app_settings.dart';
 export 'settings/countries.dart';
 export 'settings/sync_due.dart';

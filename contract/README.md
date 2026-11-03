@@ -13,6 +13,7 @@ The private key is never written. Each fixture directory holds `public-key.hex`,
 - `retrieval-cases.tsv` — question cases. The Expo evaluation test reads this file.
 - `word-cases.tsv` — columns `left`, `right`, `match` (`true` or `false`).
 - `strings.tsv` — columns `key`, `placeholders`. One row per key in `apps/mobile/src/i18n/locales/en.json`. Placeholders are the `%{pN}` tokens in that string, in order, separated by spaces. Spanish and French are not copied.
+- `model-cases.tsv` — columns `question`, `passages`, `model`, `expect` (`show`, `hide`, or `nocall`). Passage text quotes a fixture sentence. `nocall` is a retrieval refusal: the model is not called.
 - `fixtures/<name>/` — `bundle.json`, `bundle.json.sig`, `documents/`, `public-key.hex`, `expect.json`.
 
 ## expect.json
