@@ -354,11 +354,11 @@ class ContentStore {
 
   /// Streams [chunks] onto the model staging file.
   ///
-  /// The SHA-256 runs as each chunk is written. Writing stops when the next
-  /// chunk would pass [model.byteSize], and that chunk is not written. The
-  /// staging file is renamed into place only when its length and digest match
-  /// [model]. A mismatch deletes the staging file and leaves the previous
-  /// verified model in place.
+  /// The SHA-256 runs as each chunk is written. The stream is cancelled when
+  /// the next chunk would pass [model.byteSize], and that chunk is not
+  /// written. The rest of the body is not read. The staging file is renamed
+  /// into place only when its length and digest match [model]. A mismatch
+  /// deletes the staging file and leaves the previous verified model in place.
   ///
   /// The previous sidecar is removed before the new bytes are renamed into
   /// place. A crash between that rename and the sidecar rename then has no
@@ -378,17 +378,27 @@ class ContentStore {
       sink = staging.openWrite();
       var written = 0;
       var tooBig = false;
-      await for (final chunk in chunks) {
-        if (chunk.isEmpty) {
-          continue;
+      final incoming = StreamIterator<List<int>>(chunks);
+      try {
+        while (await incoming.moveNext()) {
+          final chunk = incoming.current;
+          if (chunk.isEmpty) {
+            continue;
+          }
+          if (written + chunk.length > model.byteSize) {
+            tooBig = true;
+            break;
+          }
+          sink.add(chunk);
+          hash.add(chunk);
+          written += chunk.length;
         }
-        if (written + chunk.length > model.byteSize) {
-          tooBig = true;
-          break;
+      } finally {
+        try {
+          await incoming.cancel();
+        } on Object {
+          // The cap decision or the stream error is the one to report.
         }
-        sink.add(chunk);
-        hash.add(chunk);
-        written += chunk.length;
       }
       await sink.close();
       sink = null;

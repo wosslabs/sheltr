@@ -22,8 +22,9 @@ import 'result.dart';
 ///    one, and check each download's SHA-256 against the signed manifest.
 /// 5. Install through [ContentStore.install], which replaces the content
 ///    atomically or leaves it unchanged.
-/// 6. When the manifest names a model, stream that file to a staging file
-///    with a running SHA-256. Writing stops if the next chunk would pass the
+/// 6. When the manifest names a model, pass that response stream to a staging
+///    file with a running SHA-256. The body is not held as one buffer. Writing
+///    stops, and the stream is cancelled, if the next chunk would pass the
 ///    signed byteSize. The length and the hash are checked, then the staging
 ///    file is renamed into place. A mismatch deletes the staging file. A
 ///    model failure keeps the content result and leaves any previous verified
@@ -33,8 +34,9 @@ import 'result.dart';
 /// Document downloads finish and are verified before the store is changed, so
 /// a failure at those steps returns [SyncFailed] with the old content active.
 /// A model failure is the exception: the content result is already decided.
-/// Document files are held in memory until the install. The model file is
-/// streamed to disk. The engine does not schedule or wait.
+/// The manifest, the signature, and document files are held in memory. The
+/// model body stays a stream of chunks until each one is written. The engine
+/// does not schedule or wait.
 class SyncEngine {
   SyncEngine({
     SyncClient Function(String baseUrl)? clientFor,
@@ -147,11 +149,12 @@ class SyncEngine {
 
 /// Downloads [manifest.model] after the content result is decided.
 ///
-/// Failures are swallowed so that result stays unchanged. When
-/// [onlyWhenModelDiffers] is set, a file whose sha256 and byteSize already
-/// match the signed model is left in place. An up-to-date sync uses that so a
-/// download that failed during install is retried only while the signed file
-/// still differs.
+/// Failures are swallowed so that result stays unchanged. The comparison with
+/// the installed model runs inside that same guard, so a throw there cannot
+/// replace an up-to-date content result. When [onlyWhenModelDiffers] is set,
+/// a file whose sha256 and byteSize already match the signed model is left in
+/// place. An up-to-date sync uses that so a download that failed during
+/// install is retried only while the signed file still differs.
 Future<void> _installOptionalModel(
   SyncClient client,
   BundleManifest manifest,
@@ -162,10 +165,10 @@ Future<void> _installOptionalModel(
   if (model == null) {
     return;
   }
-  if (onlyWhenModelDiffers && !_signedModelDiffers(store, model)) {
-    return;
-  }
   try {
+    if (onlyWhenModelDiffers && !_signedModelDiffers(store, model)) {
+      return;
+    }
     await store.commitModelStream(client.fetchBundleFile(model.file), model);
   } on Object {
     // The content result is already decided. Keep it, and keep the previous

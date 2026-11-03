@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:cryptography/dart.dart';
+import 'package:sheltr_core/bundle/format.dart';
 import 'package:sheltr_core/bundle/parser.dart';
 import 'package:sheltr_core/signing/trusted_keys.dart';
 import 'package:sheltr_core/store/content_store.dart';
@@ -141,6 +143,143 @@ void main() {
     );
     expect(called, isFalse);
   });
+
+  test('model body stream is not drained after the byte cap', () async {
+    final directory = Directory.systemTemp.createTempSync('sheltr-sync-');
+    final store = ContentStore.open(directory);
+    var pulls = 0;
+    var drained = false;
+    var bufferedCalls = 0;
+    try {
+      Stream<List<int>> body() async* {
+        pulls += 1;
+        yield [1, 2, 3, 4];
+        pulls += 1;
+        yield [5, 6];
+        drained = true;
+        pulls += 1;
+        yield [7, 8, 9];
+      }
+
+      final client = FetchSyncClient(
+        'https://example.org/bundle',
+        fetch: (url) async {
+          bufferedCalls += 1;
+          return SyncResponse(
+            ok: true,
+            status: 200,
+            bytes: Uint8List.fromList([1, 2, 3, 4, 5, 6, 7, 8, 9]),
+          );
+        },
+        streamFetch: (url) async {
+          expect(url, 'https://example.org/bundle/models/passage.bin');
+          return SyncStreamResponse(ok: true, status: 200, body: body());
+        },
+      );
+      final model = BundleModel(
+        file: 'models/passage.bin',
+        sha256: 'ab' * 32,
+        byteSize: 4,
+        modelType: 'gemma4',
+      );
+      expect(
+        await store.commitModelStream(
+          client.fetchBundleFile(model.file),
+          model,
+        ),
+        isFalse,
+      );
+      expect(pulls, 2);
+      expect(drained, isFalse);
+      expect(bufferedCalls, 0);
+      expect(File('${directory.path}/verified-model').existsSync(), isFalse);
+      expect(
+        File('${directory.path}/verified-model.staging').existsSync(),
+        isFalse,
+      );
+    } finally {
+      store.close();
+      directory.deleteSync(recursive: true);
+    }
+  });
+
+  test('installed model throw keeps an up to date content result', () async {
+    final fixture = fixtureDirectory('valid-signed');
+    final manifest = jsonDecode(
+      File('${fixture.path}/bundle.json').readAsStringSync(),
+    ) as Map<String, Object?>;
+    manifest['model'] = {
+      'file': 'models/passage.bin',
+      'sha256': 'ab' * 32,
+      'byteSize': 4,
+      'modelType': 'gemma4',
+    };
+    final manifestBytes = Uint8List.fromList(utf8.encode(jsonEncode(manifest)));
+    final algorithm = DartEd25519();
+    final keyPair = await algorithm.newKeyPair();
+    final signed = await algorithm.sign(manifestBytes, keyPair: keyPair);
+    final signature = Uint8List.fromList(signed.bytes);
+    final publicKey = Uint8List.fromList(
+      (await keyPair.extractPublicKey()).bytes,
+    );
+    final documents = <String, Uint8List>{};
+    for (final item in manifest['documents']! as List<Object?>) {
+      final id = (item! as Map)['id'] as String;
+      documents[id] = File('${fixture.path}/documents/$id.json')
+          .readAsBytesSync();
+    }
+
+    const baseUrl = 'https://example.org/bundle';
+    final storeDirectory = Directory.systemTemp.createTempSync('sheltr-sync-');
+    final store = ContentStore.open(storeDirectory);
+    try {
+      final engine = SyncEngine(
+        clientFor: (url) => FetchSyncClient(
+          url,
+          fetch: (request) => _fixtureResponse(
+            baseUrl,
+            request,
+            manifestBytes: manifestBytes,
+            signature: signature,
+            documents: documents,
+          ),
+          streamFetch: (request) async {
+            return SyncStreamResponse(
+              ok: false,
+              status: 404,
+              body: Stream<List<int>>.empty(),
+            );
+          },
+        ),
+      );
+      final first = await engine.run(baseUrl, publicKey, store);
+      expect(first, isA<SyncUpdated>());
+
+      final meta = File('${storeDirectory.path}/model.json');
+      final sha = 'ab' * 32;
+      meta.writeAsStringSync(
+        '{"sha256":"$sha","byteSize":4,"modelType":"gemma4"}',
+      );
+      File('${storeDirectory.path}/verified-model')
+          .writeAsBytesSync(const [1, 2, 3, 4]);
+      Process.runSync('chmod', ['000', meta.path]);
+      expect(store.installedModel, throwsA(isA<FileSystemException>()));
+
+      final second = await engine.run(baseUrl, publicKey, store);
+      expect(second, isA<SyncUpToDate>());
+      expect((second as SyncUpToDate).bundleVersion, manifest['bundleVersion']);
+      expect(store.bundleVersion(), manifest['bundleVersion']);
+      expect(store.sequence(), manifest['sequence']);
+      expect(store.documents(), hasLength(2));
+    } finally {
+      final meta = File('${storeDirectory.path}/model.json');
+      if (meta.existsSync()) {
+        Process.runSync('chmod', ['644', meta.path]);
+      }
+      store.close();
+      storeDirectory.deleteSync(recursive: true);
+    }
+  });
 }
 
 Future<void> _expectFixture(String name) async {
@@ -231,6 +370,39 @@ List<String> _fixtureNames() {
 String _directoryName(Directory directory) {
   final parts = directory.uri.pathSegments.where((part) => part.isNotEmpty);
   return parts.last;
+}
+
+Future<SyncResponse> _fixtureResponse(
+  String baseUrl,
+  String url, {
+  required Uint8List manifestBytes,
+  required Uint8List signature,
+  required Map<String, Uint8List> documents,
+}) async {
+  final base = baseUrl.replaceAll(RegExp(r'/+$'), '');
+  final prefix = '$base/';
+  if (!url.startsWith(prefix)) {
+    return SyncResponse(ok: false, status: 404, bytes: Uint8List(0));
+  }
+  final relative = url.substring(prefix.length);
+  if (relative == bundleManifestFile) {
+    return SyncResponse(ok: true, status: 200, bytes: manifestBytes);
+  }
+  if (relative == bundleSignatureFile) {
+    return SyncResponse(ok: true, status: 200, bytes: signature);
+  }
+  const documentsPrefix = '$bundleDocumentsDir/';
+  if (relative.startsWith(documentsPrefix) && relative.endsWith('.json')) {
+    final id = relative.substring(
+      documentsPrefix.length,
+      relative.length - '.json'.length,
+    );
+    final bytes = documents[id];
+    if (bytes != null) {
+      return SyncResponse(ok: true, status: 200, bytes: bytes);
+    }
+  }
+  return SyncResponse(ok: false, status: 404, bytes: Uint8List(0));
 }
 
 /// Serves one fixture directory as bundle files. Reads local bytes only.

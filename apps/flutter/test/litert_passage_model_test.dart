@@ -392,46 +392,75 @@ class _HostedBundle {
   SyncClient clientFor(String baseUrl) {
     return FetchSyncClient(
       baseUrl,
-      fetch: (url) async {
-        requested.add(url);
-        final base = baseUrl.replaceAll(RegExp(r'/+$'), '');
-        final prefix = '$base/';
-        if (!url.startsWith(prefix)) {
-          return SyncResponse(ok: false, status: 404, bytes: Uint8List(0));
-        }
-        final relative = url.substring(prefix.length);
-        if (relative == bundleManifestFile) {
-          return SyncResponse(ok: true, status: 200, bytes: manifestBytes);
-        }
-        if (relative == bundleSignatureFile) {
-          return SyncResponse(ok: true, status: 200, bytes: signature);
-        }
-        const documentsPrefix = '$bundleDocumentsDir/';
-        if (relative.startsWith(documentsPrefix) &&
-            relative.endsWith('.json')) {
-          final id = relative.substring(
-            documentsPrefix.length,
-            relative.length - '.json'.length,
-          );
-          final bytes = documents[id];
-          if (bytes == null) {
-            return SyncResponse(ok: false, status: 404, bytes: Uint8List(0));
-          }
-          return SyncResponse(ok: true, status: 200, bytes: bytes);
-        }
-        if (relative == _modelRelative) {
-          if (modelStatus != 200 || modelBytes == null) {
-            return SyncResponse(
-              ok: false,
-              status: modelStatus,
-              bytes: Uint8List(0),
-            );
-          }
-          return SyncResponse(ok: true, status: 200, bytes: modelBytes!);
-        }
-        return SyncResponse(ok: false, status: 404, bytes: Uint8List(0));
-      },
+      fetch: (url) => _buffered(baseUrl, url),
+      streamFetch: (url) => _streamed(baseUrl, url),
     );
+  }
+
+  String? _relative(String baseUrl, String url) {
+    final base = baseUrl.replaceAll(RegExp(r'/+$'), '');
+    final prefix = '$base/';
+    if (!url.startsWith(prefix)) {
+      return null;
+    }
+    return url.substring(prefix.length);
+  }
+
+  Future<SyncResponse> _buffered(String baseUrl, String url) async {
+    requested.add(url);
+    final relative = _relative(baseUrl, url);
+    if (relative == null) {
+      return SyncResponse(ok: false, status: 404, bytes: Uint8List(0));
+    }
+    if (relative == bundleManifestFile) {
+      return SyncResponse(ok: true, status: 200, bytes: manifestBytes);
+    }
+    if (relative == bundleSignatureFile) {
+      return SyncResponse(ok: true, status: 200, bytes: signature);
+    }
+    const documentsPrefix = '$bundleDocumentsDir/';
+    if (relative.startsWith(documentsPrefix) && relative.endsWith('.json')) {
+      final id = relative.substring(
+        documentsPrefix.length,
+        relative.length - '.json'.length,
+      );
+      final bytes = documents[id];
+      if (bytes == null) {
+        return SyncResponse(ok: false, status: 404, bytes: Uint8List(0));
+      }
+      return SyncResponse(ok: true, status: 200, bytes: bytes);
+    }
+    return SyncResponse(ok: false, status: 404, bytes: Uint8List(0));
+  }
+
+  Future<SyncStreamResponse> _streamed(String baseUrl, String url) async {
+    requested.add(url);
+    final relative = _relative(baseUrl, url);
+    if (relative != _modelRelative ||
+        modelStatus != 200 ||
+        modelBytes == null) {
+      return SyncStreamResponse(
+        ok: false,
+        status: relative == _modelRelative ? modelStatus : 404,
+        body: Stream<List<int>>.empty(),
+      );
+    }
+    final bytes = modelBytes!;
+    return SyncStreamResponse(
+      ok: true,
+      status: 200,
+      body: _lazyModelBody(bytes),
+    );
+  }
+}
+
+Stream<List<int>> _lazyModelBody(Uint8List bytes) async* {
+  const chunkSize = 4;
+  for (var offset = 0; offset < bytes.length; offset += chunkSize) {
+    final end = offset + chunkSize < bytes.length
+        ? offset + chunkSize
+        : bytes.length;
+    yield bytes.sublist(offset, end);
   }
 }
 
