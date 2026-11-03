@@ -1,0 +1,53 @@
+{
+    "formatVersion": 2,
+    "sequence": 2,
+    "bundleVersion": "2026-11-03T02:30:36Z",
+    "documents": [
+        {
+            "id": "251b3d589b274399efbed685c3e6d68f",
+            "title": "Boil water",
+            "agency": "Example Agency",
+            "publishedDate": "2024-03-15",
+            "reviewedOn": "2026-10-05",
+            "expiresOn": "2027-11-02",
+            "licence": "CC-BY-4.0",
+            "country": "NO",
+            "hazards": [
+                "FLOOD"
+            ],
+            "sourceUri": "https://example.org/boil-water.html",
+            "sourceType": "html",
+            "checksum": "f7ea1e73ce643c95650ae22df1570325ff7a19c53ad26b18341d7f6564bea4ce",
+            "fileChecksum": "9736c74ae9e036a9f9bb2e5de42c5ad25862315282fb0374d58a0c10f591c708",
+            "chunks": [
+                {
+                    "id": "251b3d589b274399efbed685c3e6d68f-0",
+                    "checksum": "f7ea1e73ce643c95650ae22df1570325ff7a19c53ad26b18341d7f6564bea4ce"
+                }
+            ]
+        },
+        {
+            "id": "dac99ea3a6fe167dfb52a72a9f7fbb30",
+            "title": "Evacuate",
+            "agency": "Example Agency",
+            "publishedDate": "2024-03-15",
+            "reviewedOn": "2026-10-05",
+            "expiresOn": "2027-11-02",
+            "licence": "CC-BY-4.0",
+            "country": "NO",
+            "hazards": [
+                "EARTHQUAKE"
+            ],
+            "sourceUri": "https://example.org/evacuate.html",
+            "sourceType": "html",
+            "checksum": "9725064a218fc98970cd709a4e5af70c159a143fbdfb6f7aedc14d8ee5d962b0",
+            "fileChecksum": "d2dd24c29b072ecb8e919de1b9631ede648e27c3fe0e23f13a061e8fa4ebefda",
+            "chunks": [
+                {
+                    "id": "dac99ea3a6fe167dfb52a72a9f7fbb30-0",
+                    "checksum": "9725064a218fc98970cd709a4e5af70c159a143fbdfb6f7aedc14d8ee5d962b0"
+                }
+            ]
+        }
+    ]
+}

@@ -71,6 +71,15 @@ describe('extractMainContent', () => {
 
   it('puts table cells on one line separated by a space', () =>
     assert.equal(extractMainContent('<body><table><tr><td>A</td><td>B</td></tr></table></body>'), 'A B'));
+
+  it('drops logos, crests and image text, and keeps a sentence that mentions a logo', () => {
+    const text = extractMainContent(
+      '<main><img alt="Commonwealth Coat of Arms"><svg><text>Royal Arms</text></svg><div class="site-logo">Get Ready</div><p>Boil water for one minute.</p><p>Do not use the agency logo on your kit.</p></main>',
+    );
+    assert.match(text, /Boil water for one minute\./);
+    assert.match(text, /Do not use the agency logo on your kit\./);
+    for (const gone of ['Coat of Arms', 'Royal Arms', 'Get Ready']) assert.ok(!text.includes(gone), `should not contain ${gone}`);
+  });
 });
 
 describe('charset handling', () => {

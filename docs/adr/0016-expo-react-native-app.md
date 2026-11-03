@@ -1,7 +1,7 @@
 # ADR-0016: Expo, React Native and TypeScript for the app and the publisher
 
 ## Status
-Accepted. Refines the platform choices in ADR-0015 (one codebase for both phones, and one language for the app and the publisher). The rest of ADR-0015 stands: no server, a signed bundle, keyword search on the device.
+Superseded for the app on 2026-11-03. The phone app is Flutter / Dart in `apps/flutter`. The Expo project in `apps/mobile` was removed. Decision 3 stands: the publisher remains TypeScript in `tools/publisher`. The rest of ADR-0015 stands: no server, a signed bundle, keyword search on the device. The text below is the decision as it was accepted.
 
 Date: 2026-11-02
 

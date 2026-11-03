@@ -12,11 +12,12 @@ import { hostAllowlistPolicy, hostOf, type SourcePolicy } from './policy.ts';
 import { keyInsideRepository } from './repoGuard.ts';
 import { loadPublicKey, verify } from './signing.ts';
 
-export const USAGE = `usage: publisher publish --manifest <file> --out <dir> --key <path> [--public-key <path>]
+export const USAGE = `usage: publisher publish --manifest <file> --out <dir> --key <path> [--public-key <path>] [--previous <bundle.json>]
   --manifest    approved corpus manifest (YAML)
   --out         directory for the bundle; must not exist yet
   --key         Ed25519 private key (PKCS#8, DER or PEM); must be outside the repository
-  --public-key  Ed25519 public key (X.509, DER or PEM); the built bundle is verified with it`;
+  --public-key  Ed25519 public key (X.509, DER or PEM); the built bundle is verified with it
+  --previous    previous bundle.json; the new sequence is one greater than its sequence`;
 
 export const EXIT_OK = 0;
 export const EXIT_FAILURE = 1;
@@ -38,7 +39,8 @@ const messageOf = (e: unknown): string => (e instanceof Error ? e.message || e.n
  * Runs the publisher command line and returns the exit code: 0 on success, 1 when the build or verification fails
  * (failed entries are listed on [err]), 2 for a malformed command line. [cwd] is the directory relative paths and
  * the repository search start from. [connectorsFor] builds the source connectors from the source policy; tests
- * replace it to serve fixtures without a network.
+ * replace it to serve fixtures without a network. [now] is the clock for the expiry check and the bundle version.
+ * Tests pass a fixed clock. The command line uses the wall clock.
  */
 export async function runPublisher(
   args: readonly string[],
@@ -46,6 +48,7 @@ export async function runPublisher(
   out: Output,
   err: Output,
   connectorsFor: (policy: SourcePolicy) => ConnectorMap = defaultConnectors,
+  now: () => Date = () => new Date(),
 ): Promise<number> {
   let command;
   try {
@@ -85,7 +88,8 @@ export async function runPublisher(
   const policy = hostAllowlistPolicy(manifest.documents.flatMap((d) => hostOf(d.sourceUri) ?? []));
   let result;
   try {
-    result = await buildBundle(manifest, connectorsFor(policy), policy, resolve(cwd, command.out), keyPath);
+    const previous = command.previous === null ? null : resolve(cwd, command.previous);
+    result = await buildBundle(manifest, connectorsFor(policy), policy, resolve(cwd, command.out), keyPath, now, previous);
   } catch (e) {
     if (e instanceof BundleBuildError) for (const f of e.failures) err.println(`FAILED ${f.sourceUri}: ${f.reason}`);
     err.println(`publisher: build failed: ${messageOf(e)}`);
@@ -103,6 +107,7 @@ export async function runPublisher(
     verified = true;
   }
   out.println(`Bundle version: ${result.manifest.bundleVersion}`);
+  out.println(`Signed by: ${result.manifest.signedBy}`);
   out.println(`Documents: ${result.manifest.documents.length}`);
   out.println(verified ? 'Signature: verified' : 'Signature: not verified (no --public-key given)');
   out.println(`Written to: ${result.outputDir}`);

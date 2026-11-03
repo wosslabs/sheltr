@@ -17,6 +17,12 @@ export interface ManifestDocument {
   readonly disasterTypes: readonly DisasterType[];
   /** YYYY-MM-DD. */
   readonly publishedDate: string;
+  /** YYYY-MM-DD. When the entry was last reviewed. */
+  readonly reviewedOn: string;
+  /** YYYY-MM-DD. The publisher refuses a date already past the build clock. */
+  readonly expiresOn: string;
+  /** A role, not a person's name. Recorded in the manifest only. */
+  readonly reviewedBy: string;
   readonly license: string;
   /** ISO 3166-1 alpha-2 country, or null for global guidance. */
   readonly country: string | null;
@@ -65,7 +71,10 @@ export function parseManifest(yamlText: string): CorpusManifest {
       title: text(entry, 'title', uri),
       sourceAgency: text(entry, 'source_agency', uri),
       disasterTypes: hazards(entry.hazards, uri),
-      publishedDate: date(entry.published_date, uri),
+      publishedDate: dateField(entry.published_date, uri, 'published_date'),
+      reviewedOn: dateField(entry.reviewed_on, uri, 'reviewed_on'),
+      expiresOn: dateField(entry.expires_on, uri, 'expires_on'),
+      reviewedBy: text(entry, 'reviewed_by', uri),
       license: text(entry, 'license', uri),
       country: country(entry.country, uri),
       sourceType: sourceType(entry.source_type, uri),
@@ -135,12 +144,12 @@ function hazard(name: string, uri: string): DisasterType {
 }
 
 // An unquoted 2021-03-15 may arrive as a Date or as text depending on the YAML schema; accept both.
-function date(value: unknown, uri: string): string {
+function dateField(value: unknown, uri: string, key: string): string {
   let iso: string;
   if (value instanceof Date) iso = value.toISOString().slice(0, 10);
   else if (typeof value === 'string') iso = value.trim();
-  else throw new Error(`Manifest entry ${uri} is missing 'published_date'`);
+  else throw new Error(`Manifest entry ${uri} is missing '${key}'`);
   const valid = /^\d{4}-\d{2}-\d{2}$/.test(iso) && new Date(`${iso}T00:00:00Z`).toISOString().slice(0, 10) === iso;
-  if (!valid) throw new Error(`Manifest entry ${uri} has published_date '${iso}', expected YYYY-MM-DD`);
+  if (!valid) throw new Error(`Manifest entry ${uri} has ${key} '${iso}', expected YYYY-MM-DD`);
   return iso;
 }

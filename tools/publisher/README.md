@@ -4,7 +4,7 @@ Builds the signed content bundle the app downloads. Node 24 and TypeScript; Node
 
 ```bash
 npm ci
-npm run bundle -- --manifest ../../corpus/manifest.yaml --out <dir> --key <private-key.pem> [--public-key <public-key.pem>]
+npm run bundle -- --manifest ../../corpus/manifest.yaml --out <dir> --key <private-key.pem> [--public-key <public-key.pem>] [--previous <bundle.json>]
 npm run typecheck
 npm test
 ```
@@ -13,6 +13,7 @@ npm test
 - `--out` the bundle directory; it must not exist yet.
 - `--key` the Ed25519 private key (PKCS#8, DER or PEM). It must be outside the repository: the publisher refuses a key inside it.
 - `--public-key` optional; the built bundle is verified with it.
+- `--previous` optional path to the last published `bundle.json`. The new bundle's `sequence` is one greater than that file's sequence. The first publication, with no `--previous`, is sequence 1.
 
 Exit status: 0 on success, 1 if any entry failed or verification failed, 2 for a malformed command line.
 
@@ -25,7 +26,7 @@ Exit status: 0 on success, 1 if any entry failed or verification failed, 2 for a
 3. Extract text (`cheerio` for the main content of a page, `pdfjs-dist` for PDF pages), clean it (`text.ts`), split it into overlapping chunks cut on word boundaries (`chunker.ts`).
 4. Write `bundle.json`, `bundle.json.sig` (raw Ed25519 signature) and `documents/<id>.json` to a temporary directory next to the output, and move it into place only when complete. A failed build leaves nothing behind.
 
-The bundle format is read by `apps/mobile/src/core/bundle`. Change both together, and raise `BUNDLE_FORMAT_VERSION` for any incompatible change.
+The bundle format is read by `apps/flutter/packages/sheltr_core/lib/bundle`. Change both together, and raise `BUNDLE_FORMAT_VERSION` for any incompatible change.
 
 ## Conventions
 

@@ -4,6 +4,8 @@ export interface PublishArgs {
   readonly out: string;
   readonly key: string;
   readonly publicKey: string | null;
+  /** Previous bundle.json. The new sequence is one greater than the sequence in that file. */
+  readonly previous: string | null;
 }
 
 /** A malformed command line. The caller prints the message and usage, then exits 2. */
@@ -14,10 +16,10 @@ export class UsageError extends Error {
   }
 }
 
-const VALUE_FLAGS = new Set(['--manifest', '--out', '--key', '--public-key']);
+const VALUE_FLAGS = new Set(['--manifest', '--out', '--key', '--public-key', '--previous']);
 
 /**
- * Parses `publish --manifest <file> --out <dir> --key <path> [--public-key <path>]`. Every flag takes exactly one
+ * Parses `publish --manifest <file> --out <dir> --key <path> [--public-key <path>] [--previous <bundle.json>]`. Every flag takes exactly one
  * value. Missing, unknown, repeated or valueless arguments are a {@link UsageError}. Nothing is read from disk.
  */
 export function parsePublish(args: readonly string[]): PublishArgs {
@@ -40,5 +42,6 @@ export function parsePublish(args: readonly string[]): PublishArgs {
     out: values.get('--out')!,
     key: values.get('--key')!,
     publicKey: values.get('--public-key') ?? null,
+    previous: values.get('--previous') ?? null,
   };
 }

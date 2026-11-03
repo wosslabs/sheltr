@@ -1,0 +1,12 @@
+[
+  {
+    "id": "a93e740500c55f69d1ee1f2a3ef889d800839f0fa8f836e8a5e1d661047e61db",
+    "publicKeyHex": "b641ffa87121fe345b1698053cede91da2a4b3747c0ddd830d0f1fbb808cd05d",
+    "notAfter": "2027-11-02"
+  },
+  {
+    "id": "1b0e27bbd75deb99b2f15a7e096435374999c056a58a17f6efdc07a51ff4b194",
+    "publicKeyHex": "c9c4795ffe49be999636f6c3fb4342899f5d2da3058b3713fda14a26e184b514",
+    "notAfter": "2028-11-02"
+  }
+]

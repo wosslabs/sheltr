@@ -9,6 +9,7 @@
   },
   "scripts": {
     "bundle": "node src/cli.ts publish",
+    "fixtures": "node src/fixtures.ts",
     "test": "node --test \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit"
   },

@@ -1,0 +1,41 @@
+name: Flutter
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flutter:
+    name: flutter
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.9'
+          cache: true
+      - name: sheltr_core tests
+        working-directory: apps/flutter/packages/sheltr_core
+        run: |
+          dart pub get
+          dart test
+      - name: app tests
+        working-directory: apps/flutter
+        run: |
+          flutter pub get
+          flutter test
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: fixture coverage
+        run: node contract/check-coverage.mjs

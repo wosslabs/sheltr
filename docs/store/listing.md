@@ -1,6 +1,6 @@
 # Store listing drafts
 
-Drafts for the maintainer to adapt. Creating the Google Play ($25, one-time) and Apple Developer ($99/year) accounts, screenshots and the review submissions are manual steps that need the maintainer's accounts. Do not submit before a signed bundle is published and hosted (`docs/publishing.md`) and the iOS app exists.
+Drafts for the maintainer to adapt. Creating the Google Play ($25, one-time) and Apple Developer ($99/year) accounts, screenshots and the review submissions are manual steps that need the maintainer's accounts. The app to ship is the Flutter app (`apps/flutter`). Do not submit before a signed bundle is published and hosted (`docs/publishing.md`) and `docs/release-checklist.md` is done, including the store data-safety answers.
 
 ## Name
 
@@ -31,9 +31,22 @@ Sheltr is an independent project. It is not an official government or agency ser
 
 ## Data safety / App Privacy answers
 
-- Data collected: none. Data shared: none.
-- No account, no tracking, no ads, no third-party SDKs that collect data.
-- Data is encrypted in transit (HTTPS). Users cannot request deletion because nothing is stored on a server; app data is removed by uninstalling.
+Written here for the maintainer to copy into the store consoles. They have not been submitted. Sheltr has no store account in this repository.
+
+Google Play Data safety:
+
+- Does the app collect or share any of the required user data types? No.
+- Data collected: none. Data shared with third parties: none. No data is sold.
+- Location, personal info, financial info, health, messages, photos, audio, files, calendar, contacts, app activity, web browsing, app info and performance, and device or other IDs: not collected and not shared.
+- No account. Searches and the chosen country stay on the device.
+- Data is encrypted in transit when a bundle is fetched (HTTPS). There is no server account to delete. Uninstalling the app removes the on-device database.
+- No ads. No analytics SDK. No tracking.
+- The app can download a signed content bundle. That request sends the bundle URL and receives the bundle. It does not send the search text, the country, or a device identifier.
+
+Apple App Privacy:
+
+- Data Not Collected.
+- No tracking. No data used to track the user, and no data linked to the user's identity.
 - Privacy policy URL: the raw `PRIVACY.md` page of this repository, or a Pages copy of it.
 
 ## Release notes (first version)

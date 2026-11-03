@@ -1,0 +1,17 @@
+name: sheltr_core
+description: Flutter-free core for the Sheltr app.
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ^3.13.7
+
+# Add regular dependencies here.
+dependencies:
+  cryptography: ^2.9.0
+  sqlite3: ^3.8.0
+  # path: ^1.9.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6

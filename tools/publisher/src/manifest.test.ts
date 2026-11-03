@@ -8,6 +8,9 @@ const DOC = (extra = '', uri = 'https://example.org/a.pdf') => `
     source_agency: Example Agency
     hazards: [FLOOD, EARTHQUAKE]
     published_date: 2021-03-15
+    reviewed_on: 2021-03-15
+    expires_on: 2027-11-02
+    reviewed_by: corpus maintainer
     license: CC-BY-4.0 (https://example.org/licence)
     checksum: ABCDEF${extra}`;
 
@@ -47,6 +50,28 @@ describe('parseManifest', () => {
 
   it('rejects an entry without a licence', () =>
     assert.throws(() => parseManifest(manifest(DOC().replace(/\n    license:.*/, ''))), /missing 'license'/));
+
+  it('refusesEntryWithoutReviewDates', () => {
+    const withoutDates = `
+  - source_uri: https://example.org/a.pdf
+    title: Flood guide
+    source_agency: Example Agency
+    hazards: [FLOOD]
+    published_date: 2021-03-15
+    license: CC-BY-4.0
+    checksum: abc
+    reviewed_by: corpus maintainer`;
+    assert.throws(() => parseManifest(manifest(withoutDates)), /missing 'reviewed_on'/);
+    assert.throws(
+      () => parseManifest(manifest(`${withoutDates}\n    reviewed_on: 2021-03-15`)),
+      /missing 'expires_on'/,
+    );
+    assert.throws(
+      () => parseManifest(manifest(withoutDates
+        .replace('    reviewed_by: corpus maintainer', '    reviewed_on: 2021-03-15\n    expires_on: 2027-01-01'))),
+      /missing 'reviewed_by'/,
+    );
+  });
 
   it('rejects a related hazard whose source is not in the manifest', () =>
     assert.throws(
