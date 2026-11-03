@@ -28,8 +28,8 @@ final _digits = RegExp(r'\d+');
 final _letters = RegExp(r'\p{L}+', unicode: true);
 
 /// False when [modelText] is empty, `NONE`, longer than 600 characters, has a
-/// digit sequence missing from [passages], or has a content word that matches
-/// no word in those passages.
+/// maximal digit run that is not equal to a maximal digit run in [passages],
+/// or has a content word that matches no word in those passages.
 bool modelTextIsSupported(String modelText, List<CitedPassage> passages) {
   final trimmed = modelText.trim();
   if (trimmed.isEmpty || trimmed == 'NONE') {
@@ -38,10 +38,12 @@ bool modelTextIsSupported(String modelText, List<CitedPassage> passages) {
   if (trimmed.length > 600) {
     return false;
   }
+  final passageDigits = <String>{
+    for (final passage in passages)
+      for (final match in _digits.allMatches(passage.text)) match.group(0)!,
+  };
   for (final match in _digits.allMatches(trimmed)) {
-    final digits = match.group(0)!;
-    final found = passages.any((passage) => passage.text.contains(digits));
-    if (!found) {
+    if (!passageDigits.contains(match.group(0)!)) {
       return false;
     }
   }

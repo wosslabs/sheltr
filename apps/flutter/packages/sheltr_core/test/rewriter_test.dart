@@ -15,6 +15,8 @@ void main() {
     var keptDigit = false;
     var addedWord = false;
     var changedDigit = false;
+    var thirtyHidesThree = false;
+    var tenHidesOne = false;
     var none = false;
     var tooLong = false;
     var refusal = false;
@@ -71,6 +73,16 @@ void main() {
           row.expect == 'hide') {
         changedDigit = true;
       }
+      if (row.passages.endsWith(' 30') &&
+          row.model.endsWith(' 3') &&
+          row.expect == 'hide') {
+        thirtyHidesThree = true;
+      }
+      if (row.passages.endsWith(' 10') &&
+          row.model.endsWith(' 1') &&
+          row.expect == 'hide') {
+        tenHidesOne = true;
+      }
       if (row.model == 'NONE') {
         none = true;
       }
@@ -83,6 +95,8 @@ void main() {
     expect(keptDigit, isTrue, reason: 'kept 72 row missing');
     expect(addedWord, isTrue, reason: 'added content word row missing');
     expect(changedDigit, isTrue, reason: '72 changed to 3 row missing');
+    expect(thirtyHidesThree, isTrue, reason: '30 does not support 3');
+    expect(tenHidesOne, isTrue, reason: '10 does not support 1');
     expect(none, isTrue, reason: 'NONE row missing');
     expect(tooLong, isTrue, reason: 'row longer than 600 characters missing');
     expect(refusal, isTrue, reason: 'retrieval refusal row missing');

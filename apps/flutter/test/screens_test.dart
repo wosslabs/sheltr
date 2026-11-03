@@ -535,6 +535,26 @@ void main() {
     );
     expect(find.text('Example Agency'), findsOneWidget);
   });
+
+  testWidgets('modelThrowHidesLeadAndKeepsPassages', (tester) async {
+    final model = _ThrowingModel();
+    await _pump(
+      tester,
+      route: '/answer',
+      answer: _boilWater(),
+      model: model,
+      settings: AppSettings.defaults.copyWith(modelEnabled: true),
+    );
+
+    expect(model.calls, 1);
+    expect(AppSettings.defaults.modelEnabled, isFalse);
+    expect(find.text('Boil water before drinking.'), findsNothing);
+    expect(
+      find.text('Boil water for one minute before drinking.'),
+      findsOneWidget,
+    );
+    expect(find.text('Example Agency'), findsOneWidget);
+  });
 }
 
 const _hazards = [
@@ -735,6 +755,16 @@ class _ScriptedModel implements PassageModel {
   Future<String> rewrite(String question, List<CitedPassage> passages) async {
     calls += 1;
     return text;
+  }
+}
+
+class _ThrowingModel implements PassageModel {
+  var calls = 0;
+
+  @override
+  Future<String> rewrite(String question, List<CitedPassage> passages) async {
+    calls += 1;
+    throw StateError('model failed');
   }
 }
 

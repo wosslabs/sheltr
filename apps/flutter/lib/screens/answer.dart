@@ -39,12 +39,21 @@ class _AnswerScreenState extends State<AnswerScreen> {
     final question = widget.query;
     final enabled = scope.settings.modelEnabled;
     unawaited(() async {
-      final presentation = await presentWithModel(
-        model: model,
-        question: question,
-        retrieval: result,
-        modelEnabled: enabled,
-      );
+      AnswerPresentation presentation;
+      try {
+        presentation = await presentWithModel(
+          model: model,
+          question: question,
+          retrieval: result,
+          modelEnabled: enabled,
+        );
+      } catch (_) {
+        presentation = present(
+          retrieval: result,
+          modelText: null,
+          modelEnabled: enabled,
+        );
+      }
       if (!mounted) {
         return;
       }
