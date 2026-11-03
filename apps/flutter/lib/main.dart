@@ -1,122 +1,176 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:sheltr_core/sheltr_core.dart';
+
+import 'l10n/strings.dart';
+import 'scope.dart';
+import 'screens/about.dart';
+import 'screens/answer.dart';
+import 'screens/home.dart';
+import 'screens/search.dart';
+import 'screens/settings.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const SheltrApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+/// Sheltr: offline disaster guidance.
+class SheltrApp extends StatefulWidget {
+  const SheltrApp({
+    super.key,
+    this.settings = AppSettings.defaults,
+    this.initialRoute = '/',
+    this.answer,
+    this.documents = const [],
+  });
 
-  // This widget is the root of your application.
+  final AppSettings settings;
+  final String initialRoute;
+  final RetrievalResult? answer;
+  final List<StoredDocument> documents;
+
+  @override
+  State<SheltrApp> createState() => _SheltrAppState();
+}
+
+class _SheltrAppState extends State<SheltrApp> {
+  final _strings = const AppStrings();
+  late AppSettings _settings;
+
+  @override
+  void initState() {
+    super.initState();
+    _settings = widget.settings;
+  }
+
+  @override
+  void didUpdateWidget(SheltrApp oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _settings = widget.settings;
+  }
+
+  void _updateSettings(AppSettings next) {
+    assertValidSettings(next);
+    setState(() => _settings = next);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+    final languageCode = resolveLanguage(
+      _settings.language,
+      WidgetsBinding.instance.platformDispatcher.locales,
     );
-  }
-}
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+    return MaterialApp(
+      title: _strings.t(languageCode, 'app_name'),
+      locale: Locale(languageCode),
+      supportedLocales: const [Locale('en'), Locale('es'), Locale('fr')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      theme: sheltrTheme(_settings, Brightness.light),
+      darkTheme: sheltrTheme(_settings, Brightness.dark),
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(_settings.textScale)),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+      home: SheltrScope(
+        strings: _strings,
+        settings: _settings,
+        languageCode: languageCode,
+        answer: widget.answer,
+        documents: widget.documents,
+        updateSettings: _updateSettings,
+        child: Navigator(
+          key: ValueKey(widget.initialRoute),
+          initialRoute: widget.initialRoute,
+          onGenerateRoute: (settings) {
+            final name = settings.name ?? '/';
+            return MaterialPageRoute<void>(
+              settings: settings,
+              builder: (context) =>
+                  _Page(route: name, arguments: settings.arguments),
+            );
+          },
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ),
     );
+  }
+}
+
+class _Page extends StatelessWidget {
+  const _Page({required this.route, this.arguments});
+
+  final String route;
+  final Object? arguments;
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = SheltrScope.of(context);
+    final title = switch (route) {
+      '/search' => scope.t('search_title'),
+      '/settings' => scope.t('settings_title'),
+      '/about' => scope.t('about_title'),
+      _ => scope.t('app_name'),
+    };
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+        automaticallyImplyLeading: false,
+        leading: route == '/'
+            ? null
+            : SheltrIconButton(
+                label: scope.t('back'),
+                icon: Icons.arrow_back,
+                onPressed: () {
+                  final navigator = Navigator.of(context);
+                  if (navigator.canPop()) {
+                    navigator.pop();
+                  }
+                },
+              ),
+        actions: route == '/'
+            ? [
+                SheltrIconButton(
+                  label: scope.t('home_settings_button_label'),
+                  icon: Icons.settings,
+                  onPressed: () => Navigator.of(context).pushNamed('/settings'),
+                ),
+              ]
+            : null,
+      ),
+      body: _body(scope),
+    );
+  }
+
+  Widget _body(SheltrScope scope) {
+    switch (route) {
+      case '/search':
+        return SearchScreen(
+          initialQuery: _argument('query') ?? '',
+          initialHazard: _argument('hazard'),
+        );
+      case '/answer':
+        return const AnswerScreen();
+      case '/settings':
+        return const SettingsScreen();
+      case '/about':
+        return const AboutScreen();
+      default:
+        return const HomeScreen();
+    }
+  }
+
+  String? _argument(String key) {
+    final arguments = this.arguments;
+    if (arguments is! Map) {
+      return null;
+    }
+    final value = arguments[key];
+    return value is String ? value : null;
   }
 }
