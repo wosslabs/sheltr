@@ -15,6 +15,7 @@ class BundleManifest {
     required this.sequence,
     required this.bundleVersion,
     required this.documents,
+    this.cards = const [],
   });
 
   final int formatVersion;
@@ -26,6 +27,47 @@ class BundleManifest {
   final String bundleVersion;
 
   final List<BundleDocument> documents;
+
+  /// Quoted action cards. Empty when the bundle has none, including old bundles
+  /// that omit the field.
+  final List<BundleCard> cards;
+}
+
+class BundleCard {
+  const BundleCard({
+    required this.id,
+    required this.hazard,
+    required this.phase,
+    required this.country,
+    required this.title,
+    required this.steps,
+  });
+
+  final String id;
+
+  /// Disaster type name.
+  final String hazard;
+
+  /// `before`, `during`, or `after`.
+  final String phase;
+
+  /// ISO 3166-1 alpha-2, or null.
+  final String? country;
+  final String title;
+  final List<BundleCardStep> steps;
+}
+
+class BundleCardStep {
+  const BundleCardStep({
+    required this.text,
+    required this.documentId,
+    required this.chunkId,
+  });
+
+  /// Verbatim substring of the cited chunk.
+  final String text;
+  final String documentId;
+  final String chunkId;
 }
 
 class BundleDocument {

@@ -23,6 +23,7 @@ JSON is UTF-8 with four-space indentation, explicit nulls, and no trailing newli
 - `bundleVersion` (string): UTC build time, ISO-8601 to the second, for example `2026-10-05T12:00:00Z`.
 - `signedBy` (string): lower-case hex SHA-256 of the raw 32-byte Ed25519 public key that signed this file. The app accepts the bundle when this id names a key on its compiled list of at most two keys and the signature verifies under that key. An unknown id is rejected. Old bundles without this field still verify under the single compiled public key.
 - `documents` (array): one entry per document.
+- `cards` (array): quoted action cards. Each card is `{ id, hazard, phase, country, title, steps }`. `phase` is `before`, `during`, or `after`. Each step is `{ text, documentId, chunkId }`. A step is included only when `chunkId` is a chunk in the bundle and `text` is a verbatim substring of that chunk. Empty when the bundle has no cards. Old bundles without this field have no cards.
 - `model` (object, optional): omitted when the bundle has no model file. The publisher does not write it until a model is part of the publication. When present:
   - `file` (string): bundle-relative path of the model file.
   - `sha256` (string): lower-case hex SHA-256 of that file.

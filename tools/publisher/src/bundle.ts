@@ -1,6 +1,7 @@
 import { createPublicKey, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
+import { assertCitedSteps, type ActionCard } from './cards.ts';
 import { chunkPages, chunkUnpaged, type ChunkDraft } from './chunker.ts';
 import type { ConnectorMap } from './connector.ts';
 import type { CorpusManifest, ManifestDocument } from './manifest.ts';
@@ -37,6 +38,8 @@ export interface BundleManifest {
   /** Lower-case SHA-256 of the raw 32-byte Ed25519 public key that signed this file. */
   signedBy: string;
   documents: BundleDocument[];
+  /** Quoted action cards. Empty when this publication has none. */
+  cards: ActionCard[];
 }
 
 export interface BundleDocument {
@@ -157,6 +160,7 @@ export async function buildBundle(
   privateKeyPath: string,
   now: () => Date = () => new Date(),
   previousBundlePath: string | null = null,
+  cards: readonly ActionCard[] = [],
 ): Promise<BuildResult> {
   const output = resolve(outputDir);
   if (existsSync(output)) throw new BundleBuildError(`Output already exists: ${output}`);
@@ -177,6 +181,7 @@ export async function buildBundle(
     mkdirSync(documentsDir);
     const documents: BundleDocument[] = [];
     const failures: EntryFailure[] = [];
+    const chunkText = new Map<string, { documentId: string; content: string }>();
     const today = now().toISOString().slice(0, 10);
     for (const entry of manifest.documents) {
       let chunks: ChunkDraft[];
@@ -191,12 +196,21 @@ export async function buildBundle(
         failures.push({ sourceUri: entry.sourceUri, reason: errorMessage(e) });
         continue;
       }
+      const id = documentId(entry.sourceUri);
+      chunks.forEach((draft, index) => {
+        chunkText.set(`${id}-${index}`, { documentId: id, content: draft.content });
+      });
       documents.push(writeDocument(entry, chunks, documentsDir));
     }
     if (documents.length === 0) {
       const detail = failures.map((failure) => failure.reason).join('; ');
       const message = detail === '' ? 'No document built; nothing to publish' : `No document built; nothing to publish: ${detail}`;
       throw new BundleBuildError(message, failures);
+    }
+    try {
+      assertCitedSteps(cards, chunkText);
+    } catch (e) {
+      throw new BundleBuildError(errorMessage(e), failures, { cause: e });
     }
 
     const bundle: BundleManifest = {
@@ -205,6 +219,18 @@ export async function buildBundle(
       bundleVersion: now().toISOString().replace(/\.\d{3}Z$/, 'Z'),
       signedBy: signingKeyId(createPublicKey(privateKey)),
       documents,
+      cards: cards.map((card) => ({
+        id: card.id,
+        hazard: card.hazard,
+        phase: card.phase,
+        country: card.country,
+        title: card.title,
+        steps: card.steps.map((step) => ({
+          text: step.text,
+          documentId: step.documentId,
+          chunkId: step.chunkId,
+        })),
+      })),
     };
     const bundleBytes = encodeBundleJson(bundle);
     writeFileSync(join(staging, BUNDLE_MANIFEST_FILE), bundleBytes);

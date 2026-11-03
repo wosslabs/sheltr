@@ -86,6 +86,12 @@ With the base URL or the single public key missing (the default), "Sync now" say
 - If the private key is lost, no new bundle can be trusted. Apps keep their last good content.
 - If the private key leaks, anyone can publish content the apps accept until that key is removed from the list. Treat it as a security incident: see `SECURITY.md`, publish nothing, and ship an app update that drops the leaked key.
 
+## Action cards
+
+A card is quoted steps from chunks already in the bundle. The publisher does not write new guidance. Each card is `{ id, hazard, phase, country, title, steps }`. `phase` is `before`, `during`, or `after`. `country` is an ISO 3166-1 alpha-2 code, or null. Each step is `{ text, documentId, chunkId }`.
+
+A step is accepted only when `chunkId` is a chunk in that bundle and `text` is a verbatim substring of the chunk. Anything else is refused and the bundle is not written. There are no production cards in `corpus/cards`. The sample card is the `cards-valid` fixture, and its step quotes the boil-water fixture chunk. `cards-uncited-step` names a chunk that is not in the bundle, which the publisher refuses.
+
 ## Before every publication
 
 1. `corpus/manifest.yaml` changes reviewed: licence, attribution and checksum recorded for every entry.

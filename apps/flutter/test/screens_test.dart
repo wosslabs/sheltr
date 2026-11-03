@@ -445,6 +445,23 @@ void main() {
     expect(find.text('Move to higher ground.'), findsOneWidget);
     expect(find.textContaining('step'), findsNothing);
   });
+
+  testWidgets('cardsValidRendersTheStepAndItsSource', (tester) async {
+    final store = await _openFixture('cards-valid');
+    await _pump(tester, store: store);
+
+    expect(
+      find.text('Boil water for one minute before drinking.'),
+      findsOneWidget,
+    );
+    expect(find.text('Example Agency'), findsOneWidget);
+    expect(find.text('Boil water'), findsWidgets);
+    expect(find.text('Published 2024-03-15'), findsOneWidget);
+    expect(find.text('https://example.org/boil-water.html'), findsOneWidget);
+    expect(find.text('Read answer aloud'), findsOneWidget);
+    expect(find.textContaining('Page'), findsNothing);
+    expect(find.text('Earthquake'), findsNothing);
+  });
 }
 
 const _expiredWarning = 'This document is past its expiry date.';

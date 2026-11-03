@@ -66,6 +66,39 @@ class StoredChunk {
   final int position;
 }
 
+class StoredCard {
+  const StoredCard({
+    required this.id,
+    required this.hazard,
+    required this.phase,
+    required this.country,
+    required this.title,
+    required this.steps,
+  });
+
+  final String id;
+  final String hazard;
+
+  /// `before`, `during`, or `after`.
+  final String phase;
+  final String? country;
+  final String title;
+  final List<StoredCardStep> steps;
+}
+
+class StoredCardStep {
+  const StoredCardStep({
+    required this.text,
+    required this.documentId,
+    required this.chunkId,
+  });
+
+  /// Verbatim substring of the cited chunk.
+  final String text;
+  final String documentId;
+  final String chunkId;
+}
+
 class SearchHit {
   const SearchHit({required this.chunk, required this.score});
 
@@ -196,6 +229,40 @@ class ContentStore {
     return [
       for (final row in rows)
         _document(row, byDocument[row['id'] as String] ?? const []),
+    ];
+  }
+
+  /// Cards in bundle order. Steps of each card stay in their own order.
+  List<StoredCard> cards() {
+    final cardRows = _db.all('SELECT * FROM cards ORDER BY position, id');
+    final stepRows = _db.all(
+      'SELECT * FROM card_steps ORDER BY card_id, position',
+    );
+    final byCard = <String, List<StoredCardStep>>{};
+    for (final row in stepRows) {
+      final id = row['card_id'] as String;
+      byCard
+          .putIfAbsent(id, () => [])
+          .add(
+            StoredCardStep(
+              text: row['text'] as String,
+              documentId: row['document_id'] as String,
+              chunkId: row['chunk_id'] as String,
+            ),
+          );
+    }
+    return [
+      for (final row in cardRows)
+        StoredCard(
+          id: row['id'] as String,
+          hazard: row['hazard'] as String,
+          phase: row['phase'] as String,
+          country: row['country'] as String?,
+          title: row['title'] as String,
+          steps: List<StoredCardStep>.unmodifiable(
+            byCard[row['id'] as String] ?? const [],
+          ),
+        ),
     ];
   }
 
@@ -465,6 +532,24 @@ CREATE TABLE IF NOT EXISTS document_hazards (
   PRIMARY KEY (document_id, hazard)
 );
 
+CREATE TABLE IF NOT EXISTS cards (
+  id TEXT NOT NULL PRIMARY KEY,
+  hazard TEXT NOT NULL,
+  phase TEXT NOT NULL,
+  country TEXT,
+  title TEXT NOT NULL,
+  position INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS card_steps (
+  card_id TEXT NOT NULL REFERENCES cards(id),
+  position INTEGER NOT NULL,
+  text TEXT NOT NULL,
+  document_id TEXT NOT NULL,
+  chunk_id TEXT NOT NULL,
+  PRIMARY KEY (card_id, position)
+);
+
 CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
   chunk_id UNINDEXED,
   content
@@ -494,6 +579,8 @@ CREATE TABLE IF NOT EXISTS settings (
 
 void _clearContent(SqlDatabase database) {
   database.exec('''
+    DELETE FROM card_steps;
+    DELETE FROM cards;
     DELETE FROM chunks;
     DELETE FROM document_hazards;
     DELETE FROM documents;
@@ -544,6 +631,23 @@ void _insertContent(
       );
     }
   }
+  for (var position = 0; position < manifest.cards.length; position++) {
+    final card = manifest.cards[position];
+    database.run(
+      'INSERT INTO cards(id, hazard, phase, country, title, position) '
+      'VALUES (?, ?, ?, ?, ?, ?)',
+      [card.id, card.hazard, card.phase, card.country, card.title, position],
+    );
+    for (var stepIndex = 0; stepIndex < card.steps.length; stepIndex++) {
+      final step = card.steps[stepIndex];
+      database.run(
+        'INSERT INTO card_steps('
+        'card_id, position, text, document_id, chunk_id'
+        ') VALUES (?, ?, ?, ?, ?)',
+        [card.id, stepIndex, step.text, step.documentId, step.chunkId],
+      );
+    }
+  }
   database.run(
     'INSERT INTO schema_version(id, bundle_version, format_version, sequence) VALUES (1, ?, ?, ?)',
     [manifest.bundleVersion, manifest.formatVersion, manifest.sequence],
@@ -564,6 +668,8 @@ void _verifyContent(SqlDatabase database, BundleManifest manifest) {
   final chunks = _count(database, 'chunks');
   final hazards = _count(database, 'document_hazards');
   final indexed = _count(database, 'chunks_fts');
+  final cards = _count(database, 'cards');
+  final cardSteps = _count(database, 'card_steps');
   final expectedDocuments = manifest.documents.length;
   final expectedChunks = manifest.documents.fold<int>(
     0,
@@ -572,6 +678,11 @@ void _verifyContent(SqlDatabase database, BundleManifest manifest) {
   final expectedHazards = manifest.documents.fold<int>(
     0,
     (sum, document) => sum + document.hazards.toSet().length,
+  );
+  final expectedCards = manifest.cards.length;
+  final expectedSteps = manifest.cards.fold<int>(
+    0,
+    (sum, card) => sum + card.steps.length,
   );
   if (documents != expectedDocuments) {
     throw StoreUpdateError(
@@ -591,6 +702,16 @@ void _verifyContent(SqlDatabase database, BundleManifest manifest) {
   if (indexed != chunks) {
     throw StoreUpdateError(
       'keyword index has $indexed rows for $chunks chunks',
+    );
+  }
+  if (cards != expectedCards) {
+    throw StoreUpdateError(
+      'staged $cards cards, manifest lists $expectedCards',
+    );
+  }
+  if (cardSteps != expectedSteps) {
+    throw StoreUpdateError(
+      'staged $cardSteps card steps, manifest lists $expectedSteps',
     );
   }
 }

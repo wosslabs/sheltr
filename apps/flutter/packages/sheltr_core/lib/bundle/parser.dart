@@ -54,7 +54,56 @@ BundleManifest parseBundleManifest(String text) {
     sequence: _integer(root['sequence'], 'sequence'),
     bundleVersion: _string(root['bundleVersion'], 'bundleVersion'),
     documents: List<BundleDocument>.unmodifiable(parsed),
+    cards: List<BundleCard>.unmodifiable(_parseCards(root['cards'])),
   );
+}
+
+const _phases = {'before', 'during', 'after'};
+
+/// Missing `cards` is an empty list so bundles written before cards still parse.
+List<BundleCard> _parseCards(Object? value) {
+  if (value == null) return const [];
+  final cards = _array(value, 'bundle.json cards');
+  final parsed = <BundleCard>[];
+  for (var i = 0; i < cards.length; i++) {
+    final raw = _object(cards[i], 'cards[$i]');
+    final id = _notBlank(_string(raw['id'], 'card id'), 'card id');
+    final phase = _string(raw['phase'], 'card phase');
+    if (!_phases.contains(phase)) {
+      throw BundleFormatError(
+        'Card $id phase must be before, during, or after.',
+      );
+    }
+    final steps = _array(raw['steps'], 'card $id steps');
+    final parsedSteps = <BundleCardStep>[];
+    for (final rawStep in steps) {
+      final step = _object(rawStep, 'step of card $id');
+      parsedSteps.add(
+        BundleCardStep(
+          text: _string(step['text'], 'step text'),
+          documentId: _notBlank(
+            _string(step['documentId'], 'step documentId'),
+            'step documentId in card $id',
+          ),
+          chunkId: _notBlank(
+            _string(step['chunkId'], 'step chunkId'),
+            'step chunkId in card $id',
+          ),
+        ),
+      );
+    }
+    parsed.add(
+      BundleCard(
+        id: id,
+        hazard: _notBlank(_string(raw['hazard'], 'card hazard'), 'card hazard'),
+        phase: phase,
+        country: _nullableString(raw['country'], 'card country'),
+        title: _string(raw['title'], 'card title'),
+        steps: List<BundleCardStep>.unmodifiable(parsedSteps),
+      ),
+    );
+  }
+  return parsed;
 }
 
 BundleDocument _parseBundleDocument(Map<String, dynamic> raw) {

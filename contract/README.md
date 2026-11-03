@@ -38,6 +38,8 @@ When `prior` is `valid-signed`, install that fixture first, then sync the fixtur
 | `expired-document` | A signed bundle whose `expiresOn` is in the past. Expiry is a warning, not a sync failure, so the app installs it. `prior` is `empty` and `result` is `updated`. |
 | `rotated-key-valid` | Signed by the second key in `trusted-keys.json`. The list holds the previous key and that key. `prior` is `empty` and `result` is `updated`. |
 | `revoked-key` | The signature verifies under `public-key.hex`, and `signedBy` is not in `trusted-keys.json`. That key was removed from the compiled list. `result` is `rejectedSignature`. |
+| `cards-valid` | A signed bundle whose `cards` array quotes the boil-water chunk verbatim. `prior` is `empty` and `result` is `updated`. |
+| `cards-uncited-step` | The same documents, re-signed after a step was given a `chunkId` that is not in the bundle. The publisher refuses that step. The documents still install. `prior` is `empty` and `result` is `updated`. |
 
 `rotated-key-valid` and `revoked-key` also contain `trusted-keys.json`: an array of at most two `{ id, publicKeyHex, notAfter }` objects. When that file is present, sync uses it instead of verifying only with `public-key.hex`. A listed key past `notAfter` still installs. The About screen shows `about_key_date_passed`. Answers still show.
 

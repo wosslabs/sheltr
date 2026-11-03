@@ -24,6 +24,8 @@ const FIXTURES = [
   'expired-document',
   'rotated-key-valid',
   'revoked-key',
+  'cards-valid',
+  'cards-uncited-step',
 ] as const;
 
 const EXPECTED: Record<(typeof FIXTURES)[number], { prior: string; result: string; reasonContains: string | null }> = {
@@ -40,6 +42,8 @@ const EXPECTED: Record<(typeof FIXTURES)[number], { prior: string; result: strin
   'expired-document': { prior: 'empty', result: 'updated', reasonContains: null },
   'rotated-key-valid': { prior: 'empty', result: 'updated', reasonContains: null },
   'revoked-key': { prior: 'empty', result: 'rejectedSignature', reasonContains: null },
+  'cards-valid': { prior: 'empty', result: 'updated', reasonContains: null },
+  'cards-uncited-step': { prior: 'empty', result: 'updated', reasonContains: null },
 };
 
 const WORD_ROWS = [
@@ -116,7 +120,10 @@ function readBundle(dir: string): BundleFile {
 }
 
 function documentsDownloaded(name: (typeof FIXTURES)[number], fixturesDir: string): number | null {
-  if (name === 'valid-signed' || name === 'expired-document' || name === 'rotated-key-valid') {
+  if (
+    name === 'valid-signed' || name === 'expired-document' || name === 'rotated-key-valid' ||
+    name === 'cards-valid' || name === 'cards-uncited-step'
+  ) {
     return readBundle(join(fixturesDir, name)).documents.length;
   }
   if (name === 'valid-unchanged-doc') {

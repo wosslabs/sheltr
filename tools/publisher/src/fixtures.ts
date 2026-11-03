@@ -3,7 +3,8 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } f
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { buildBundle, type BundleManifest } from './bundle.ts';
+import { assertCitedSteps, type ActionCard } from './cards.ts';
+import { buildBundle, documentId, encodeBundleJson, type BundleManifest } from './bundle.ts';
 import { rawContent, type ConnectorMap } from './connector.ts';
 import { parseManifest } from './manifest.ts';
 import { hostAllowlistPolicy } from './policy.ts';
@@ -174,6 +175,7 @@ async function writeFixtureBundles(fixturesDir: string, now: () => Date): Promis
     });
 
     await generateKeyRotationFixtures(fixturesDir, now);
+    await generateCardFixtures(fixturesDir, now);
   } finally {
     rmSync(keyDir, { recursive: true, force: true });
   }
@@ -190,6 +192,7 @@ async function buildSample(
   now: () => Date,
   documents: readonly SampleDocument[],
   previousBundlePath: string | null = null,
+  cards: readonly ActionCard[] = [],
 ): Promise<BundleManifest> {
   const bytes = new Map(documents.map((doc) => [doc.uri, new TextEncoder().encode(doc.text)]));
   const yaml = [
@@ -224,6 +227,7 @@ async function buildSample(
     keyPath,
     now,
     previousBundlePath,
+    cards,
   );
   return result.manifest;
 }
@@ -322,6 +326,95 @@ export async function generateKeyRotationFixtures(fixturesDir: string, now: () =
   }
 }
 
+/**
+ * Writes only cards-valid and cards-uncited-step. Other fixture directories are left as they are.
+ * The private key stays in a temp directory and is deleted before this returns.
+ * cards-valid quotes the boil-water fixture chunk. cards-uncited-step names a chunk that is not in the bundle.
+ */
+export async function generateCardFixtures(fixturesDir: string, now: () => Date): Promise<void> {
+  const keyDir = mkdtempSync(join(tmpdir(), 'sheltr-fixture-key-'));
+  const keyPath = join(keyDir, 'key.pem');
+  const { privateKey, publicKey } = generateKeyPair();
+  writeFileSync(keyPath, privateKey.export({ format: 'pem', type: 'pkcs8' }));
+  const publicHex = rawPublicKeyHex(publicKey);
+  const boilId = documentId(BOIL.uri);
+  const quoted: ActionCard = {
+    id: 'flood-before',
+    hazard: 'FLOOD',
+    phase: 'before',
+    country: 'NO',
+    title: 'Boil water',
+    steps: [{
+      text: BOIL.text,
+      documentId: boilId,
+      chunkId: `${boilId}-0`,
+    }],
+  };
+  const uncited: ActionCard = {
+    id: 'flood-before',
+    hazard: 'FLOOD',
+    phase: 'before',
+    country: 'NO',
+    title: 'Boil water',
+    steps: [{
+      text: BOIL.text,
+      documentId: boilId,
+      chunkId: 'not-in-the-bundle',
+    }],
+  };
+  try {
+    const validDir = join(fixturesDir, 'cards-valid');
+    rmSync(validDir, { recursive: true, force: true });
+    const valid = await buildSample(validDir, keyPath, now, [BOIL, EVACUATE], null, [quoted]);
+    finish(validDir, publicHex, {
+      prior: 'empty',
+      result: 'updated',
+      reasonContains: null,
+      documentsDownloaded: valid.documents.length,
+    });
+
+    const uncitedDir = join(fixturesDir, 'cards-uncited-step');
+    rmSync(uncitedDir, { recursive: true, force: true });
+    const built = await buildSample(uncitedDir, keyPath, now, [BOIL, EVACUATE]);
+    let refused = false;
+    try {
+      assertCitedSteps([uncited], chunkIndex(uncitedDir));
+    } catch (e) {
+      if (!(e instanceof Error) || !e.message.includes('no citation')) throw e;
+      refused = true;
+    }
+    if (!refused) throw new Error('cards-uncited-step was accepted');
+    const manifestPath = join(uncitedDir, 'bundle.json');
+    const parsed = JSON.parse(readFileSync(manifestPath, 'utf8')) as BundleManifest;
+    parsed.cards = [uncited];
+    const bundleBytes = encodeBundleJson(parsed);
+    writeFileSync(manifestPath, bundleBytes);
+    writeFileSync(join(uncitedDir, 'bundle.json.sig'), sign(privateKey, bundleBytes));
+    finish(uncitedDir, publicHex, {
+      prior: 'empty',
+      result: 'updated',
+      reasonContains: null,
+      documentsDownloaded: built.documents.length,
+    });
+  } finally {
+    rmSync(keyDir, { recursive: true, force: true });
+  }
+}
+
+function chunkIndex(dir: string): Map<string, { documentId: string; content: string }> {
+  const manifest = readManifest(dir);
+  const chunks = new Map<string, { documentId: string; content: string }>();
+  for (const doc of manifest.documents) {
+    const file = JSON.parse(readFileSync(join(dir, 'documents', `${doc.id}.json`), 'utf8')) as {
+      chunks: { id: string; content: string }[];
+    };
+    for (const chunk of file.chunks) {
+      chunks.set(chunk.id, { documentId: doc.id, content: chunk.content });
+    }
+  }
+  return chunks;
+}
+
 function writeTrustedKeys(dir: string, keys: readonly TrustedKeyRecord[]): void {
   writeFileSync(join(dir, 'trusted-keys.json'), `${JSON.stringify(keys, null, 2)}\n`);
 }
@@ -380,6 +473,7 @@ JSON is UTF-8 with four-space indentation, explicit nulls, and no trailing newli
 - \`bundleVersion\` (string): UTC build time, ISO-8601 to the second, for example \`2026-10-05T12:00:00Z\`.
 - \`signedBy\` (string): lower-case hex SHA-256 of the raw 32-byte Ed25519 public key that signed this file. The app accepts the bundle when this id names a key on its compiled list of at most two keys and the signature verifies under that key. An unknown id is rejected. Old bundles without this field still verify under the single compiled public key.
 - \`documents\` (array): one entry per document.
+- \`cards\` (array): quoted action cards. Each card is \`{ id, hazard, phase, country, title, steps }\`. \`phase\` is \`before\`, \`during\`, or \`after\`. Each step is \`{ text, documentId, chunkId }\`. A step is included only when \`chunkId\` is a chunk in the bundle and \`text\` is a verbatim substring of that chunk. Empty when the bundle has no cards. Old bundles without this field have no cards.
 - \`model\` (object, optional): omitted when the bundle has no model file. The publisher does not write it until a model is part of the publication. When present:
   - \`file\` (string): bundle-relative path of the model file.
   - \`sha256\` (string): lower-case hex SHA-256 of that file.
@@ -427,6 +521,9 @@ if (isDirectRun) {
     if (process.argv[2] === '--key-rotation') {
       const fixturesDir = fileURLToPath(new URL('../../../contract/fixtures', import.meta.url));
       await generateKeyRotationFixtures(fixturesDir, fixtureNow);
+    } else if (process.argv[2] === '--cards') {
+      const fixturesDir = fileURLToPath(new URL('../../../contract/fixtures', import.meta.url));
+      await generateCardFixtures(fixturesDir, fixtureNow);
     } else {
       const outDir = process.argv[2] === undefined
         ? fileURLToPath(new URL('../../../contract', import.meta.url))
