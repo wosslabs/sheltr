@@ -21,15 +21,15 @@ Built:
   - `packages/sheltr_core` has no Flutter imports: bundle parsing, signature verification, SQLite store with FTS5 and atomic replace, keyword retrieval with country and hazard boosts, citation selection and refusal, sync engine with retry policy, settings, and the passage rewriter.
   - Home, Search, Answer, Settings and About screens (with the privacy statement and the source licences), in English, Spanish and French, with text-size and high-contrast options and read-aloud.
   - `AppSettings.modelEnabled` stays false. See `docs/model-eval.md`.
-- **Sample bundle** (`corpus/sample-bundle`): the two approved documents, used by the Flutter tests. The app does not fetch it.
-- **Corpus**: two approved entries in `corpus/manifest.yaml`.
+- **Sample bundle** (`corpus/sample-bundle`): the five manifest documents, rebuilt 2026-11-03, used by the Flutter tests. The app does not fetch it.
+- **Corpus**: five entries in `corpus/manifest.yaml`, reviewed 2026-11-03. Four are Be Ready pages. One is the IFRC 2018 key-messages PDF.
 
 Not done:
 
-- **Bundle hosting and the first published bundle**: the guide is in `docs/publishing.md`, but nothing is hosted, and both approved corpus entries currently fail to fetch (the UK site moved, the IFRC mirror answers 403). They need a maintainer to re-approve the sources.
+- **Bundle hosting and the first published bundle**: the guide is in `docs/publishing.md`. Nothing is hosted, and the app's key list is empty. The manifest entries were re-checked on 2026-11-03 so a publish can fetch them.
 - **Phone runs**: search, and a forced stale bundle, on one Android phone and one iPhone. Those runs are on `docs/release-checklist.md`. They are not done. Chrome covered the same two checks on 2026-11-03 and is the stand-in until the phones. iOS background refresh is checked on the iPhone run and may be late.
 - **On-device model**: the procedure is `docs/model-eval.md`. No device run is recorded, and `AppSettings.modelEnabled` stays false. Turning the flag on is a separate commit after that file shows a pass on both phones.
-- **Corpus beyond two documents**: needs sources with a licence that allows storing and quoting them.
+- **Corpus beyond the manifest**: New Zealand Get Ready, the Queensland severe-weather guide, Ready.gov, and the Canadian preparedness guide are cleared in `THIRD_PARTY_CONTENT.md` and are not in the manifest. Ready.gov and Canada.ca are quote-only.
 - **Store listings**: drafts are in `docs/store`; accounts, screenshots, and the data-safety answers on `docs/release-checklist.md` are the maintainer's.
 
 Search is evaluated on the sample bundle: 0 of 20 off-topic questions answered, 29 of 31 answerable questions answered (`docs/evaluation.md`).

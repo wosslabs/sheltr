@@ -265,7 +265,8 @@ void main() {
     expect(fake.installedType, ModelType.gemmaIt);
     expect(fake.installedFileType, ModelFileType.litertlm);
     expect(fake.installedPath, '/verified/model.litertlm');
-    expect(fake.maxTokens, 256);
+    expect(fake.maxTokens, 2048);
+    expect(fake.maxOutputTokens, 256);
     expect(fake.backend, PreferredBackend.cpu);
     expect(fake.systemInstruction, _instruction);
     expect(fake.enableThinking, isFalse);
@@ -314,7 +315,8 @@ void main() {
     expect(adapter, contains('inferenceEngines: const [LiteRtLmEngine()]'));
     expect(adapter, contains('fileType: ModelFileType.litertlm'));
     expect(adapter, contains('.fromFile('));
-    expect(adapter, contains('maxTokens: 256'));
+    expect(adapter, contains('maxTokens: 2048'));
+    expect(adapter, contains('maxOutputTokens: 256'));
     expect(adapter, contains('preferredBackend: PreferredBackend.cpu'));
     expect(adapter, contains('enableThinking: false'));
     expect(adapter, contains('finally'));
@@ -491,6 +493,7 @@ class _FakeEngine implements LitertEngine {
   ModelFileType? installedFileType;
   String? installedPath;
   int? maxTokens;
+  int? maxOutputTokens;
   PreferredBackend? backend;
   String? systemInstruction;
   bool? enableThinking;
@@ -542,11 +545,13 @@ class _FakeLoaded implements LitertLoadedModel {
     List<Object?>? tools,
     bool? images,
     bool? audio,
+    int? maxOutputTokens,
   }) async {
     engine.systemInstruction = systemInstruction;
     engine.enableThinking = enableThinking;
     engine.tools = tools;
     engine.images = images;
+    engine.maxOutputTokens = maxOutputTokens;
     engine.audio = audio;
     engine.sessionOpened = true;
     return _FakeSession(engine);

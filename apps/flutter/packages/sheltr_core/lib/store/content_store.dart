@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:cryptography/dart.dart';
 import 'package:sqlite3/common.dart';
@@ -115,6 +117,51 @@ class SearchHit {
 
   /// FTS5 bm25 score. Lower is a better match.
   final double score;
+}
+
+/// One chunk whose embedding cleared the cosine floor. Higher [score] is closer.
+class VectorHit {
+  const VectorHit({required this.chunkId, required this.score});
+
+  final String chunkId;
+  final double score;
+}
+
+/// Little-endian float32 bytes. The vector table stores these blobs.
+Uint8List packFloat32(List<double> values) {
+  final bytes = Uint8List(values.length * 4);
+  final data = ByteData.sublistView(bytes);
+  for (var i = 0; i < values.length; i++) {
+    data.setFloat32(i * 4, values[i], Endian.little);
+  }
+  return bytes;
+}
+
+List<double> unpackFloat32(Uint8List bytes) {
+  final data = ByteData.sublistView(bytes);
+  return [
+    for (var i = 0; i < bytes.length; i += 4)
+      data.getFloat32(i, Endian.little),
+  ];
+}
+
+/// Cosine similarity in \[-1, 1\]. A zero-length vector scores 0.
+double cosineSimilarity(List<double> left, List<double> right) {
+  if (left.length != right.length || left.isEmpty) {
+    return 0;
+  }
+  var dot = 0.0;
+  var leftNorm = 0.0;
+  var rightNorm = 0.0;
+  for (var i = 0; i < left.length; i++) {
+    dot += left[i] * right[i];
+    leftNorm += left[i] * left[i];
+    rightNorm += right[i] * right[i];
+  }
+  if (leftNorm == 0 || rightNorm == 0) {
+    return 0;
+  }
+  return dot / (sqrt(leftNorm) * sqrt(rightNorm));
 }
 
 /// Opens the databases [ContentStore] reads and stages.
@@ -293,6 +340,19 @@ class ContentStore {
     return [for (final row in rows) _chunk(row)];
   }
 
+  /// Every stored chunk, in document and position order.
+  List<StoredChunk> allChunks() {
+    final rows = _db.all(
+      'SELECT * FROM chunks ORDER BY document_id, position',
+    );
+    return [for (final row in rows) _chunk(row)];
+  }
+
+  int vectorCount() {
+    final rows = _db.all('SELECT count(*) AS n FROM chunk_vectors');
+    return rows.first['n'] as int;
+  }
+
   /// Keyword search. [query] is split into words and each word is quoted, so
   /// FTS5 operators in the user's text are never executed. An empty word list
   /// returns no rows. [limit] must be positive.
@@ -320,6 +380,90 @@ class ContentStore {
       for (final row in rows)
         SearchHit(chunk: _chunk(row), score: (row['score'] as num).toDouble()),
     ];
+  }
+
+  /// Replaces the vector index in one transaction.
+  ///
+  /// A crash before commit leaves the previous vectors. An empty map, a
+  /// zero-length vector, or mixed dimensions is rejected before the delete.
+  /// A new bundle install builds a fresh database, so these rows do not
+  /// survive into the next corpus.
+  void replaceVectors(Map<String, List<double>> vectors) {
+    if (vectors.isEmpty) {
+      throw ArgumentError('vectors must not be empty');
+    }
+    final dimension = vectors.values.first.length;
+    if (dimension <= 0) {
+      throw ArgumentError('vector dimension must be positive');
+    }
+    for (final vector in vectors.values) {
+      if (vector.length != dimension) {
+        throw ArgumentError('vector dimensions differ');
+      }
+    }
+    _db.exec('BEGIN IMMEDIATE');
+    try {
+      _db.exec('DELETE FROM chunk_vectors');
+      for (final entry in vectors.entries) {
+        _db.run(
+          'INSERT INTO chunk_vectors(chunk_id, dim, vector) VALUES (?, ?, ?)',
+          [entry.key, dimension, packFloat32(entry.value)],
+        );
+      }
+      _db.exec('COMMIT');
+    } catch (error) {
+      try {
+        _db.exec('ROLLBACK');
+      } on Object {
+        // Keep the original failure.
+      }
+      rethrow;
+    }
+  }
+
+  /// Chunks whose embedding is at least [minScore] similar to [query].
+  ///
+  /// Rows with a different dimension are skipped. [limit] must be positive.
+  List<VectorHit> searchVectors(
+    List<double> query, {
+    int limit = 8,
+    double minScore = 0,
+  }) {
+    if (limit <= 0) {
+      throw RangeError('limit must be positive');
+    }
+    if (query.isEmpty) {
+      return const [];
+    }
+    final rows = _db.all('SELECT chunk_id, dim, vector FROM chunk_vectors');
+    final hits = <VectorHit>[];
+    for (final row in rows) {
+      if (row['dim'] != query.length) {
+        continue;
+      }
+      final raw = row['vector'];
+      if (raw is! Uint8List || raw.lengthInBytes != query.length * 4) {
+        continue;
+      }
+      final score = cosineSimilarity(query, unpackFloat32(raw));
+      if (score < minScore) {
+        continue;
+      }
+      hits.add(VectorHit(chunkId: row['chunk_id'] as String, score: score));
+    }
+    hits.sort((a, b) => b.score.compareTo(a.score));
+    if (hits.length <= limit) {
+      return hits;
+    }
+    return hits.sublist(0, limit);
+  }
+
+  StoredChunk? chunkById(String id) {
+    final rows = _db.all('SELECT * FROM chunks WHERE id = ?', [id]);
+    if (rows.isEmpty) {
+      return null;
+    }
+    return _chunk(rows.first);
   }
 
   int? lastSyncEpochSeconds() {
@@ -750,6 +894,12 @@ CREATE TRIGGER IF NOT EXISTS chunks_fts_delete AFTER DELETE ON chunks BEGIN
   DELETE FROM chunks_fts WHERE chunk_id = old.id;
 END;
 
+CREATE TABLE IF NOT EXISTS chunk_vectors (
+  chunk_id TEXT NOT NULL PRIMARY KEY,
+  dim INTEGER NOT NULL,
+  vector BLOB NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS schema_version (
   id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
   bundle_version TEXT NOT NULL,
@@ -769,6 +919,7 @@ void _clearContent(SqlDatabase database) {
     DELETE FROM card_steps;
     DELETE FROM cards;
     DELETE FROM chunks;
+    DELETE FROM chunk_vectors;
     DELETE FROM document_hazards;
     DELETE FROM documents;
     DELETE FROM schema_version;

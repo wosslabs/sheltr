@@ -22,35 +22,72 @@
 #     related_hazard: LANDSLIDE
 #     source_uri: a document above that states the relationship
 #     note: where in the document it is stated
+#
+# corpus/sample-bundle was rebuilt from this file on 2026-11-03. The signing key for that
+# sample was generated outside the repository and was not kept. Reviewed 2026-11-03.
 documents:
-  # published_date: 2024-02-02 is the datePublished in the page's schema.org metadata (the visible page
-  # shows no date; dateModified there is 2025-09-05). Checksum: SHA-256 of the main text extracted by
-  # HtmlPageConnector on 2026-10-05 (2375 bytes). Approved as the first government guide.
-  - source_uri: https://prepare.campaign.gov.uk/
+  # published_date is the page's schema.org datePublished. Checksum: SHA-256 of the main text extracted
+  # on 2026-11-03. This replaces https://prepare.campaign.gov.uk/, which now redirects here.
+  - source_uri: https://beready.campaign.gov.uk/be-ready-for-emergencies/
     source_type: html
-    title: Prepare
-    source_agency: UK Government (GOV.UK campaign site)
-    hazards: [FLOOD, WILDFIRE, WINTER_STORM]
+    title: Be ready for emergencies
+    source_agency: UK Government (Cabinet Office)
+    hazards: [FLOOD, WINTER_STORM]
     country: GB
-    published_date: 2024-02-02
-    reviewed_on: 2026-10-05
-    expires_on: 2027-11-02
+    published_date: 2026-09-09
+    reviewed_on: 2026-11-03
+    expires_on: 2027-11-03
     reviewed_by: corpus maintainer
-    license: Open Government Licence v3.0 (https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/)
-    checksum: 26cddb02185cc4ac98ddf7730cbe62ed603431d33d5d7629742e4b0fa8a0a506
-  # The URL is a regional mirror (rcrc-resilience-southeastasia.org) of the IFRC guide. The canonical
-  # ifrc.org copy was not verified. Checksum: SHA-256 of the PDF file (edition 01/2013), verified 2026-10-05.
-  - source_uri: https://www.rcrc-resilience-southeastasia.org/wp-content/uploads/2016/09/IFRC_Key-Messages-Short-Version_Public-Awareness-Public-Education-for-DRR-2013.pdf
+    license: Open Government Licence v3.0 (https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/). The page footer states that all content is available under the OGL v3.0, except where otherwise stated. Contains public sector information licensed under the Open Government Licence v3.0.
+    checksum: 1d141515c7d1961f415502444c28cb745db87336d604f99cb46f9d962f795053
+  - source_uri: https://beready.campaign.gov.uk/be-informed-about-hazards/flooding/
+    source_type: html
+    title: Flooding
+    source_agency: UK Government (Cabinet Office)
+    hazards: [FLOOD]
+    country: GB
+    published_date: 2024-03-20
+    reviewed_on: 2026-11-03
+    expires_on: 2027-11-03
+    reviewed_by: corpus maintainer
+    license: Open Government Licence v3.0 (https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/). The page footer states that all content is available under the OGL v3.0, except where otherwise stated. Contains public sector information licensed under the Open Government Licence v3.0.
+    checksum: 75ee4405f9ec621f3e8aad41b59a356003689bb3295ef56ef5961c6cf66251a1
+  - source_uri: https://beready.campaign.gov.uk/be-informed-about-hazards/wildfires/
+    source_type: html
+    title: Wildfires
+    source_agency: UK Government (Cabinet Office)
+    hazards: [WILDFIRE]
+    country: GB
+    published_date: 2024-03-20
+    reviewed_on: 2026-11-03
+    expires_on: 2027-11-03
+    reviewed_by: corpus maintainer
+    license: Open Government Licence v3.0 (https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/). The page footer states that all content is available under the OGL v3.0, except where otherwise stated. Contains public sector information licensed under the Open Government Licence v3.0.
+    checksum: 53fa599f64a442776ead805c0445d64c4030bbd8f7eadb6a571233f9b9d45c0d
+  - source_uri: https://beready.campaign.gov.uk/be-informed-about-hazards/cold-weather-snow-ice/
+    source_type: html
+    title: Cold weather, snow and ice
+    source_agency: UK Government (Cabinet Office)
+    hazards: [WINTER_STORM]
+    country: GB
+    published_date: 2024-03-12
+    reviewed_on: 2026-11-03
+    expires_on: 2027-11-03
+    reviewed_by: corpus maintainer
+    license: Open Government Licence v3.0 (https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/). The page footer states that all content is available under the OGL v3.0, except where otherwise stated. Contains public sector information licensed under the Open Government Licence v3.0.
+    checksum: a379cd1a3025decd973945eae458e835b00e79d0cc8d5daf2dcb6c84c727039c
+  # Checksum: SHA-256 of the PDF bytes, downloaded 2026-11-03. This is the second edition, not the 2013 short guide.
+  - source_uri: https://www.ifrc.org/sites/default/files/PAPE-2.0-English.pdf
     source_type: pdf
-    title: "Public awareness and public education for disaster risk reduction: key messages (Short version)"
-    source_agency: International Federation of Red Cross and Red Crescent Societies (IFRC)
-    hazards: [EARTHQUAKE, FLOOD, TROPICAL_CYCLONE, DROUGHT, WILDFIRE]
+    title: "Public awareness and public education for disaster risk reduction: Action-oriented key messages for households and schools (Second edition)"
+    source_agency: International Federation of Red Cross and Red Crescent Societies (IFRC) and Save the Children
+    hazards: [EARTHQUAKE, FLOOD, TROPICAL_CYCLONE, TSUNAMI, WILDFIRE, EXTREME_HEAT, WINTER_STORM, LANDSLIDE, VOLCANO, DROUGHT]
     country: GLOBAL
-    published_date: 2013-01-01
-    reviewed_on: 2026-10-05
-    expires_on: 2027-11-02
+    published_date: 2018-10-11
+    reviewed_on: 2026-11-03
+    expires_on: 2027-11-03
     reviewed_by: corpus maintainer
-    license: "Copies of all or part of this guide may be made for noncommercial use, providing the source is acknowledged. The IFRC would appreciate receiving details of its use. Requests for commercial reproduction should be directed to the IFRC at secretariat@ifrc.org (quoted from page 1 of the guide)."
-    checksum: 3a45f812c779a276df89b07b72caf4ed4373871595d13095709caa194df3d4be
+    license: "Copies of all or part of this study may be made for noncommercial use, providing the source is acknowledged. Requests for commercial reproduction should be directed to the IFRC at secretariat@ifrc.org (quoted from the last page of the 2018 second edition). Photographs remain IFRC copyright unless a photo says otherwise."
+    checksum: 8b90348da213787dbefeaf328944fd9448700c482ac42ed3b742e9d373e25a1f
 
 related_hazards: []

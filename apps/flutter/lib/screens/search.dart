@@ -49,51 +49,70 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final scope = SheltrScope.of(context);
+    final theme = Theme.of(context);
     final hazard = _hazard;
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        if (hazard != null) ...[
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton(
-              onPressed: () => setState(() => _hazard = null),
-              child: Text(
-                scope.t('search_hazard_chip', {
-                  'p1': scope.t('hazard_${hazard.toLowerCase()}'),
-                }),
+    return SheltrPageBackground(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        children: [
+          const CountryLine(),
+          const SizedBox(height: 16),
+          if (hazard != null) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: InputChip(
+                avatar: const Icon(Icons.filter_alt, size: 18),
+                label: Text(
+                  scope.t('search_hazard_chip', {
+                    'p1': scope.t('hazard_${hazard.toLowerCase()}'),
+                  }),
+                ),
+                onDeleted: () => setState(() => _hazard = null),
+                deleteButtonTooltipMessage: scope.t(
+                  'search_active_hazard_chip_description',
+                ),
               ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          Semantics(
+            header: true,
+            child: Text(
+              scope.t('search_title'),
+              style: theme.textTheme.headlineSmall,
             ),
           ),
           const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: SheltrTextField(
+                  label: scope.t('search_placeholder'),
+                  controller: _controller,
+                  onChanged: (_) => setState(() {}),
+                  onSubmitted: (_) => _submit(),
+                ),
+              ),
+              if (_controller.text.isNotEmpty)
+                SheltrIconButton(
+                  label: scope.t('search_clear_description'),
+                  icon: Icons.close,
+                  onPressed: () {
+                    _controller.clear();
+                    setState(() {});
+                  },
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: _canSubmit ? _submit : null,
+            icon: const Icon(Icons.search),
+            label: Text(scope.t('search_submit_description')),
+          ),
         ],
-        Row(
-          children: [
-            Expanded(
-              child: SheltrTextField(
-                label: scope.t('search_placeholder'),
-                controller: _controller,
-                onChanged: (_) => setState(() {}),
-                onSubmitted: (_) => _submit(),
-              ),
-            ),
-            if (_controller.text.isNotEmpty)
-              SheltrIconButton(
-                label: scope.t('search_clear_description'),
-                icon: Icons.close,
-                onPressed: () {
-                  _controller.clear();
-                  setState(() {});
-                },
-              ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        FilledButton(
-          onPressed: _canSubmit ? _submit : null,
-          child: Text(scope.t('search_submit_description')),
-        ),
-      ],
+      ),
     );
   }
 }

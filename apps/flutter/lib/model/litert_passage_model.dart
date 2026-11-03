@@ -46,6 +46,7 @@ abstract class LitertLoadedModel {
     List<Object?>? tools,
     bool? images,
     bool? audio,
+    int? maxOutputTokens,
   });
 
   Future<void> close();
@@ -88,7 +89,7 @@ class LitertPassageModel implements PassageModel {
       path: verifiedPath,
     );
     final loaded = await _engine.openModel(
-      maxTokens: 256,
+      maxTokens: 2048,
       backend: PreferredBackend.cpu,
     );
     LitertSession? session;
@@ -98,6 +99,7 @@ class LitertPassageModel implements PassageModel {
         enableThinking: false,
         images: false,
         audio: false,
+        maxOutputTokens: 256,
       );
       await session.addUserText(_prompt(question, passages), isUser: true);
       return await session.response();
@@ -166,6 +168,7 @@ class _EdgeLoadedModel implements LitertLoadedModel {
     List<Object?>? tools,
     bool? images,
     bool? audio,
+    int? maxOutputTokens,
   }) async {
     if (tools != null || images == true || audio == true) {
       throw StateError('The passage model takes no tools, images, or audio.');
@@ -175,6 +178,7 @@ class _EdgeLoadedModel implements LitertLoadedModel {
       enableThinking: enableThinking,
       enableVisionModality: false,
       enableAudioModality: false,
+      maxOutputTokens: maxOutputTokens,
     );
     return _EdgeSession(session);
   }

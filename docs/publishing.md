@@ -84,11 +84,11 @@ A step is accepted only when `chunkId` is a chunk in that bundle and `text` is a
 2. Publisher tests pass, `dart test` passes in `apps/flutter/packages/sheltr_core`, `flutter test` passes in `apps/flutter`, and `node contract/check-coverage.mjs` passes. The retrieval evaluation (`docs/evaluation.md`) is extended with questions for any new document.
 3. `THIRD_PARTY_CONTENT.md` updated for new sources.
 
-## Known blockers (checked 2026-11-02)
+## Corpus fetch (checked 2026-11-03)
 
-The first real publish run failed for both approved entries. The publisher refused correctly; the manifest needs a maintainer decision before a bundle can be published:
+The 2026-10-05 entries could not be fetched again. The manifest now points at pages and a file that were read on 2026-11-03:
 
-- **"Prepare" (UK Government).** `https://prepare.campaign.gov.uk/` now redirects to `https://beready.campaign.gov.uk/`. The publisher only follows hosts named in the manifest, so it stops. Fixing it means pointing the entry at the new URL, reading the new page, and approving its new checksum. The content may have changed.
-- **IFRC key messages (2013, short version).** The regional mirror in the manifest now answers HTTP 403 (bot protection). The canonical `ifrc.org` copy of this exact edition was not verified, and the file must match the approved checksum byte for byte. A different edition (for example the 2018 second edition) is a different document and needs its own approval and licence check.
+- **UK Government.** `https://prepare.campaign.gov.uk/` redirects to `https://beready.campaign.gov.uk/`. The homepage is a short introduction, so it is not the approved document. The manifest lists four pages whose extracted text was read: Be ready for emergencies, Flooding, Wildfires, and Cold weather, snow and ice. Each footer offers the text under the Open Government Licence v3.0, except where a page says otherwise. The checksum is the SHA-256 of that extracted text.
+- **IFRC.** The 2013 short guide's regional mirror answers HTTP 403, and no file with the old checksum was found. That guide stays in `corpus/sample-bundle` and is not in the manifest, because a manifest entry that cannot be fetched fails the whole publish. The 2018 second edition, `https://www.ifrc.org/sites/default/files/PAPE-2.0-English.pdf`, is a different document. Its last page allows noncommercial copies with attribution. The checksum is the SHA-256 of the PDF bytes.
 
-Until both are resolved, no bundle can be published. The Flutter app has an empty `compiledTrustedKeys` list and does not fetch. Tests read the offline sample in `corpus/sample-bundle`.
+`corpus/sample-bundle` was rebuilt from this manifest on 2026-11-03. Its signing key was created outside the repository and was not kept. Tests search that sample. The app's compiled key list is empty, so the app does not fetch a published bundle.

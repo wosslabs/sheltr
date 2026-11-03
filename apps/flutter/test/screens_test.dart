@@ -198,7 +198,8 @@ void main() {
     expect(find.text('Flood Guide'), findsOneWidget);
     expect(find.text('Published 2024-01-15'), findsOneWidget);
     expect(find.text('Page 4'), findsOneWidget);
-    expect(find.text('https://example.gov/flood'), findsOneWidget);
+    expect(find.text('Original document listed in About'), findsOneWidget);
+    expect(find.text('https://example.gov/flood'), findsNothing);
     expect(find.text('Move to higher ground.'), findsOneWidget);
     expect(find.byType(TextButton), findsNothing);
     expect(find.byType(SelectionArea), findsOneWidget);
@@ -256,12 +257,12 @@ void main() {
     await tester.enterText(find.byType(TextField), 'earthquake');
     await tester.testTextInput.receiveAction(TextInputAction.search);
     await tester.pumpAndSettle();
-    expect(find.text('Search'), findsWidgets);
+    expect(find.text("We can't answer that yet"), findsOneWidget);
 
     expect(await tester.binding.handlePopRoute(), isTrue);
     await tester.pumpAndSettle();
     expect(find.text('Prepare for a disaster'), findsOneWidget);
-    expect(find.text('Search'), findsNothing);
+    expect(find.text("We can't answer that yet"), findsNothing);
   });
 
   testWidgets('switchTogglesOnce', (tester) async {
@@ -286,8 +287,8 @@ void main() {
     await _search(tester, 'what should I do during an earthquake');
 
     expect(find.text("We can't answer that yet"), findsNothing);
-    await tester.scrollUntilVisible(_textFolded('cover your head'), 400);
-    expect(_textFolded('cover your head'), findsWidgets);
+    await tester.scrollUntilVisible(_textFolded('drop, cover and hold'), 400);
+    expect(_textFolded('drop, cover and hold'), findsWidgets);
     expect(
       find.textContaining('International Federation of Red Cross'),
       findsWidgets,
@@ -458,7 +459,8 @@ void main() {
     expect(find.text('Example Agency'), findsOneWidget);
     expect(find.text('Boil water'), findsWidgets);
     expect(find.text('Published 2024-03-15'), findsOneWidget);
-    expect(find.text('https://example.org/boil-water.html'), findsOneWidget);
+    expect(find.text('Original document listed in About'), findsOneWidget);
+    expect(find.text('https://example.org/boil-water.html'), findsNothing);
     expect(find.text('Read answer aloud'), findsOneWidget);
     expect(find.textContaining('Page'), findsNothing);
     expect(find.text('Earthquake'), findsOneWidget);

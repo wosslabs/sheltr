@@ -2,6 +2,11 @@ import '../store/content_store.dart';
 import 'rules.dart';
 import 'stopwords.dart';
 
+/// Cosine floor for EmbeddingGemma retrieval vectors.
+///
+/// A hit below this is a refusal. Country and hazard boosts do not change it.
+const double vectorRelevanceFloor = 0.55;
+
 /// The user's words. FTS5 syntax in [text] is not interpreted.
 class RetrievalQuery {
   const RetrievalQuery({
@@ -81,8 +86,8 @@ class Retriever {
   final double _threshold;
 
   RetrievalResult retrieve(RetrievalQuery query) {
-    final passages = _rank(query);
-    if (_isAnswerable(passages, query.text)) {
+    final passages = _forCountry(_rank(query), query);
+    if (passages != null) {
       return RetrievalResult.passages(passages);
     }
     // One retry with a single typo fixed, for example "eartquake".
@@ -90,7 +95,15 @@ class Retriever {
     if (corrected == query.text) {
       return const RetrievalResult.refuse();
     }
-    final correctedPassages = _rank(
+    final correctedPassages = _forCountry(
+      _rank(
+        RetrievalQuery(
+          text: corrected,
+          country: query.country,
+          activeHazards: query.activeHazards,
+          limit: query.limit,
+        ),
+      ),
       RetrievalQuery(
         text: corrected,
         country: query.country,
@@ -98,10 +111,142 @@ class Retriever {
         limit: query.limit,
       ),
     );
-    if (_isAnswerable(correctedPassages, corrected)) {
+    if (correctedPassages != null) {
       return RetrievalResult.passages(correctedPassages);
     }
     return const RetrievalResult.refuse();
+  }
+
+  /// Passages for [query.country], or global guidance when that country has none.
+  ///
+  /// A document from a different country is left out. A null country keeps the
+  /// ranked list, which is how the tests search the whole sample.
+  List<Passage>? _forCountry(List<Passage> passages, RetrievalQuery query) {
+    final country = query.country;
+    final question = query.text;
+    if (country == null) {
+      if (!_isAnswerable(passages, question)) {
+        return null;
+      }
+      return passages;
+    }
+    final limit = query.limit ?? 5;
+    final local = [
+      for (final passage in passages)
+        if (passage.document.country == country) passage,
+    ];
+    if (local.isNotEmpty && _isAnswerable(local, question)) {
+      return _cap(local, limit);
+    }
+    final global = [
+      for (final passage in passages)
+        if (passage.document.country == null) passage,
+    ];
+    if (_isAnswerable(global, question)) {
+      return _cap(global, limit);
+    }
+    return null;
+  }
+
+  List<Passage> _cap(List<Passage> passages, int limit) {
+    if (passages.length <= limit) {
+      return passages;
+    }
+    return passages.sublist(0, limit);
+  }
+
+  /// Vector retrieval. [query] is the embedding of [question.text].
+  ///
+  /// The gate is [minScore], default [vectorRelevanceFloor]. Keyword coverage
+  /// is not applied. A boost only reorders passages that already cleared the floor.
+  RetrievalResult retrieveByVector(
+    List<double> query,
+    RetrievalQuery question, {
+    double? minScore,
+  }) {
+    final limit = question.limit ?? 5;
+    if (limit <= 0) {
+      throw RangeError('limit must be positive');
+    }
+    if (query.isEmpty) {
+      return const RetrievalResult.refuse();
+    }
+    final floor = minScore ?? vectorRelevanceFloor;
+    final country = question.country;
+    final activeHazards = question.activeHazards;
+    final wide = country != null;
+    final boosting = wide || activeHazards.isNotEmpty;
+    final pool = wide ? 40 : (boosting ? (limit * _rules.poolMultiplier).round() : limit);
+    final hits = _store.searchVectors(query, limit: pool, minScore: floor);
+    final documents = <String, StoredDocument>{};
+    final passages = <Passage>[];
+    for (final hit in hits) {
+      final chunk = _store.chunkById(hit.chunkId);
+      if (chunk == null) {
+        continue;
+      }
+      var document = documents[chunk.documentId];
+      if (document == null) {
+        final found = _store.document(chunk.documentId);
+        if (found == null) {
+          continue;
+        }
+        document = found;
+        documents[document.id] = document;
+      }
+      final factor =
+          _countryFactor(document.country, country) *
+          _hazardFactor(document.hazards, activeHazards);
+      passages.add(
+        Passage(
+          chunk: chunk,
+          document: document,
+          score: hit.score,
+          rankScore: hit.score * factor,
+        ),
+      );
+    }
+    if (passages.isEmpty) {
+      return const RetrievalResult.refuse();
+    }
+    final scoped = _vectorScope(passages, country);
+    if (scoped.isEmpty) {
+      return const RetrievalResult.refuse();
+    }
+    final ordered = boosting ? _byRank(scoped) : scoped;
+    return RetrievalResult.passages(_cap(ordered, limit));
+  }
+
+  /// The selected country's passages, or global ones when it has none.
+  List<Passage> _vectorScope(List<Passage> passages, String? country) {
+    if (country == null) {
+      return passages;
+    }
+    final local = [
+      for (final passage in passages)
+        if (passage.document.country == country) passage,
+    ];
+    if (local.isNotEmpty) {
+      return local;
+    }
+    return [
+      for (final passage in passages)
+        if (passage.document.country == null) passage,
+    ];
+  }
+
+  List<Passage> _byRank(List<Passage> passages) {
+    final indexed = <(Passage, int)>[
+      for (var i = 0; i < passages.length; i++) (passages[i], i),
+    ];
+    indexed.sort((a, b) {
+      final byScore = b.$1.rankScore.compareTo(a.$1.rankScore);
+      if (byScore != 0) {
+        return byScore;
+      }
+      return a.$2.compareTo(b.$2);
+    });
+    return [for (final entry in indexed) entry.$1];
   }
 
   List<Passage> _rank(RetrievalQuery query) {
@@ -113,7 +258,11 @@ class Retriever {
     final activeHazards = query.activeHazards;
     final boosting = country != null || activeHazards.isNotEmpty;
     // A larger pool lets a boosted passage that sits just below the cut move up.
-    final pool = boosting ? (limit * _rules.poolMultiplier).round() : limit;
+    // A selected country needs the wider pool so its own documents are not
+    // pushed out by another country's higher keyword score.
+    final pool = country != null
+        ? 40
+        : (boosting ? (limit * _rules.poolMultiplier).round() : limit);
     final hits = _store.search(
       removeStopwords(expandWithSynonyms(query.text, _rules), _rules),
       pool,
@@ -157,7 +306,7 @@ class Retriever {
       return a.$2.compareTo(b.$2);
     });
     final sorted = [for (final entry in indexed) entry.$1];
-    if (sorted.length <= limit) {
+    if (country != null || sorted.length <= limit) {
       return sorted;
     }
     return sorted.sublist(0, limit);

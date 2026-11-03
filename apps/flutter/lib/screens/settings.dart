@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:sheltr_core/sheltr_core.dart';
 
@@ -30,10 +31,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _Section(
           title: scope.t('settings_country_label'),
           children: [
-            OutlinedButton(
-              onPressed: () => _pickCountry(scope),
-              child: Text(country, textAlign: TextAlign.center),
-            ),
+            if (kDebugMode)
+              OutlinedButton(
+                onPressed: () => _pickCountry(scope),
+                child: Text(country, textAlign: TextAlign.center),
+              )
+            else
+              Text(country, style: Theme.of(context).textTheme.titleMedium),
           ],
         ),
         _Section(

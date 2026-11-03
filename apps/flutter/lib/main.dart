@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show SemanticsRole;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -17,12 +18,33 @@ import 'screens/settings.dart';
 import 'sync/schedule_web.dart'
     if (dart.library.io) 'sync/scheduler.dart'
     if (dart.library.js_interop) 'sync/schedule_web.dart';
+import 'model/edge_stack_stub.dart'
+    if (dart.library.io) 'model/edge_stack.dart';
 import 'trusted_keys.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final store = await openAppStore();
-  runApp(SheltrApp(store: store, trustedKeys: compiledTrustedKeys));
+  final edge = await startLaptopEdge(store);
+  final detected = countryFromLocaleTag(
+    WidgetsBinding.instance.platformDispatcher.locale.countryCode,
+  );
+  var settings = AppSettings.defaults;
+  if (detected != null) {
+    settings = settings.copyWith(country: detected);
+  }
+  if (edge?.model != null) {
+    settings = settings.copyWith(modelEnabled: true);
+  }
+  runApp(
+    SheltrApp(
+      store: store,
+      trustedKeys: compiledTrustedKeys,
+      settings: settings,
+      model: edge?.model,
+      embedQuery: edge?.embedQuery,
+    ),
+  );
 }
 
 /// Sheltr: offline disaster guidance.
@@ -37,6 +59,7 @@ class SheltrApp extends StatefulWidget {
     this.now = _deviceNow,
     this.trustedKeys = const [],
     this.model,
+    this.embedQuery,
   });
 
   final AppSettings settings;
@@ -53,6 +76,9 @@ class SheltrApp extends StatefulWidget {
 
   /// Passage rewriter. Unused while [AppSettings.modelEnabled] is false.
   final PassageModel? model;
+
+  /// Question embedder. Null keeps keyword search.
+  final Future<List<double>> Function(String question)? embedQuery;
 
   @override
   State<SheltrApp> createState() => _SheltrAppState();
@@ -122,6 +148,7 @@ class _SheltrAppState extends State<SheltrApp> {
           trustedKeys: widget.trustedKeys,
           updateSettings: _updateSettings,
           model: widget.model,
+          embedQuery: widget.embedQuery,
           child: MediaQuery(
             data: MediaQuery.of(context)
                 .copyWith(textScaler: TextScaler.linear(_settings.textScale)),
@@ -164,32 +191,50 @@ class _Page extends StatelessWidget {
       _ => scope.t('app_name'),
     };
     return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-        automaticallyImplyLeading: false,
-        leading: route == '/'
-            ? null
-            : SheltrIconButton(
-                label: scope.t('back'),
-                icon: Icons.arrow_back,
-                onPressed: () {
-                  final navigator = Navigator.of(context);
-                  if (navigator.canPop()) {
-                    navigator.pop();
-                  }
-                },
-              ),
-        actions: route == '/'
-            ? [
-                SheltrIconButton(
-                  label: scope.t('home_settings_button_label'),
-                  icon: Icons.settings,
-                  onPressed: () => Navigator.of(context).pushNamed('/settings'),
-                ),
-              ]
-            : null,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: Semantics(
+          role: SemanticsRole.navigation,
+          explicitChildNodes: true,
+          child: AppBar(
+            title: Text(title),
+            automaticallyImplyLeading: false,
+            leading: route == '/'
+                ? null
+                : SheltrIconButton(
+                    label: scope.t('back'),
+                    icon: Icons.arrow_back,
+                    onPressed: () {
+                      final navigator = Navigator.of(context);
+                      if (navigator.canPop()) {
+                        navigator.pop();
+                      }
+                    },
+                  ),
+            actions: route == '/'
+                ? [
+                    SheltrIconButton(
+                      label: scope.t('home_settings_button_label'),
+                      icon: Icons.settings,
+                      onPressed: () =>
+                          Navigator.of(context).pushNamed('/settings'),
+                    ),
+                  ]
+                : null,
+          ),
+        ),
       ),
-      body: _body(scope),
+      body: Semantics(
+        role: SemanticsRole.main,
+        explicitChildNodes: true,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: _body(scope),
+          ),
+        ),
+      ),
     );
   }
 

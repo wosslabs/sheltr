@@ -1,6 +1,6 @@
 # On-device model evaluation
 
-Procedure for a later run on one Android phone and one iPhone. Decision on 2026-11-03: the model stays off. `AppSettings.modelEnabled` stays false. No device pass is recorded, and this file does not change that default.
+Procedure for a later run on one Android phone and one iPhone. The committed default of `AppSettings.modelEnabled` stays false. ADR-0017 lets a Mac replica load EmbeddingGemma and Gemma 4 E2B through LiteRT-LM when `SHELTR_LAPTOP` is set. That replica does not fill a row below. No phone pass is recorded.
 
 ## Procedure
 

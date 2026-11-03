@@ -1,0 +1,13 @@
+{
+  "name": "sheltr-ux-audit",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "audit": "node audit.mjs"
+  },
+  "dependencies": {
+    "axe-core": "4.10.3",
+    "pngjs": "7.0.0",
+    "puppeteer-core": "24.23.0"
+  }
+}

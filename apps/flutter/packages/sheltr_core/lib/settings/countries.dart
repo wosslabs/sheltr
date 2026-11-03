@@ -19,6 +19,18 @@ class CountryNames {
   }
 }
 
+/// ISO country from a device locale, or null when it is not a known code.
+String? countryFromLocaleTag(String? countryCode) {
+  if (countryCode == null || countryCode.length != 2) {
+    return null;
+  }
+  final upper = countryCode.toUpperCase();
+  if (!countryNames.containsKey(upper)) {
+    return null;
+  }
+  return upper;
+}
+
 /// Codes and names for the settings country picker.
 const countryNames = <String, CountryNames>{
   'AD': CountryNames(en: 'Andorra', es: 'Andorra', fr: 'Andorre'),

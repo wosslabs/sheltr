@@ -1,6 +1,6 @@
 # Sheltr Mobile — Offline-First App Design
 
-Status: Revised 2026-11-03: the phone app is Flutter / Dart (`apps/flutter`). The TypeScript publisher still builds the signed bundle. ADR-0016 (Expo) is superseded for the app. On-device model: LiteRT-LM, built and off by default. No device eval is recorded.
+Status: Revised 2026-11-03: the phone app is Flutter / Dart (`apps/flutter`). The TypeScript publisher still builds the signed bundle. ADR-0016 (Expo) is superseded for the app. ADR-0017 stores chunk vectors in the content database and restates passages with Gemma through LiteRT-LM. The settings default stays off until a phone eval passes. The Mac replica turns the model on with `SHELTR_LAPTOP`.
 Date: 2026-10-05
 
 ## 1. Goal
@@ -26,8 +26,8 @@ These are the decisions from the ADRs, stated for the current tree. The ADR file
 - The project is Apache License 2.0 (ADR-0009). That licence covers Sheltr's code. Document text keeps the licence in the manifest.
 - No server runs in production. The phone's only network call is fetching the signed bundle over HTTPS (ADR-0015).
 - The publisher is the TypeScript command in `tools/publisher`. It fetches approved sources, checks the checksum, extracts text, drops images and mark-only lines, chunks, and signs with Ed25519. The private key stays outside the repository.
-- Search is SQLite FTS5 keyword ranking with citations. The app refuses when no passage passes the relevance check. It does not invent guidance.
-- The on-device model may only restate cited passages. It stays off until `docs/model-eval.md` records a pass on both phones.
+- Search uses the vector index in `content.db` when EmbeddingGemma is loaded (ADR-0017). Otherwise it uses SQLite FTS5. When a country is selected, passages from that country are used, and global guidance is used only when that country has none. A document from another country is not shown. The app refuses when no passage passes the relevance check. It does not invent guidance.
+- The on-device model may only restate cited passages. The committed default stays off until `docs/model-eval.md` records a pass on both phones. A laptop run can load Gemma 4 E2B through LiteRT-LM.
 - The phone app is Flutter in `apps/flutter`, not the Expo app ADR-0016 chose. That Expo tree has been removed.
 
 Cost: Google Play one-time $25; Apple Developer Program $99 per year (required for iPhone distribution). Both apps are free to download and use.
@@ -38,12 +38,12 @@ Cost: Google Play one-time $25; Apple Developer Program $99 per year (required f
 App (apps/flutter, Flutter / Dart)
   packages/sheltr_core/lib/bundle/     bundle format, parser, checksums
   packages/sheltr_core/lib/signing/    Ed25519 signature check
-  packages/sheltr_core/lib/store/      SQLite (bundled sqlite3), FTS5 keyword index, atomic replace
-  packages/sheltr_core/lib/retrieval/  keyword ranking, country and hazard boost, citations, refusal
+  packages/sheltr_core/lib/store/      SQLite (bundled sqlite3), FTS5, vector blobs, atomic replace
+  packages/sheltr_core/lib/retrieval/  keyword or vector ranking, citations, refusal
   packages/sheltr_core/lib/sync/       manifest fetch, diff, download, retry policy
   packages/sheltr_core/lib/settings/   user settings (sync frequency, country, text size, language)
   lib/                                 screens: Home, Search, Answer, Settings, About
-  on-device model (LiteRT-LM, off by default)
+  on-device model (LiteRT-LM Gemma, off unless SHELTR_LAPTOP)
 
 Publisher (tools/publisher, Node and TypeScript, run by the maintainer)
   Approved manifest -> fetch and extract -> chunk -> signed bundle + manifest -> static hosting
@@ -66,7 +66,7 @@ Options: manual only, daily, weekly, monthly. Default weekly. Sync runs only on 
 
 ## 6. Retrieval and answers (v1)
 
-- Search: SQLite FTS5 keyword ranking over approved chunks. Works offline with no model.
+- Search: vector cosine over EmbeddingGemma vectors stored in the content database, when that model file is loaded. Keyword FTS5 remains the path with no embedder. Both work offline.
 - Boost: the user's country (set in settings) and the currently active hazards raise matching passages. Global passages are never removed. Same rule as the server.
 - Answers: v1 returns the matching passages with their source, not a generated answer. This is the citation-first design already approved, and it needs no model.
 - Refusal: when no passage meets the relevance threshold, the app says it has no reliable source. It never invents guidance.
@@ -76,7 +76,7 @@ Options: manual only, daily, weekly, monthly. Default weekly. Sync runs only on 
   - Models: the two pages name different models (Android page: Gemma 3 1B-IT and Gemma 3n; overview: Gemma 4). Model choice is made by the eval, not by the page.
   - Status: the thinking feature is marked experimental. Core functionality is described as stable on Android. Pin versions.
   - Rule: the model only rewrites or summarises the cited passages. It never adds facts. Answers without a source are refused, as on the server.
-  - Phase: after v1 search. Enabled only if the eval passes on the device-sized model.
+  - Phase: the laptop replica loads Gemma 4 E2B and EmbeddingGemma 2 (ADR-0017). The phone default stays off until the eval in `docs/model-eval.md` passes.
 
 ## 7. Interface
 
