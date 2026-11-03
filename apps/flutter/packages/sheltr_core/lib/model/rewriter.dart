@@ -24,12 +24,45 @@ class AnswerPresentation {
   final List<Passage> passages;
 }
 
-final _digits = RegExp(r'\d+');
+final _asciiDigitRun = RegExp(r'[0-9]+');
+final _decimalDigit = RegExp(r'\p{Nd}', unicode: true);
 final _letters = RegExp(r'\p{L}+', unicode: true);
 
+/// Retrieval stopwords the support check still compares with [sameWord].
+///
+/// These change when or how much a passage tells someone to do. The retrieval
+/// list skips them. This check does not.
+const _checkedStopwords = {
+  'before',
+  'after',
+  'during',
+  'until',
+  'under',
+  'over',
+  'more',
+  'once',
+  'only',
+};
+
+bool _hasNonAsciiDigit(String text) {
+  for (final match in _decimalDigit.allMatches(text)) {
+    final rune = match.group(0)!.runes.single;
+    if (rune < 0x30 || rune > 0x39) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /// False when [modelText] is empty, `NONE`, longer than 600 characters, has a
-/// maximal digit run that is not equal to a maximal digit run in [passages],
-/// or has a content word that matches no word in those passages.
+/// Unicode digit that is not ASCII 0-9, has a maximal ASCII digit run that is
+/// not equal to a maximal ASCII digit run in [passages], or has a word of four
+/// or more letters that matches no word in those passages.
+///
+/// The skip list is the retrieval stopwords without before, after, during,
+/// until, under, over, more, once, and only. A word on that shorter list is
+/// skipped. Those nine words, including the four-letter ones, are compared
+/// with [sameWord].
 bool modelTextIsSupported(String modelText, List<CitedPassage> passages) {
   final trimmed = modelText.trim();
   if (trimmed.isEmpty || trimmed == 'NONE') {
@@ -38,16 +71,20 @@ bool modelTextIsSupported(String modelText, List<CitedPassage> passages) {
   if (trimmed.length > 600) {
     return false;
   }
+  if (_hasNonAsciiDigit(trimmed)) {
+    return false;
+  }
   final passageDigits = <String>{
     for (final passage in passages)
-      for (final match in _digits.allMatches(passage.text)) match.group(0)!,
+      for (final match in _asciiDigitRun.allMatches(passage.text))
+        match.group(0)!,
   };
-  for (final match in _digits.allMatches(trimmed)) {
+  for (final match in _asciiDigitRun.allMatches(trimmed)) {
     if (!passageDigits.contains(match.group(0)!)) {
       return false;
     }
   }
-  final stopwords = Rules.packaged().stopwords;
+  final skipWords = Rules.packaged().stopwords.difference(_checkedStopwords);
   final passageWords = <String>[
     for (final passage in passages)
       for (final match in _letters.allMatches(passage.text))
@@ -55,7 +92,7 @@ bool modelTextIsSupported(String modelText, List<CitedPassage> passages) {
   ];
   for (final match in _letters.allMatches(trimmed)) {
     final word = match.group(0)!.toLowerCase();
-    if (word.length < 4 || stopwords.contains(word)) {
+    if (word.length < 4 || skipWords.contains(word)) {
       continue;
     }
     final supported = passageWords.any(

@@ -102,6 +102,70 @@ void main() {
     expect(refusal, isTrue, reason: 'retrieval refusal row missing');
   });
 
+  test('hides model text that uses non-ASCII digits', () {
+    const passage = 'Call 112';
+    final cited = [CitedPassage(passage)];
+    final retrieval = RetrievalResult.passages([_passage(passage)]);
+    const models = ['Call \uFF19\uFF11\uFF11', 'Call \u0669\u0661\u0661'];
+    for (final modelText in models) {
+      expect(
+        modelTextIsSupported(modelText, cited),
+        isFalse,
+        reason: modelText,
+      );
+      final presentation = present(
+        retrieval: retrieval,
+        modelText: modelText,
+        modelEnabled: true,
+      );
+      expect(presentation.lead, isNull, reason: modelText);
+      expect(presentation.passages, same(retrieval.passages));
+    }
+  });
+
+  test('hides a timing word the passages do not support', () {
+    const passage = 'Turn off the gas before you leave the house';
+    final cited = [CitedPassage(passage)];
+    final retrieval = RetrievalResult.passages([_passage(passage)]);
+    const hidden = [
+      'after you leave the house',
+      'during you leave the house',
+      'until you leave the house',
+      'under you leave the house',
+      'over you leave the house',
+      'more you leave the house',
+      'once you leave the house',
+      'only you leave the house',
+    ];
+    for (final modelText in hidden) {
+      expect(
+        modelTextIsSupported(modelText, cited),
+        isFalse,
+        reason: modelText,
+      );
+      final presentation = present(
+        retrieval: retrieval,
+        modelText: modelText,
+        modelEnabled: true,
+      );
+      expect(presentation.lead, isNull, reason: modelText);
+      expect(presentation.passages, same(retrieval.passages));
+    }
+    expect(modelTextIsSupported('before you leave the house', cited), isTrue);
+    expect(
+      modelTextIsSupported('before you leave the house', [
+        CitedPassage('Turn off the gas and leave the house'),
+      ]),
+      isFalse,
+    );
+    expect(
+      modelTextIsSupported('Leave the house once', [
+        CitedPassage('Leave the house once'),
+      ]),
+      isTrue,
+    );
+  });
+
   test('blank or NONE model text is hidden', () {
     final cited = [CitedPassage(_quote)];
     expect(modelTextIsSupported('   ', cited), isFalse);
