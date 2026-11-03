@@ -2,7 +2,7 @@
 
 Version 2. The app reads exactly this version. Any other `formatVersion` is rejected before the rest of the file is used, with a message that names the format.
 
-This is the corpus bundle from section 4 of `docs/design/offline-mobile-app.md`, with the field names and nullability in `apps/mobile/src/core/bundle/format.ts`.
+This is the corpus bundle from section 4 of `docs/design/offline-mobile-app.md`, with the field names and nullability in `apps/flutter/packages/sheltr_core/lib/bundle/format.dart`.
 
 ## Files
 

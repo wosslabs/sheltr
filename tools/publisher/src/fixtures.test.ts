@@ -57,7 +57,7 @@ const WORD_ROWS = [
   'heat\theal\tfalse',
 ];
 
-/** The retrieval constants in apps/mobile/src/core/retrieval and the hazard order in ui/hazards.ts. */
+/** The retrieval constants in sheltr_core and the hazard order in the Flutter home screen. */
 const RETRIEVAL_RULES = {
   relevanceThreshold: 1,
   minTermCoverage: 0.6,
@@ -96,7 +96,7 @@ const RETRIEVAL_RULES = {
   ],
 };
 
-const ENGLISH_LOCALE = fileURLToPath(new URL('../../../apps/mobile/src/i18n/locales/en.json', import.meta.url));
+const ENGLISH_LOCALE = fileURLToPath(new URL('../../../apps/flutter/lib/l10n/app_en.arb', import.meta.url));
 const COMMITTED_FIXTURES = fileURLToPath(new URL('../../../contract/fixtures', import.meta.url));
 
 interface BundleFile {
@@ -279,7 +279,11 @@ describe('fixtures', () => {
       assert.equal(wordLines[0], 'left\tright\tmatch');
       assert.deepEqual(wordLines.slice(1), WORD_ROWS);
 
-      const locale = JSON.parse(readFileSync(ENGLISH_LOCALE, 'utf8')) as Record<string, string>;
+      const locale = Object.fromEntries(
+        Object.entries(JSON.parse(readFileSync(ENGLISH_LOCALE, 'utf8')) as Record<string, unknown>).filter(
+          (entry): entry is [string, string] => !entry[0].startsWith('@') && typeof entry[1] === 'string',
+        ),
+      );
       const strings = readFileSync(join(scratch.dir, 'strings.tsv'), 'utf8');
       const stringLines = linesOf(strings);
       assert.ok(stringLines.length > 1);

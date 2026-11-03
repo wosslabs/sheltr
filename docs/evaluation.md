@@ -1,9 +1,9 @@
 # Search evaluation
 
-How well the on-device keyword search answers, measured on the shipped sample bundle (two documents, 127 chunks). The test is `src/core/retrieval/evaluation.test.ts` in `apps/mobile`; the questions are in `contract/retrieval-cases.tsv`. Run it with:
+How well the on-device keyword search answers, measured on the sample bundle (two documents, 127 chunks, `corpus/sample-bundle`). The tests are `retrieval cases have no false accepts` and `retrieval cases answer and keep the expected term` in `apps/flutter/packages/sheltr_core/test/retrieval_test.dart`. The questions are in `contract/retrieval-cases.tsv`. Run them with:
 
 ```bash
-cd apps/mobile && npx jest src/core/retrieval/evaluation.test.ts --verbose
+cd apps/flutter/packages/sheltr_core && dart test test/retrieval_test.dart
 ```
 
 ## Result (2026-11-01)

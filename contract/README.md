@@ -1,6 +1,6 @@
 # Contract
 
-Shared rules for the publisher and the apps. The Expo app remains the oracle until the Flutter app passes these same files.
+Shared rules for the publisher and the Flutter app.
 
 Committed fixtures are canonical. Do not regenerate them in CI. `npm run fixtures` (from `tools/publisher`) creates a new signing key on every run, so a second run will not match the committed bytes.
 
@@ -10,9 +10,9 @@ The private key is never written. Each fixture directory holds `public-key.hex`,
 
 - `bundle-format.md` — bundle layout version 2.
 - `retrieval-rules.json` — relevance threshold, term coverage, boosts, pool size, stopwords, synonyms, hazard terms, and the twelve disaster types.
-- `retrieval-cases.tsv` — question cases. The Expo evaluation test reads this file.
+- `retrieval-cases.tsv` — question cases. `retrieval_test.dart` in `sheltr_core` reads this file.
 - `word-cases.tsv` — columns `left`, `right`, `match` (`true` or `false`).
-- `strings.tsv` — columns `key`, `placeholders`. One row per key in `apps/mobile/src/i18n/locales/en.json`. Placeholders are the `%{pN}` tokens in that string, in order, separated by spaces. Spanish and French are not copied.
+- `strings.tsv` — columns `key`, `placeholders`. One row per English string in `apps/flutter/lib/l10n/app_en.arb`. Placeholders are the `%{pN}` tokens in that string, in order, separated by spaces. Metadata keys that start with `@` are not copied. Spanish and French are not copied.
 - `model-cases.tsv` — columns `question`, `passages`, `model`, `expect` (`show`, `hide`, or `nocall`). Passage text quotes a fixture sentence. `nocall` is a retrieval refusal: the model is not called.
 - `fixtures/<name>/` — `bundle.json`, `bundle.json.sig`, `documents/`, `public-key.hex`, `expect.json`.
 

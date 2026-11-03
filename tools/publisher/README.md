@@ -26,7 +26,7 @@ Exit status: 0 on success, 1 if any entry failed or verification failed, 2 for a
 3. Extract text (`cheerio` for the main content of a page, `pdfjs-dist` for PDF pages), clean it (`text.ts`), split it into overlapping chunks cut on word boundaries (`chunker.ts`).
 4. Write `bundle.json`, `bundle.json.sig` (raw Ed25519 signature) and `documents/<id>.json` to a temporary directory next to the output, and move it into place only when complete. A failed build leaves nothing behind.
 
-The bundle format is read by `apps/mobile/src/core/bundle`. Change both together, and raise `BUNDLE_FORMAT_VERSION` for any incompatible change.
+The bundle format is read by `apps/flutter/packages/sheltr_core/lib/bundle`. Change both together, and raise `BUNDLE_FORMAT_VERSION` for any incompatible change.
 
 ## Conventions
 

@@ -1,19 +1,46 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/widgets.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:sheltr_core/sheltr_core.dart';
 import 'package:workmanager/workmanager.dart';
+
+import '../trusted_keys.dart';
+import 'run_sync.dart';
 
 /// BGTaskScheduler identifier. It matches `Info.plist`.
 const sheltrSyncTaskId = 'com.sheltr.sync';
 
 const _taskName = 'sheltrSync';
 
-/// OS entry point for the periodic sync. This task does not open a socket.
+/// OS entry point for the periodic sync.
+///
+/// Downloads only when [compiledBundleBaseUrl] is https and
+/// [compiledTrustedKeys] is non-empty. This build has neither, so the task
+/// returns without a request.
 @pragma('vm:entry-point')
 void sheltrSyncDispatcher() {
   Workmanager().executeTask((taskName, inputData) async {
-    return true;
+    if (!publishedBundleConfigured(
+      compiledBundleBaseUrl,
+      compiledTrustedKeys,
+    )) {
+      return true;
+    }
+    WidgetsFlutterBinding.ensureInitialized();
+    final directory = await getApplicationSupportDirectory();
+    final store = ContentStore.open(directory);
+    try {
+      final result = await runPublishedSync(
+        baseUrl: compiledBundleBaseUrl,
+        keys: compiledTrustedKeys,
+        store: store,
+      );
+      return result is SyncUpdated || result is SyncUpToDate;
+    } finally {
+      store.close();
+    }
   });
 }
 

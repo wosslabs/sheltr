@@ -18,7 +18,7 @@ import { clean, pageText } from './text.ts';
  *   <out>/bundle.json.sig      raw 64-byte Ed25519 signature of the exact bytes of bundle.json
  *   <out>/documents/<id>.json  DocumentFile, one per document
  *
- * Every checksum is lower-case hex SHA-256. The app (apps/mobile/src/core/bundle) reads exactly this layout.
+ * Every checksum is lower-case hex SHA-256. The app (apps/flutter/packages/sheltr_core) reads exactly this layout.
  * Field order matters: the JSON is written with four-space indentation and explicit nulls, byte for byte as the
  * app's tests expect.
  */

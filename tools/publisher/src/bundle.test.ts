@@ -226,7 +226,7 @@ documents:
 });
 
 describe('bundle format', () => {
-  const sampleDir = fileURLToPath(new URL('../../../apps/mobile/assets/sample-bundle/', import.meta.url));
+  const sampleDir = fileURLToPath(new URL('../../../corpus/sample-bundle/', import.meta.url));
 
   it('re-encodes the files the Kotlin publisher wrote to the exact same bytes', () => {
     const manifestBytes = readFileSync(join(sampleDir, 'bundle.json'));

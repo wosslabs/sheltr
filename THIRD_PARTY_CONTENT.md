@@ -6,7 +6,7 @@ The phone does not fetch these sites. The publisher (`tools/publisher`) download
 
 ## In the sample bundle
 
-Text from these documents appears in `apps/mobile/assets/sample-bundle/`. Neither can be fetched again until a maintainer approves a new checksum (`docs/publishing.md`):
+Text from these documents appears in `corpus/sample-bundle/`. Neither can be fetched again until a maintainer approves a new checksum (`docs/publishing.md`):
 
 | Document | Publisher | Licence |
 |---|---|---|

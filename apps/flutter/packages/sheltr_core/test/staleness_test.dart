@@ -158,7 +158,7 @@ void main() {
   });
 
   test('expired document still retrieves', () {
-    final bundleDir = _findUp('apps/mobile/assets/sample-bundle');
+    final bundleDir = _findUp('corpus/sample-bundle');
     final parsed = parseBundleManifest(
       File('${bundleDir.path}/bundle.json').readAsStringSync(),
     );

@@ -25,7 +25,7 @@ flowchart LR
     ST["SQLite store with FTS5 (atomic swap)"]
     R["keyword retrieval, country and hazard boost, citations, refusal"]
     SET["settings: sync frequency, country, text size"]
-    UI["Expo / React Native UI (Android and iOS)"]
+    UI["Flutter UI (Android and iOS)"]
     SET --> SY
     SY --> ST --> R --> UI
   end
@@ -37,6 +37,6 @@ flowchart LR
 
 - Trust boundary: the signed bundle. The app rejects any bundle whose signature does not verify and keeps the last good content.
 - Updates: the app downloads only documents whose checksum changed, and installs the new content in one swap. A failed or interrupted sync keeps the previous content.
-- One codebase: `apps/mobile` (Expo, TypeScript). `src/core` holds the bundle format, signature check, store, retrieval, citations, refusal and sync, with no React Native imports, so it is tested in plain Node.
+- One codebase: `apps/flutter` (Flutter, Dart). `packages/sheltr_core` holds the bundle format, signature check, store, retrieval, citations, refusal and sync, with no Flutter imports, so it is tested with `dart test`.
 - The publisher and the app use the same bundle format version (`BUNDLE_FORMAT_VERSION`).
 - Out of scope for v1 (spec section 1): live hazard alerts, user accounts, analytics, advertising and payments. No server is part of the design.

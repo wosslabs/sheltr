@@ -21,7 +21,7 @@ Built:
   - `packages/sheltr_core` has no Flutter imports: bundle parsing, signature verification, SQLite store with FTS5 and atomic replace, keyword retrieval with country and hazard boosts, citation selection and refusal, sync engine with retry policy, settings, and the passage rewriter.
   - Home, Search, Answer, Settings and About screens (with the privacy statement and the source licences), in English, Spanish and French, with text-size and high-contrast options and read-aloud.
   - `AppSettings.modelEnabled` stays false. See `docs/model-eval.md`.
-- **Expo oracle** (`apps/mobile`): stays until `docs/release-checklist.md` is done. It installs an offline sample bundle (`apps/mobile/assets/sample-bundle`) on first run. Flutter tests read that same bundle.
+- **Sample bundle** (`corpus/sample-bundle`): the two approved documents, used by the Flutter tests. The app does not fetch it.
 - **Corpus**: two approved entries in `corpus/manifest.yaml`.
 
 Not done:
@@ -37,10 +37,9 @@ Search is evaluated on the sample bundle: 0 of 20 off-topic questions answered, 
 ## Repository layout
 
 - `apps/flutter`: the Flutter app (Android and iOS). `packages/sheltr_core` is the framework-free library, `lib` the screens.
-- `apps/mobile`: the Expo oracle. It remains until `docs/release-checklist.md` is done. `assets/sample-bundle` is the offline sample content.
-- `tools/publisher`: the command-line publisher (Node and TypeScript).
+- `tools/publisher`: the command-line publisher (Node and TypeScript). This is the only TypeScript in the repository. It builds the signed bundle. It is not the phone app.
 - `contract/`: signed fixtures and `check-coverage.mjs`.
-- `corpus/manifest.yaml`: the approved corpus.
+- `corpus/manifest.yaml`: the approved corpus. `corpus/sample-bundle` is the offline sample the tests read.
 - `docs/adr`: architecture decision records (ADR-0015 is the current design).
 - `docs/design`: design documents. `docs/architecture`: diagrams.
 
@@ -79,18 +78,16 @@ openssl pkey -in ~/sheltr-keys/sheltr-publisher.key.pem -pubout -out ~/sheltr-ke
 
 ## Building and testing
 
-You need Node 24 and npm for the publisher and the Expo oracle, and the Flutter SDK for the app. Flutter is not assumed to be on PATH.
+You need Node 24 and npm for the publisher, and the Flutter SDK for the app. Flutter is not assumed to be on PATH.
 
 ```bash
 cd tools/publisher && npm ci && npm run typecheck && npm test           # publisher
 cd apps/flutter/packages/sheltr_core && dart test                       # core
 cd apps/flutter && flutter test                                         # app
 node contract/check-coverage.mjs                                        # every fixture name is referenced
-cd apps/mobile && npm ci --legacy-peer-deps && npm run typecheck && npm test   # Expo oracle
-cd apps/mobile && npx expo start                                          # Expo oracle (Expo Go or an emulator)
 ```
 
-CI runs the publisher, the Flutter tests and the coverage script, and the Expo oracle (including an Android and iOS bundle export) on every pull request. See `apps/mobile/README.md`. The Expo job stays until `docs/release-checklist.md` is done.
+CI runs the publisher, the Flutter tests and the coverage script on every pull request.
 
 ## Contributing and security
 

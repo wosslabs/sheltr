@@ -1,6 +1,6 @@
 # Sheltr Mobile — Offline-First App Design
 
-Status: Revised 2026-11-02: no server; the server backend is removed and its ingestion logic lives in the TypeScript publisher. The app is Expo / React Native (ADR-0016). On-device model: LiteRT-LM (user request, 2026-10-05), not started.
+Status: Revised 2026-11-03: the phone app is Flutter / Dart (`apps/flutter`). The TypeScript publisher still builds the signed bundle. ADR-0016 (Expo) is superseded for the app. On-device model: LiteRT-LM, built and off by default. No device eval is recorded.
 Date: 2026-10-05
 
 ## 1. Goal
@@ -15,22 +15,22 @@ Out of scope for v1: live hazard alerts, user accounts, analytics, advertising, 
 
 ## 2. Platform decision
 
-Expo (React Native) with TypeScript: one codebase for Android and iPhone, written once for the screens and for the logic (corpus, search, citations, sync and config). The publisher is also TypeScript (Node). See ADR-0016.
+Flutter with Dart: one codebase for Android and iPhone. `packages/sheltr_core` holds the corpus, search, citations, sync and settings, with no Flutter imports. The screens are in `apps/flutter/lib`. The publisher stays TypeScript (Node). ADR-0016 recorded the earlier Expo choice and is superseded for the app.
 
 Cost: Google Play one-time $25; Apple Developer Program $99 per year (required for iPhone distribution). Both apps are free to download and use.
 
 ## 3. Architecture
 
 ```
-App (apps/mobile, Expo / React Native, TypeScript)
-  src/core/bundle/      bundle format, parser, checksums
-  src/core/signing.ts   Ed25519 signature check
-  src/core/store/       SQLite (expo-sqlite), FTS5 keyword index, atomic replace
-  src/core/retrieval/   keyword ranking, country and hazard boost, citations, refusal
-  src/core/sync/        manifest fetch, diff, download, retry policy
-  src/core/settings/    user settings (sync frequency, country, text size, language)
-  src/app/              screens: Home, Search, Answer, Settings, About
-  on-device model (optional, later)
+App (apps/flutter, Flutter / Dart)
+  packages/sheltr_core/lib/bundle/     bundle format, parser, checksums
+  packages/sheltr_core/lib/signing/    Ed25519 signature check
+  packages/sheltr_core/lib/store/      SQLite (bundled sqlite3), FTS5 keyword index, atomic replace
+  packages/sheltr_core/lib/retrieval/  keyword ranking, country and hazard boost, citations, refusal
+  packages/sheltr_core/lib/sync/       manifest fetch, diff, download, retry policy
+  packages/sheltr_core/lib/settings/   user settings (sync frequency, country, text size, language)
+  lib/                                 screens: Home, Search, Answer, Settings, About
+  on-device model (LiteRT-LM, off by default)
 
 Publisher (tools/publisher, Node and TypeScript, run by the maintainer)
   Approved manifest -> fetch and extract -> chunk -> signed bundle + manifest -> static hosting
@@ -58,7 +58,7 @@ Options: manual only, daily, weekly, monthly. Default weekly. Sync runs only on 
 - Answers: v1 returns the matching passages with their source, not a generated answer. This is the citation-first design already approved, and it needs no model.
 - Refusal: when no passage meets the relevance threshold, the app says it has no reliable source. It never invents guidance.
 - On-device model: Google LiteRT-LM (https://developers.google.com/edge/litert-lm). Facts checked on 2026-10-05:
-  - Android: native API (Engine, Conversation, EngineConfig, ConversationConfig), offline with local .litertlm model files, GPU/NPU optional with CPU fallback. It would need a native module for React Native.
+  - Android: native API (Engine, Conversation, EngineConfig, ConversationConfig), offline with local .litertlm model files. The Flutter app uses `flutter_edge_ai` on the CPU backend only.
   - iOS: the overview page states native iOS Swift APIs (macOS "coming soon"). The Android page does not cover iOS, so the iOS integration must be proven in a spike before it is relied on.
   - Models: the two pages name different models (Android page: Gemma 3 1B-IT and Gemma 3n; overview: Gemma 4). Model choice is made by the eval, not by the page.
   - Status: the thinking feature is marked experimental. Core functionality is described as stable on Android. Pin versions.

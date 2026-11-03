@@ -7,8 +7,7 @@ Accepted
 Sheltr is open source. Needed a license that: grants an explicit patent
 license (relevant given multiple potential contributors and enterprise
 adopters), is widely understood/accepted by enterprises wanting to deploy
-or contribute, and is consistent with the license of major dependencies in
-this stack (React Native, Expo and the npm ecosystem).
+or contribute, and is consistent with the licences of its dependencies. At the time those included React Native, Expo and the npm ecosystem. The phone app is now Flutter; the publisher remains Node.
 
 ## Decision
 License the project under Apache License 2.0.

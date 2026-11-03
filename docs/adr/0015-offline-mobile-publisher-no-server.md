@@ -1,7 +1,7 @@
 # ADR-0015: Offline mobile apps with a publisher, no server
 
 ## Status
-Accepted. The platform choices in decisions 2 and 3 are refined by ADR-0016 (Expo, React Native and TypeScript for the app and the publisher). Everything else stands.
+Accepted. Decision 2 (the Expo app) was superseded on 2026-11-03: the phone app is Flutter / Dart in `apps/flutter`, and `apps/mobile` was removed. Decision 3 stands: the publisher is TypeScript. Everything else stands.
 
 Date: 2026-10-05
 Design: `docs/design/offline-mobile-app.md`

@@ -424,7 +424,7 @@ List<_RetrievalCase> _loadRetrievalCases() {
 }
 
 void installSample(ContentStore store) {
-  final dir = findUpDirectory('apps/mobile/assets/sample-bundle');
+  final dir = findUpDirectory('corpus/sample-bundle');
   final manifest = parseBundleManifest(
     File('${dir.path}/bundle.json').readAsStringSync(),
   );

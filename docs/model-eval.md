@@ -1,6 +1,6 @@
 # On-device model evaluation
 
-Procedure for a later run on one Android phone and one iPhone. `AppSettings.modelEnabled` stays false. This file does not change that default, and it records no phone run.
+Procedure for a later run on one Android phone and one iPhone. Decision on 2026-11-03: the model stays off. `AppSettings.modelEnabled` stays false. No device pass is recorded, and this file does not change that default.
 
 ## Procedure
 
@@ -19,7 +19,7 @@ The `flutter_edge_ai_litertlm` 1.19.1 README asks for Android `minSdk 30`. This 
 
 ## Result
 
-No device run has been recorded. The header is the whole table. A maintainer fills a row from a real run, including the file sha256, byte size, licence name, and pass or fail.
+No device run has been recorded. The model is explicitly left off: there is no pass row, and the settings default stays false. A maintainer fills a row from a real run, including the file sha256, byte size, licence name, and pass or fail. Turning the flag on waits for a pass row on both phones.
 
 | device | OS | sha256 | byte size | licence name | result |
 | --- | --- | --- | --- | --- | --- |

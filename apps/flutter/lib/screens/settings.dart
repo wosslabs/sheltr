@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:sheltr_core/sheltr_core.dart';
 
 import '../scope.dart';
+import '../sync/run_sync.dart';
+import '../trusted_keys.dart';
 
 /// Country, language, text size, contrast, and sync.
 class SettingsScreen extends StatefulWidget {
@@ -129,10 +131,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               }),
             ),
             FilledButton(
-              onPressed: () {
-                setState(() {
-                  _syncMessage = scope.t('settings_sync_unavailable_message');
-                });
+              onPressed: () async {
+                final result = await runPublishedSync(
+                  baseUrl: compiledBundleBaseUrl,
+                  keys: scope.trustedKeys,
+                  store: scope.store,
+                );
+                if (!mounted) return;
+                setState(() => _syncMessage = _syncText(scope, result));
               },
               child: Text(scope.t('settings_sync_now_label')),
             ),
@@ -151,6 +157,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ],
     );
+  }
+
+  String _syncText(SheltrScope scope, SyncResult? result) {
+    return switch (result) {
+      null => scope.t('settings_sync_unavailable_message'),
+      SyncUpdated(:final bundleVersion, :final documentsDownloaded) => scope.t(
+        'settings_sync_updated_message',
+        {'p1': bundleVersion, 'p2': documentsDownloaded},
+      ),
+      SyncUpToDate(:final bundleVersion) => scope.t(
+        'settings_sync_up_to_date_message',
+        {'p1': bundleVersion},
+      ),
+      SyncRejectedSignature() => scope.t(
+        'settings_sync_rejected_signature_message',
+      ),
+      SyncFailed(:final reason) => scope.t('settings_sync_failed_message', {
+        'p1': reason,
+      }),
+    };
   }
 
   void _update(SheltrScope scope, AppSettings next) {

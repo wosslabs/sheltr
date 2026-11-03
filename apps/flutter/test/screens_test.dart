@@ -724,7 +724,7 @@ Future<ContentStore> _openSampleStore({bool install = true}) async {
   if (!install) {
     return store;
   }
-  final bundleDir = Directory('../mobile/assets/sample-bundle');
+  final bundleDir = Directory('../../corpus/sample-bundle');
   final manifest = parseBundleManifest(
     File('${bundleDir.path}/bundle.json').readAsStringSync(),
   );

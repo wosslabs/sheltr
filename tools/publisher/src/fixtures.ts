@@ -11,8 +11,6 @@ import { hostAllowlistPolicy } from './policy.ts';
 import { sha256Hex } from './sha256.ts';
 import { generateKeyPair, rawPublicKey, sign, signingKeyId } from './signing.ts';
 
-const MOBILE = fileURLToPath(new URL('../../../apps/mobile/src/', import.meta.url));
-
 interface SampleDocument {
   readonly uri: string;
   readonly title: string;
@@ -430,18 +428,17 @@ function retrievalRules(): {
   hazardTerms: string[];
   disasterTypes: string[];
 } {
-  // The Expo app reads this file. Regenerating copies it so the committed rules stay the source.
+  // The Flutter app reads this file. Regenerating copies it so the committed rules stay the source.
   return JSON.parse(readFileSync(new URL('../../../contract/retrieval-rules.json', import.meta.url), 'utf8'));
 }
 
-function readMobile(path: string): string {
-  return readFileSync(join(MOBILE, path), 'utf8');
-}
-
 function stringsTsv(): string {
-  const locale = JSON.parse(readMobile('i18n/locales/en.json')) as Record<string, unknown>;
+  const locale = JSON.parse(
+    readFileSync(new URL('../../../apps/flutter/lib/l10n/app_en.arb', import.meta.url), 'utf8'),
+  ) as Record<string, unknown>;
   const lines = ['key\tplaceholders'];
   for (const [key, value] of Object.entries(locale)) {
+    if (key.startsWith('@')) continue;
     if (typeof value !== 'string') throw new Error(`English locale value for ${key} is not a string`);
     lines.push(`${key}\t${[...value.matchAll(/%\{p\d+\}/g)].map((found) => found[0]).join(' ')}`);
   }
@@ -452,7 +449,7 @@ const BUNDLE_FORMAT_MD = `# Bundle format
 
 Version 2. The app reads exactly this version. Any other \`formatVersion\` is rejected before the rest of the file is used, with a message that names the format.
 
-This is the corpus bundle from section 4 of \`docs/design/offline-mobile-app.md\`, with the field names and nullability in \`apps/mobile/src/core/bundle/format.ts\`.
+This is the corpus bundle from section 4 of \`docs/design/offline-mobile-app.md\`, with the field names and nullability in \`apps/flutter/packages/sheltr_core/lib/bundle/format.dart\`.
 
 ## Files
 
