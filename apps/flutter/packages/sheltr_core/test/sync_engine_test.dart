@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:sheltr_core/bundle/parser.dart';
+import 'package:sheltr_core/signing/trusted_keys.dart';
 import 'package:sheltr_core/store/content_store.dart';
 import 'package:sheltr_core/sync/client.dart';
 import 'package:sheltr_core/sync/engine.dart';
@@ -167,7 +168,12 @@ Future<void> _expectFixture(String name) async {
     }
     final host = _InMemoryBundle(directory);
     final engine = SyncEngine(clientFor: host.clientFor);
-    final result = await engine.run(baseUrl, publicKey, store);
+    final result = await engine.run(
+      baseUrl,
+      publicKey,
+      store,
+      trustedKeys: _trustedKeys(directory),
+    );
 
     expect(result.kind, resultKind);
     if (reasonContains != null) {
@@ -182,6 +188,20 @@ Future<void> _expectFixture(String name) async {
     store.close();
     storeDirectory.deleteSync(recursive: true);
   }
+}
+
+List<TrustedKey>? _trustedKeys(Directory directory) {
+  final file = File('${directory.path}/trusted-keys.json');
+  if (!file.existsSync()) return null;
+  final decoded = jsonDecode(file.readAsStringSync()) as List<Object?>;
+  return [
+    for (final item in decoded)
+      TrustedKey(
+        id: (item! as Map)['id'] as String,
+        publicKeyHex: (item as Map)['publicKeyHex'] as String,
+        notAfter: (item as Map)['notAfter'] as String,
+      ),
+  ];
 }
 
 void _installFixture(ContentStore store, String name) {

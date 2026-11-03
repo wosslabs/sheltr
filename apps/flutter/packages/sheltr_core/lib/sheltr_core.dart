@@ -8,6 +8,7 @@ export 'bundle/format.dart';
 export 'bundle/parser.dart';
 export 'bundle/sha256.dart';
 export 'signing/verifier.dart';
+export 'signing/trusted_keys.dart';
 export 'store/content_store.dart';
 export 'store/staleness.dart';
 export 'retrieval/citations.dart';

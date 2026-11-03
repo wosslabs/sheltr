@@ -8,7 +8,7 @@ import { rawContent, type ConnectorMap } from './connector.ts';
 import { parseManifest } from './manifest.ts';
 import { hostAllowlistPolicy } from './policy.ts';
 import { sha256Hex } from './sha256.ts';
-import { generateKeyPair, sign } from './signing.ts';
+import { generateKeyPair, rawPublicKey, sign, signingKeyId } from './signing.ts';
 
 const MOBILE = fileURLToPath(new URL('../../../apps/mobile/src/', import.meta.url));
 
@@ -172,6 +172,8 @@ async function writeFixtureBundles(fixturesDir: string, now: () => Date): Promis
       reasonContains: null,
       documentsDownloaded: readManifest(signedDir).documents.length,
     });
+
+    await generateKeyRotationFixtures(fixturesDir, now);
   } finally {
     rmSync(keyDir, { recursive: true, force: true });
   }
@@ -260,9 +262,68 @@ function changedDocumentCount(prior: BundleManifest, next: BundleManifest): numb
 }
 
 function rawPublicKeyHex(publicKey: KeyObject): string {
-  const jwk = publicKey.export({ format: 'jwk' });
-  if (jwk.x === undefined) throw new Error('Ed25519 public key is missing x');
-  return Buffer.from(jwk.x, 'base64url').toString('hex');
+  return rawPublicKey(publicKey).toString('hex');
+}
+
+interface TrustedKeyRecord {
+  readonly id: string;
+  readonly publicKeyHex: string;
+  readonly notAfter: string;
+}
+
+/**
+ * Writes only rotated-key-valid and revoked-key. Other fixture directories are left as they are.
+ * The private keys stay in a temp directory and are deleted before this returns.
+ */
+export async function generateKeyRotationFixtures(fixturesDir: string, now: () => Date): Promise<void> {
+  const keyDir = mkdtempSync(join(tmpdir(), 'sheltr-fixture-key-'));
+  const previous = generateKeyPair();
+  const rotated = generateKeyPair();
+  const removed = generateKeyPair();
+  const rotatedPath = join(keyDir, 'rotated.pem');
+  const removedPath = join(keyDir, 'removed.pem');
+  writeFileSync(rotatedPath, rotated.privateKey.export({ format: 'pem', type: 'pkcs8' }));
+  writeFileSync(removedPath, removed.privateKey.export({ format: 'pem', type: 'pkcs8' }));
+  try {
+    const previousKey: TrustedKeyRecord = {
+      id: signingKeyId(previous.publicKey),
+      publicKeyHex: rawPublicKeyHex(previous.publicKey),
+      notAfter: '2027-11-02',
+    };
+    const rotatedKey: TrustedKeyRecord = {
+      id: signingKeyId(rotated.publicKey),
+      publicKeyHex: rawPublicKeyHex(rotated.publicKey),
+      notAfter: '2028-11-02',
+    };
+
+    const rotatedDir = join(fixturesDir, 'rotated-key-valid');
+    rmSync(rotatedDir, { recursive: true, force: true });
+    const rotatedManifest = await buildSample(rotatedDir, rotatedPath, now, [BOIL, EVACUATE]);
+    finish(rotatedDir, rotatedKey.publicKeyHex, {
+      prior: 'empty',
+      result: 'updated',
+      reasonContains: null,
+      documentsDownloaded: rotatedManifest.documents.length,
+    });
+    writeTrustedKeys(rotatedDir, [previousKey, rotatedKey]);
+
+    const revokedDir = join(fixturesDir, 'revoked-key');
+    rmSync(revokedDir, { recursive: true, force: true });
+    await buildSample(revokedDir, removedPath, now, [BOIL, EVACUATE]);
+    finish(revokedDir, rawPublicKeyHex(removed.publicKey), {
+      prior: 'empty',
+      result: 'rejectedSignature',
+      reasonContains: null,
+      documentsDownloaded: null,
+    });
+    writeTrustedKeys(revokedDir, [rotatedKey]);
+  } finally {
+    rmSync(keyDir, { recursive: true, force: true });
+  }
+}
+
+function writeTrustedKeys(dir: string, keys: readonly TrustedKeyRecord[]): void {
+  writeFileSync(join(dir, 'trusted-keys.json'), `${JSON.stringify(keys, null, 2)}\n`);
 }
 
 function retrievalRules(): {
@@ -317,6 +378,7 @@ JSON is UTF-8 with four-space indentation, explicit nulls, and no trailing newli
 - \`formatVersion\` (number): \`2\`.
 - \`sequence\` (integer): strictly increasing per publication. The first bundle is \`1\`. Each later bundle is one greater than the \`sequence\` in the previous \`bundle.json\`.
 - \`bundleVersion\` (string): UTC build time, ISO-8601 to the second, for example \`2026-10-05T12:00:00Z\`.
+- \`signedBy\` (string): lower-case hex SHA-256 of the raw 32-byte Ed25519 public key that signed this file. The app accepts the bundle when this id names a key on its compiled list of at most two keys and the signature verifies under that key. An unknown id is rejected. Old bundles without this field still verify under the single compiled public key.
 - \`documents\` (array): one entry per document.
 - \`model\` (object, optional): omitted when the bundle has no model file. The publisher does not write it until a model is part of the publication. When present:
   - \`file\` (string): bundle-relative path of the model file.
@@ -355,15 +417,22 @@ A document file whose SHA-256 is not the manifest \`fileChecksum\` is a format e
 The app compares each document's \`fileChecksum\` with the installed copy. It downloads only documents whose file checksum changed, or that are new, and drops documents the manifest no longer lists. The new content replaces the old in one database transaction, which is rolled back unless every document and chunk is stored. A failed or interrupted sync leaves the previous content in place.
 
 A bundle whose \`sequence\` is lower than the installed sequence is rejected. A different bundle with the same \`sequence\` is rejected too. The failure reason contains \`older\`. The same publication already installed (the same \`sequence\` and the same \`bundleVersion\`) is up to date. A document past \`expiresOn\` still installs.
+
+A compiled list holds at most two keys, each \`{ id, publicKeyHex, notAfter }\`. \`notAfter\` is \`YYYY-MM-DD\` and is not part of the bundle. A bundle is accepted when \`signedBy\` names a key on that list and the signature verifies under it. An unknown id is \`rejectedSignature\`. A listed key past \`notAfter\` still verifies. Removing a key from the list is what revokes it.
 `;
 
 const isDirectRun = process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
 if (isDirectRun) {
-  const outDir = process.argv[2] === undefined
-    ? fileURLToPath(new URL('../../../contract', import.meta.url))
-    : resolve(process.argv[2]);
   try {
-    await generateFixtures(outDir, fixtureNow);
+    if (process.argv[2] === '--key-rotation') {
+      const fixturesDir = fileURLToPath(new URL('../../../contract/fixtures', import.meta.url));
+      await generateKeyRotationFixtures(fixturesDir, fixtureNow);
+    } else {
+      const outDir = process.argv[2] === undefined
+        ? fileURLToPath(new URL('../../../contract', import.meta.url))
+        : resolve(process.argv[2]);
+      await generateFixtures(outDir, fixtureNow);
+    }
   } catch (e) {
     console.error(e instanceof Error ? e.message : e);
     process.exitCode = 1;

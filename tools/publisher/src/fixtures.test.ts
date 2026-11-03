@@ -22,6 +22,8 @@ const FIXTURES = [
   'downgrade-older-sequence',
   'same-sequence',
   'expired-document',
+  'rotated-key-valid',
+  'revoked-key',
 ] as const;
 
 const EXPECTED: Record<(typeof FIXTURES)[number], { prior: string; result: string; reasonContains: string | null }> = {
@@ -36,6 +38,8 @@ const EXPECTED: Record<(typeof FIXTURES)[number], { prior: string; result: strin
   'downgrade-older-sequence': { prior: 'valid-signed', result: 'failed', reasonContains: 'older' },
   'same-sequence': { prior: 'valid-signed', result: 'failed', reasonContains: 'older' },
   'expired-document': { prior: 'empty', result: 'updated', reasonContains: null },
+  'rotated-key-valid': { prior: 'empty', result: 'updated', reasonContains: null },
+  'revoked-key': { prior: 'empty', result: 'rejectedSignature', reasonContains: null },
 };
 
 const WORD_ROWS = [
@@ -112,12 +116,29 @@ function readBundle(dir: string): BundleFile {
 }
 
 function documentsDownloaded(name: (typeof FIXTURES)[number], fixturesDir: string): number | null {
-  if (name === 'valid-signed' || name === 'expired-document') return readBundle(join(fixturesDir, name)).documents.length;
+  if (name === 'valid-signed' || name === 'expired-document' || name === 'rotated-key-valid') {
+    return readBundle(join(fixturesDir, name)).documents.length;
+  }
   if (name === 'valid-unchanged-doc') {
     const installed = new Map(readBundle(join(fixturesDir, 'valid-signed')).documents.map((d) => [d.id, d.fileChecksum]));
     return readBundle(join(fixturesDir, name)).documents.filter((d) => installed.get(d.id) !== d.fileChecksum).length;
   }
   return null;
+}
+
+function assertRotatedAndRevoked(fixturesDir: string): void {
+  const rotatedDir = join(fixturesDir, 'rotated-key-valid');
+  const revokedDir = join(fixturesDir, 'revoked-key');
+  assert.ok(bundleVerifies(rotatedDir));
+  assert.ok(bundleVerifies(revokedDir));
+  const rotated = JSON.parse(readFileSync(join(rotatedDir, 'bundle.json'), 'utf8')) as { signedBy: string };
+  const revoked = JSON.parse(readFileSync(join(revokedDir, 'bundle.json'), 'utf8')) as { signedBy: string };
+  const rotatedKeys = JSON.parse(readFileSync(join(rotatedDir, 'trusted-keys.json'), 'utf8')) as { id: string }[];
+  const revokedKeys = JSON.parse(readFileSync(join(revokedDir, 'trusted-keys.json'), 'utf8')) as { id: string }[];
+  assert.equal(rotatedKeys.length, 2);
+  assert.ok(rotatedKeys.some((key) => key.id === rotated.signedBy));
+  assert.equal(revokedKeys.length, 1);
+  assert.ok(revokedKeys.every((key) => key.id !== revoked.signedBy));
 }
 
 function placeholdersOf(value: string): string {
@@ -190,6 +211,7 @@ describe('fixtures', () => {
       assert.notEqual(readBundle(unsupported).formatVersion, BUNDLE_FORMAT_VERSION);
 
       assert.ok(bundleVerifies(join(fixturesDir, 'plain-http-url')));
+      assertRotatedAndRevoked(fixturesDir);
       assert.equal(containsPrivateKey(first.dir), null);
 
       assert.notEqual(
@@ -232,6 +254,7 @@ describe('fixtures', () => {
     assert.ok(bundleVerifies(join(COMMITTED_FIXTURES, 'valid-signed')));
     assert.ok(!bundleVerifies(join(COMMITTED_FIXTURES, 'tampered-manifest')));
     assert.ok(!bundleVerifies(join(COMMITTED_FIXTURES, 'wrong-key')));
+    assertRotatedAndRevoked(COMMITTED_FIXTURES);
     assert.equal(
       readFileSync(join(COMMITTED_FIXTURES, 'plain-http-url', 'base-url.txt'), 'utf8'),
       'http://example.org/bundle\n',

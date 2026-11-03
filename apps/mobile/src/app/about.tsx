@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import type { StoredDocument } from '../core/store/types';
+import { keyDatePassed, utcDate } from '../core/trustedKeys';
 import { useServices } from '../platform/AppContext';
 import { AppText, spacing } from '../ui/components';
 import { useT } from '../ui/useT';
@@ -11,8 +12,9 @@ import { useT } from '../ui/useT';
  * corpus changes.
  */
 export default function AboutScreen() {
-  const { store } = useServices();
+  const { store, trustedKeys = [], now } = useServices();
   const { t } = useT();
+  const keyDateWarning = keyDatePassed(trustedKeys, utcDate(now?.() ?? new Date()));
   const [documents, setDocuments] = useState<StoredDocument[]>([]);
 
   useEffect(() => {
@@ -29,6 +31,7 @@ export default function AboutScreen() {
     <ScrollView testID="about-screen" contentContainerStyle={styles.content}>
       <AppText size={24} weight="700" accessibilityRole="header">{t('about_title')}</AppText>
       <AppText>{t('about_description')}</AppText>
+      {keyDateWarning ? <AppText testID="about-key-date-passed">{t('about_key_date_passed')}</AppText> : null}
 
       <Section testID="about-disclaimer" title={t('about_disclaimer_title')}>
         <AppText>{t('about_disclaimer')}</AppText>

@@ -62,7 +62,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (syncing.current) return { kind: 'failed', reason: 'a sync is already running' };
       syncing.current = true;
       try {
-        const result = await engine.run(publisher.baseUrl, publisher.publicKey, b.store);
+        const result = await engine.run(
+          publisher.baseUrl,
+          publisher.publicKey,
+          b.store,
+          publisher.trustedKeys.length === 0 ? undefined : publisher.trustedKeys,
+        );
         if (result.kind === 'updated' || result.kind === 'upToDate') setLastSync(await b.store.lastSyncEpochSeconds());
         return result;
       } finally {
@@ -106,6 +111,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       settings,
       lastSyncEpochSeconds: lastSync,
       syncAvailable: publisher !== null,
+      trustedKeys: publisher?.trustedKeys ?? [],
       updateSettings: async (patch) => {
         const next = { ...settings, ...patch };
         await boot.settingsStore.put(next);

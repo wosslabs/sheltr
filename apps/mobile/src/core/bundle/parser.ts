@@ -20,6 +20,23 @@ export class BundleFormatError extends Error {
 type Json = Record<string, unknown>;
 
 /**
+ * The key id in bundle.json, or null when the bytes are not an object with a non-empty signedBy string.
+ * Read before the signature check so the app can choose which compiled key to use. Other fields stay untrusted
+ * until that signature verifies.
+ */
+export function readSignedBy(bytes: Uint8Array): string | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(utf8Decode(bytes));
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
+  const signedBy = (parsed as { signedBy?: unknown }).signedBy;
+  return typeof signedBy === 'string' && signedBy !== '' ? signedBy : null;
+}
+
+/**
  * Parses bundle.json. Rejects any formatVersion other than {@link BUNDLE_FORMAT_VERSION} before the rest of the
  * file is read, so a future layout gets a clear message instead of a field error. Rejects blank ids.
  */

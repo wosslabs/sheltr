@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createPublicKey, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { chunkPages, chunkUnpaged, type ChunkDraft } from './chunker.ts';
@@ -7,7 +7,7 @@ import type { CorpusManifest, ManifestDocument } from './manifest.ts';
 import { extractPdfPages } from './pdf.ts';
 import { rejectionMessage, type SourcePolicy } from './policy.ts';
 import { sha256Hex } from './sha256.ts';
-import { loadPrivateKey, sign } from './signing.ts';
+import { loadPrivateKey, sign, signingKeyId } from './signing.ts';
 import { clean, pageText } from './text.ts';
 
 /*
@@ -34,6 +34,8 @@ export interface BundleManifest {
   sequence: number;
   /** UTC build time, ISO-8601 to the second, for example 2026-10-05T12:00:00Z. */
   bundleVersion: string;
+  /** Lower-case SHA-256 of the raw 32-byte Ed25519 public key that signed this file. */
+  signedBy: string;
   documents: BundleDocument[];
 }
 
@@ -201,6 +203,7 @@ export async function buildBundle(
       formatVersion: BUNDLE_FORMAT_VERSION,
       sequence,
       bundleVersion: now().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+      signedBy: signingKeyId(createPublicKey(privateKey)),
       documents,
     };
     const bundleBytes = encodeBundleJson(bundle);

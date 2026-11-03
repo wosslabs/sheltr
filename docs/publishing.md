@@ -53,24 +53,38 @@ Check it before announcing it: download `bundle.json` and `bundle.json.sig` from
 
 ## Pointing the app at the host
 
-The base URL and the hex public key are build-time settings, read by `apps/mobile/app.config.js` from the environment. They are compiled into the app, never stored in source:
+The base URL and the trusted keys are build-time settings. They are compiled into the app, never stored as source. Each trusted key is `{ id, publicKeyHex, notAfter }`. `id` is the lower-case SHA-256 of the raw 32-byte public key. `publicKeyHex` is those 32 bytes as 64 hex characters. `notAfter` is a `YYYY-MM-DD` date chosen by the maintainer. The list holds at most two keys.
+
+```bash
+openssl pkey -pubin -in ~/sheltr-keys/sheltr-publisher.pub.pem -outform DER | tail -c 32 | xxd -p -c 64
+openssl pkey -pubin -in ~/sheltr-keys/sheltr-publisher.pub.pem -outform DER | tail -c 32 | openssl dgst -sha256 -r | awk '{print $1}'
+```
+
+The first command is `publicKeyHex`. The second is `id`, which the publisher writes as `signedBy` in `bundle.json`.
+
+`apps/mobile` reads `SHELTR_PUBLISHER_BASE_URL`, `SHELTR_PUBLISHER_PUBLIC_KEY_HEX`, and an optional `SHELTR_PUBLISHER_TRUSTED_KEYS` JSON array. With the array unset, the app keeps verifying with the single hex key. With the array set, a bundle is accepted only when `signedBy` names one of those keys and the signature verifies under it.
 
 ```bash
 cd apps/mobile
 SHELTR_PUBLISHER_BASE_URL=https://<org>.github.io/sheltr-bundles/ \
 SHELTR_PUBLISHER_PUBLIC_KEY_HEX=<64 hex characters> \
+SHELTR_PUBLISHER_TRUSTED_KEYS='[{"id":"<64 hex>","publicKeyHex":"<64 hex>","notAfter":"2027-11-02"}]' \
   npx expo run:android --variant release
 ```
 
-For store builds use EAS Build (`eas build`) and set the same two variables as EAS environment variables.
+Flutter compiles the same list as `compiledTrustedKeys` in `apps/flutter/lib/trusted_keys.dart`.
 
-With either missing (the default), "Sync now" says sync is not available in this build and the app only has the bundled sample content. A key that is not 64 hex characters is treated as missing.
+For store builds use EAS Build (`eas build`) and set the same variables as EAS environment variables.
+
+With the base URL or the single public key missing (the default), "Sync now" says sync is not available in this build and the app only has the bundled sample content. A key that is not 64 hex characters is treated as missing. A trusted-key list of more than two keys is treated as missing too.
 
 ## Key rotation and loss
 
-- The apps verify against the public key compiled in, so rotating the key needs an app update. Plan an overlap: ship an app that trusts the new key before publishing with it.
+- Ship an app that trusts the new key and the current key before publishing a bundle signed by the new key. `signedBy` must name a key on the compiled list, and the signature must verify under that key. An unknown id is rejected.
+- A listed key past `notAfter` still verifies. The About screen shows that the date has passed. Answers still show. The warning does not add safety steps.
+- Removing a key from the compiled list is what revokes it. The next app update rejects bundles that name the removed id.
 - If the private key is lost, no new bundle can be trusted. Apps keep their last good content.
-- If the private key leaks, anyone can publish content the apps accept. Treat it as a security incident: see `SECURITY.md`, publish nothing, rotate the key and ship an app update.
+- If the private key leaks, anyone can publish content the apps accept until that key is removed from the list. Treat it as a security incident: see `SECURITY.md`, publish nothing, and ship an app update that drops the leaked key.
 
 ## Before every publication
 

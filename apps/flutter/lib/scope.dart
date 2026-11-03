@@ -13,6 +13,7 @@ class SheltrScope extends InheritedWidget {
     required this.documents,
     required this.store,
     required this.now,
+    required this.trustedKeys,
     required this.updateSettings,
     required super.child,
     super.key,
@@ -27,8 +28,11 @@ class SheltrScope extends InheritedWidget {
   /// Open content database. Search reads it through [Retriever].
   final ContentStore? store;
 
-  /// Instant used for review dates and the published-bundle clock check.
+  /// Instant used for review dates, the published-bundle clock check, and key dates.
   final DateTime Function() now;
+
+  /// Compiled publisher keys. At most two. Empty when this build has none.
+  final List<TrustedKey> trustedKeys;
   final ValueChanged<AppSettings> updateSettings;
 
   String t(String key, [Map<String, Object?> values = const {}]) {
@@ -49,6 +53,7 @@ class SheltrScope extends InheritedWidget {
         oldWidget.documents != documents ||
         oldWidget.store != store ||
         oldWidget.now != now ||
+        oldWidget.trustedKeys != trustedKeys ||
         oldWidget.strings != strings;
   }
 }

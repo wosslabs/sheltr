@@ -1,9 +1,10 @@
 import type { BundleDocument, BundleManifest, DocumentFile } from '../bundle/format';
-import { BundleFormatError, parseBundleManifest, parseDocumentFileBytes, verifyDocumentFile } from '../bundle/parser';
+import { BundleFormatError, parseBundleManifest, parseDocumentFileBytes, readSignedBy, verifyDocumentFile } from '../bundle/parser';
 import { utf8Decode } from '../bytes';
 import { verifySignature } from '../signing';
 import type { ContentStore } from '../store/contentStore';
 import type { StoreReader } from '../store/types';
+import { decideTrustedKey, utcDate, type TrustedKey } from '../trustedKeys';
 import { FetchSyncClient, type SyncClient } from './client';
 import type { SyncResult } from './result';
 
@@ -11,8 +12,10 @@ import type { SyncResult } from './result';
  * One sync of the on-device content with a published bundle:
  *
  *  1. fetch bundle.json and bundle.json.sig;
- *  2. verify the Ed25519 signature over the exact manifest bytes; a bad signature ends the sync before anything
- *     else is read from the manifest or the store is touched;
+ *  2. when a trusted-key list is given, signedBy must name one of those keys; verify the Ed25519 signature
+ *     under that key. An unknown id or a bad signature ends the sync before anything else is read. A listed
+ *     key past notAfter still verifies. With no list, verify under the single public key, including bundles
+ *     that have no signedBy;
  *  3. parse the manifest (formatVersion 2 only); a sequence that does not exceed the installed one fails;
  *     the same sequence and bundleVersion means upToDate;
  *  4. download only the documents whose fileChecksum differs from the stored one (or that are new), and check each
@@ -30,18 +33,29 @@ export class SyncEngine {
     private readonly nowEpochSeconds: () => number = () => Math.floor(Date.now() / 1000),
   ) {}
 
-  async run(baseUrl: string, publicKey: Uint8Array, store: ContentStore): Promise<SyncResult> {
+  async run(
+    baseUrl: string,
+    publicKey: Uint8Array,
+    store: ContentStore,
+    trustedKeys?: readonly TrustedKey[],
+  ): Promise<SyncResult> {
     try {
-      return await this.sync(this.clientFor(baseUrl), publicKey, store);
+      return await this.sync(this.clientFor(baseUrl), publicKey, store, trustedKeys);
     } catch (e) {
       return { kind: 'failed', reason: e instanceof Error && e.message ? e.message : 'sync failed' };
     }
   }
 
-  private async sync(client: SyncClient, publicKey: Uint8Array, store: ContentStore): Promise<SyncResult> {
+  private async sync(
+    client: SyncClient,
+    publicKey: Uint8Array,
+    store: ContentStore,
+    trustedKeys?: readonly TrustedKey[],
+  ): Promise<SyncResult> {
     const manifestBytes = await client.fetchManifestBytes();
     const signature = await client.fetchSignatureBytes();
-    if (!verifySignature(publicKey, manifestBytes, signature)) return { kind: 'rejectedSignature' };
+    const key = keyFor(manifestBytes, publicKey, trustedKeys, this.nowEpochSeconds());
+    if (key === null || !verifySignature(key, manifestBytes, signature)) return { kind: 'rejectedSignature' };
 
     const manifest = parseBundleManifest(utf8Decode(manifestBytes));
     const installedSequence = await store.sequence();
@@ -65,6 +79,22 @@ export class SyncEngine {
     await store.recordSync(this.nowEpochSeconds());
     return { kind: 'updated', bundleVersion: manifest.bundleVersion, documentsDownloaded: downloaded.size };
   }
+}
+
+/**
+ * The single public key when no list is compiled in. Otherwise the public key named by signedBy.
+ * Null when that id is not on the list. A past notAfter does not reject.
+ */
+function keyFor(
+  manifestBytes: Uint8Array,
+  publicKey: Uint8Array,
+  trustedKeys: readonly TrustedKey[] | undefined,
+  nowEpochSeconds: number,
+): Uint8Array | null {
+  if (trustedKeys === undefined) return publicKey;
+  const today = utcDate(new Date(nowEpochSeconds * 1000));
+  const decision = decideTrustedKey(readSignedBy(manifestBytes), trustedKeys, today);
+  return decision.kind === 'accept' ? decision.publicKey : null;
 }
 
 /** Fetches and verifies every document whose file differs from the stored one. Throws on the first failure. */

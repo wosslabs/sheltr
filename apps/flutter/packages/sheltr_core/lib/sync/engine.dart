@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import '../bundle/format.dart';
 import '../bundle/parser.dart';
+import '../signing/trusted_keys.dart';
 import '../signing/verifier.dart';
 import '../store/content_store.dart';
 import 'client.dart';
@@ -38,19 +39,25 @@ class SyncEngine {
   final SyncClient Function(String baseUrl) _clientFor;
   final int Function() _nowEpochSeconds;
 
-  /// Fetches and installs [baseUrl] when its signature verifies under [publicKey].
+  /// Fetches and installs [baseUrl] when its signature verifies.
   ///
   /// A base URL that does not start with `https://` is refused before any
   /// request. [verifySignature] is awaited and does not throw; false becomes
   /// [SyncRejectedSignature] and the manifest bytes are not parsed.
+  ///
+  /// When [trustedKeys] is set, `signedBy` must name one of those keys and the
+  /// signature must verify under it. An unknown id is [SyncRejectedSignature].
+  /// A listed key past `notAfter` still verifies. With no list, [publicKey]
+  /// is used, including for bundles that have no `signedBy`.
   Future<SyncResult> run(
     String baseUrl,
     Uint8List publicKey,
-    ContentStore store,
-  ) async {
+    ContentStore store, {
+    List<TrustedKey>? trustedKeys,
+  }) async {
     try {
       requireHttps(baseUrl);
-      return await _sync(_clientFor(baseUrl), publicKey, store);
+      return await _sync(_clientFor(baseUrl), publicKey, store, trustedKeys);
     } on Object catch (error) {
       return SyncFailed(reason: _failureReason(error));
     }
@@ -60,10 +67,20 @@ class SyncEngine {
     SyncClient client,
     Uint8List publicKey,
     ContentStore store,
+    List<TrustedKey>? trustedKeys,
   ) async {
     final manifestBytes = await client.fetchManifestBytes();
     final signature = await client.fetchSignatureBytes();
-    final verified = await verifySignature(publicKey, manifestBytes, signature);
+    final key = _keyFor(
+      manifestBytes,
+      publicKey,
+      trustedKeys,
+      _nowEpochSeconds(),
+    );
+    if (key == null) {
+      return const SyncRejectedSignature();
+    }
+    final verified = await verifySignature(key, manifestBytes, signature);
     if (!verified) {
       return const SyncRejectedSignature();
     }
@@ -97,6 +114,28 @@ class SyncEngine {
       documentsDownloaded: downloaded.length,
     );
   }
+}
+
+/// The single public key when no list is compiled in. Otherwise the public key
+/// named by `signedBy`. Null when that id is not on the list. A past notAfter
+/// does not reject.
+Uint8List? _keyFor(
+  Uint8List manifestBytes,
+  Uint8List publicKey,
+  List<TrustedKey>? trustedKeys,
+  int nowEpochSeconds,
+) {
+  if (trustedKeys == null) return publicKey;
+  final today = utcDateText(
+    DateTime.fromMillisecondsSinceEpoch(nowEpochSeconds * 1000, isUtc: true),
+  );
+  final decision = decideTrustedKey(
+    readSignedBy(manifestBytes),
+    trustedKeys,
+    today,
+  );
+  if (decision is! TrustedKeyAccepted) return null;
+  return decision.publicKey;
 }
 
 /// Fetches and verifies every document whose file differs from the stored one.

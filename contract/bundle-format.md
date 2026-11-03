@@ -21,6 +21,7 @@ JSON is UTF-8 with four-space indentation, explicit nulls, and no trailing newli
 - `formatVersion` (number): `2`.
 - `sequence` (integer): strictly increasing per publication. The first bundle is `1`. Each later bundle is one greater than the `sequence` in the previous `bundle.json`.
 - `bundleVersion` (string): UTC build time, ISO-8601 to the second, for example `2026-10-05T12:00:00Z`.
+- `signedBy` (string): lower-case hex SHA-256 of the raw 32-byte Ed25519 public key that signed this file. The app accepts the bundle when this id names a key on its compiled list of at most two keys and the signature verifies under that key. An unknown id is rejected. Old bundles without this field still verify under the single compiled public key.
 - `documents` (array): one entry per document.
 - `model` (object, optional): omitted when the bundle has no model file. The publisher does not write it until a model is part of the publication. When present:
   - `file` (string): bundle-relative path of the model file.
@@ -59,3 +60,5 @@ A document file whose SHA-256 is not the manifest `fileChecksum` is a format err
 The app compares each document's `fileChecksum` with the installed copy. It downloads only documents whose file checksum changed, or that are new, and drops documents the manifest no longer lists. The new content replaces the old in one database transaction, which is rolled back unless every document and chunk is stored. A failed or interrupted sync leaves the previous content in place.
 
 A bundle whose `sequence` is lower than the installed sequence is rejected. A different bundle with the same `sequence` is rejected too. The failure reason contains `older`. The same publication already installed (the same `sequence` and the same `bundleVersion`) is up to date. A document past `expiresOn` still installs.
+
+A compiled list holds at most two keys, each `{ id, publicKeyHex, notAfter }`. `notAfter` is `YYYY-MM-DD` and is not part of the bundle. A bundle is accepted when `signedBy` names a key on that list and the signature verifies under it. An unknown id is `rejectedSignature`. A listed key past `notAfter` still verifies. Removing a key from the list is what revokes it.

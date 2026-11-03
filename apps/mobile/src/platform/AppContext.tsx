@@ -3,6 +3,7 @@ import type { AppSettings } from '../core/settings/appSettings';
 import type { Retriever } from '../core/retrieval/retriever';
 import type { SyncResult } from '../core/sync/result';
 import type { StoreReader } from '../core/store/types';
+import type { TrustedKey } from '../core/trustedKeys';
 
 /** What a manual sync reports back to the Settings screen. 'unavailable': no bundle host is configured. */
 export type SyncOutcome = SyncResult | { readonly kind: 'unavailable' };
@@ -17,6 +18,10 @@ export interface AppServices {
   readonly lastSyncEpochSeconds: number | null;
   /** True when a bundle host and public key are configured at build time. */
   readonly syncAvailable: boolean;
+  /** Compiled publisher keys. Empty when this build still uses the single public key. */
+  readonly trustedKeys?: readonly TrustedKey[];
+  /** Clock for the key-date warning. Tests pass a fixed instant. */
+  readonly now?: () => Date;
   syncNow(): Promise<SyncOutcome>;
 }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sheltr_core/sheltr_core.dart';
 
 import '../scope.dart';
 
@@ -22,6 +23,10 @@ class AboutScreen extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Text(scope.t('about_description')),
+        if (keyDatePassed(scope.trustedKeys, utcDateText(scope.now()))) ...[
+          const SizedBox(height: 16),
+          Text(scope.t('about_key_date_passed')),
+        ],
         const SizedBox(height: 16),
         Text(
           scope.t('about_disclaimer_title'),

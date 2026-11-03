@@ -107,6 +107,7 @@ export async function runPublisher(
     verified = true;
   }
   out.println(`Bundle version: ${result.manifest.bundleVersion}`);
+  out.println(`Signed by: ${result.manifest.signedBy}`);
   out.println(`Documents: ${result.manifest.documents.length}`);
   out.println(verified ? 'Signature: verified' : 'Signature: not verified (no --public-key given)');
   out.println(`Written to: ${result.outputDir}`);

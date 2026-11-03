@@ -3,6 +3,7 @@
   "about_description": "Sheltr es una guía gratuita y sin fines de lucro para prepararse y responder ante desastres. Responde solo con documentos oficiales aprobados y muestra la fuente de cada respuesta.",
   "about_disclaimer": "Sheltr es un proyecto independiente. No es un servicio oficial de ningún gobierno ni organismo y no envía alertas. En una emergencia, siga las instrucciones de las autoridades locales.",
   "about_disclaimer_title": "No es un sistema oficial de alertas",
+  "about_key_date_passed": "Una clave de firma de confianza ha pasado su fecha.",
   "about_privacy": "Sheltr no tiene cuentas, ni analíticas, ni rastreo. Sus búsquedas y ajustes permanecen en su dispositivo. La aplicación no usa su ubicación. Su única solicitud de red descarga orientación actualizada, y la aplicación comprueba la firma digital de ese contenido antes de usarlo.",
   "about_privacy_title": "Privacidad",
   "about_source_details": "%{p1} · %{p2} · %{p3}",

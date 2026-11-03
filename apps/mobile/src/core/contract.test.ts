@@ -8,6 +8,7 @@ import { NodeSqliteDatabase } from './testing/nodeSqlite';
 import { FetchSyncClient } from './sync/client';
 import { SyncEngine } from './sync/engine';
 import type { SyncResult } from './sync/result';
+import { compileTrustedKeys, keyDatePassed, type TrustedKey } from './trustedKeys';
 
 /**
  * The Expo app is the oracle for the shared contract. Flutter asserts the same fixture table, the same word
@@ -41,6 +42,12 @@ function fixtureNames(): string[] {
 
 function readExpect(name: string): FixtureExpect {
   return JSON.parse(fs.readFileSync(path.join(fixturesDir, name, 'expect.json'), 'utf8')) as FixtureExpect;
+}
+
+function trustedKeysOf(name: string): readonly TrustedKey[] | undefined {
+  const file = path.join(fixturesDir, name, 'trusted-keys.json');
+  if (!fs.existsSync(file)) return undefined;
+  return JSON.parse(fs.readFileSync(file, 'utf8')) as TrustedKey[];
 }
 
 function publicKey(name: string): Uint8Array {
@@ -141,7 +148,7 @@ describe('contract fixtures', () => {
     }
 
     host.load(name);
-    const result = await engine.run(baseUrl(name), key, store);
+    const result = await engine.run(baseUrl(name), key, store, trustedKeysOf(name));
 
     expect(result.kind).toBe(expected.result);
     if (expected.reasonContains !== null) {
@@ -197,5 +204,95 @@ describe('contract retrieval cases', () => {
     // Bars from docs/evaluation.md. Refusing is the safe failure; a wrong answer is not.
     expect(answered).toBeGreaterThanOrEqual(0.9 * cases.length);
     expect(found).toBeGreaterThanOrEqual(0.9 * cases.length);
+  });
+});
+
+const KEY_DATE_WARNING = 'A trusted signing key is past its date.';
+
+interface TrustedKeyFile {
+  id: string;
+  publicKeyHex: string;
+  notAfter: string;
+}
+
+function readTrustedKeys(name: string): TrustedKeyFile[] {
+  return JSON.parse(fs.readFileSync(path.join(fixturesDir, name, 'trusted-keys.json'), 'utf8')) as TrustedKeyFile[];
+}
+
+function readSignedBy(name: string): string {
+  const parsed = JSON.parse(fs.readFileSync(path.join(fixturesDir, name, 'bundle.json'), 'utf8')) as { signedBy?: unknown };
+  if (typeof parsed.signedBy !== 'string' || parsed.signedBy === '') {
+    throw new Error(`${name} bundle.json has no signedBy`);
+  }
+  return parsed.signedBy;
+}
+
+async function syncFixture(name: string, key: Uint8Array, trustedKeys: readonly TrustedKeyFile[], store: ContentStore): Promise<SyncResult> {
+  const host = new FixtureHost();
+  host.load(name);
+  const engine = new SyncEngine((url) => new FetchSyncClient(url, host.fetch));
+  return engine.run(HTTPS_BASE, key, store, trustedKeys);
+}
+
+describe('key rotation', () => {
+  it('rotatedKeyBundleVerifies', async () => {
+    const keys = readTrustedKeys('rotated-key-valid');
+    const signedBy = readSignedBy('rotated-key-valid');
+    const signer = keys.find((key) => key.id === signedBy);
+    const other = keys.find((key) => key.id !== signedBy);
+    expect(signer).toBeDefined();
+    expect(other).toBeDefined();
+    expect(keys).toHaveLength(2);
+
+    const store = await ContentStore.open(new NodeSqliteDatabase());
+    const result = await syncFixture('rotated-key-valid', hexToBytes(other!.publicKeyHex), keys, store);
+
+    expect(result.kind).toBe('updated');
+    expect(() => compileTrustedKeys([
+      ...keys,
+      { id: 'c'.repeat(64), publicKeyHex: 'ab'.repeat(32), notAfter: '2029-01-01' },
+    ])).toThrow(/at most two/);
+  });
+
+  it('unknownKeyIdRejected', async () => {
+    const keys = readTrustedKeys('revoked-key');
+    const signedBy = readSignedBy('revoked-key');
+    expect(keys.some((key) => key.id === signedBy)).toBe(false);
+
+    const store = await ContentStore.open(new NodeSqliteDatabase());
+    const result = await syncFixture('revoked-key', publicKey('revoked-key'), keys, store);
+
+    expect(result.kind).toBe('rejectedSignature');
+  });
+
+  it('listedKeyPastNotAfterStillInstallsAndWarns', async () => {
+    const signedBy = readSignedBy('rotated-key-valid');
+    const keys = readTrustedKeys('rotated-key-valid').map((key) => ({ ...key, notAfter: '2020-01-01' }));
+    const other = keys.find((key) => key.id !== signedBy);
+    expect(other).toBeDefined();
+
+    const store = await ContentStore.open(new NodeSqliteDatabase());
+    const result = await syncFixture('rotated-key-valid', hexToBytes(other!.publicKeyHex), keys, store);
+    expect(result.kind).toBe('updated');
+
+    const documents = await store.documents();
+    const boil = documents.find((document) => document.title === 'Boil water');
+    expect(boil).toBeDefined();
+    const chunks = await store.chunks(boil!.id);
+    expect(chunks.some((chunk) => chunk.content.includes('Boil water'))).toBe(true);
+
+    expect(keyDatePassed(keys, '2026-11-02')).toBe(true);
+    expect(keyDatePassed(keys.map((key) => ({ ...key, notAfter: '2026-11-02' })), '2026-11-02')).toBe(false);
+
+    for (const locale of ['en', 'es', 'fr']) {
+      const catalog = JSON.parse(
+        fs.readFileSync(path.join(__dirname, '..', 'i18n', 'locales', `${locale}.json`), 'utf8'),
+      ) as Record<string, string>;
+      expect(catalog.about_key_date_passed.trim().length).toBeGreaterThan(0);
+    }
+    const english = JSON.parse(
+      fs.readFileSync(path.join(__dirname, '..', 'i18n', 'locales', 'en.json'), 'utf8'),
+    ) as Record<string, string>;
+    expect(english.about_key_date_passed).toBe(KEY_DATE_WARNING);
   });
 });

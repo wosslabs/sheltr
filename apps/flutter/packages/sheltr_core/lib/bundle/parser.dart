@@ -14,6 +14,23 @@ class BundleFormatError implements Exception {
   String toString() => 'BundleFormatError: $message';
 }
 
+/// The key id in bundle.json, or null when the bytes are not an object with a
+/// non-empty `signedBy` string.
+///
+/// Read before the signature check so the app can choose which compiled key
+/// to use. Other fields stay untrusted until that signature verifies.
+String? readSignedBy(Uint8List bytes) {
+  try {
+    final root = jsonDecode(utf8.decode(bytes));
+    if (root is! Map) return null;
+    final signedBy = root['signedBy'];
+    if (signedBy is! String || signedBy.isEmpty) return null;
+    return signedBy;
+  } on Object {
+    return null;
+  }
+}
+
 /// Parses bundle.json. Rejects any formatVersion other than
 /// [bundleFormatVersion] before the rest of the file is read, and rejects
 /// blank ids. Format 2 also requires [BundleManifest.sequence] and each

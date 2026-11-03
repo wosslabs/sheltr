@@ -412,6 +412,39 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('listedKeyPastNotAfterStillInstallsAndWarns', (tester) async {
+    const warning = 'A trusted signing key is past its date.';
+    await _pump(
+      tester,
+      route: '/about',
+      now: () => DateTime.utc(2026, 11, 2),
+      trustedKeys: const [
+        TrustedKey(
+          id: '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff',
+          publicKeyHex: '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff',
+          notAfter: '2020-01-01',
+        ),
+      ],
+    );
+    expect(find.text(warning), findsOneWidget);
+
+    await _pump(
+      tester,
+      route: '/answer',
+      now: () => DateTime.utc(2026, 11, 2),
+      answer: _passages(),
+      trustedKeys: const [
+        TrustedKey(
+          id: '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff',
+          publicKeyHex: '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff',
+          notAfter: '2020-01-01',
+        ),
+      ],
+    );
+    expect(find.text('Move to higher ground.'), findsOneWidget);
+    expect(find.textContaining('step'), findsNothing);
+  });
 }
 
 const _expiredWarning = 'This document is past its expiry date.';
@@ -445,6 +478,7 @@ Future<void> _pump(
   RetrievalResult? answer,
   ContentStore? store,
   DateTime Function()? now,
+  List<TrustedKey> trustedKeys = const [],
 }) async {
   if (locales != null) {
     tester.platformDispatcher.localesTestValue = locales;
@@ -457,6 +491,7 @@ Future<void> _pump(
       answer: answer,
       store: store,
       now: now ?? DateTime.now,
+      trustedKeys: trustedKeys,
     ),
   );
   await tester.pumpAndSettle();

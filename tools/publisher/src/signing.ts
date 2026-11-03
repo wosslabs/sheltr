@@ -3,6 +3,7 @@ import {
   type KeyObject,
 } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { sha256Hex } from './sha256.ts';
 
 /*
  * Ed25519 on Node's built-in crypto. Keys are PKCS#8 (private) and X.509 SubjectPublicKeyInfo (public), in DER or
@@ -38,6 +39,21 @@ export function loadPrivateKey(path: string): KeyObject {
   const key = createPrivateKey({ key: decodeKeyFile(path, 'PRIVATE KEY'), format: 'der', type: 'pkcs8' });
   if (key.asymmetricKeyType !== 'ed25519') throw new Error(`${path} is not an Ed25519 key`);
   return key;
+}
+
+/** The raw 32-byte Ed25519 public key. */
+export function rawPublicKey(publicKey: KeyObject): Buffer {
+  const jwk = publicKey.export({ format: 'jwk' });
+  if (typeof jwk.x !== 'string') throw new Error('Ed25519 public key is missing x');
+  return Buffer.from(jwk.x, 'base64url');
+}
+
+/**
+ * Key id written as `signedBy`: lower-case SHA-256 of the raw 32-byte public key.
+ * The apps match this string against a compiled list of at most two keys.
+ */
+export function signingKeyId(publicKey: KeyObject): string {
+  return sha256Hex(rawPublicKey(publicKey));
 }
 
 /** Loads an X.509 Ed25519 public key from [path]. */

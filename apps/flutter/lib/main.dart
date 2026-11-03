@@ -13,12 +13,13 @@ import 'screens/home.dart';
 import 'screens/search.dart';
 import 'screens/settings.dart';
 import 'sync/scheduler.dart';
+import 'trusted_keys.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final directory = await getApplicationSupportDirectory();
   final store = ContentStore.open(directory);
-  runApp(SheltrApp(store: store));
+  runApp(SheltrApp(store: store, trustedKeys: compiledTrustedKeys));
 }
 
 /// Sheltr: offline disaster guidance.
@@ -31,6 +32,7 @@ class SheltrApp extends StatefulWidget {
     this.documents = const [],
     this.store,
     this.now = _deviceNow,
+    this.trustedKeys = const [],
   });
 
   final AppSettings settings;
@@ -39,8 +41,11 @@ class SheltrApp extends StatefulWidget {
   final List<StoredDocument> documents;
   final ContentStore? store;
 
-  /// Clock for review dates. Tests pass a fixed instant.
+  /// Clock for review dates and the signing-key date. Tests pass a fixed instant.
   final DateTime Function() now;
+
+  /// Compiled publisher keys. At most two.
+  final List<TrustedKey> trustedKeys;
 
   @override
   State<SheltrApp> createState() => _SheltrAppState();
@@ -107,6 +112,7 @@ class _SheltrAppState extends State<SheltrApp> {
           documents: widget.documents,
           store: widget.store,
           now: widget.now,
+          trustedKeys: widget.trustedKeys,
           updateSettings: _updateSettings,
           child: MediaQuery(
             data: MediaQuery.of(context)
