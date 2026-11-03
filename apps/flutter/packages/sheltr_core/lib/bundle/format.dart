@@ -3,7 +3,7 @@
 // Every checksum is lower-case hex SHA-256.
 
 /// Version of the bundle layout. This app reads only this version.
-const int bundleFormatVersion = 1;
+const int bundleFormatVersion = 2;
 
 const String bundleManifestFile = 'bundle.json';
 const String bundleSignatureFile = 'bundle.json.sig';
@@ -12,11 +12,15 @@ const String bundleDocumentsDir = 'documents';
 class BundleManifest {
   const BundleManifest({
     required this.formatVersion,
+    required this.sequence,
     required this.bundleVersion,
     required this.documents,
   });
 
   final int formatVersion;
+
+  /// Strictly increasing publication counter.
+  final int sequence;
 
   /// UTC build time, ISO-8601 to the second, for example 2026-10-05T12:00:00Z.
   final String bundleVersion;
@@ -30,6 +34,8 @@ class BundleDocument {
     required this.title,
     required this.agency,
     required this.publishedDate,
+    required this.reviewedOn,
+    required this.expiresOn,
     required this.licence,
     required this.country,
     required this.hazards,
@@ -47,6 +53,12 @@ class BundleDocument {
 
   /// ISO date, YYYY-MM-DD.
   final String publishedDate;
+
+  /// ISO date, YYYY-MM-DD.
+  final String reviewedOn;
+
+  /// ISO date, YYYY-MM-DD. Past this date the document is stale; sync still installs it.
+  final String expiresOn;
   final String licence;
 
   /// ISO 3166-1 alpha-2, or null for global guidance.

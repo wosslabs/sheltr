@@ -36,6 +36,7 @@ export function parseBundleManifest(text: string): BundleManifest {
   );
   return {
     formatVersion: BUNDLE_FORMAT_VERSION,
+    sequence: integer(root.sequence, 'sequence'),
     bundleVersion: string(root.bundleVersion, 'bundleVersion'),
     documents,
   };
@@ -55,6 +56,8 @@ function parseBundleDocument(raw: Json): BundleDocument {
     title: string(raw.title, 'title'),
     agency: string(raw.agency, 'agency'),
     publishedDate: string(raw.publishedDate, 'publishedDate'),
+    reviewedOn: string(raw.reviewedOn, 'reviewedOn'),
+    expiresOn: string(raw.expiresOn, 'expiresOn'),
     licence: string(raw.licence, 'licence'),
     country: nullableString(raw.country, 'country'),
     hazards: array(raw.hazards, 'hazards').map((h) => string(h, 'hazard')),
@@ -130,6 +133,11 @@ function object(value: unknown, what: string): Json {
 
 function array(value: unknown, what: string): unknown[] {
   if (!Array.isArray(value)) throw new BundleFormatError(`${what} must be an array.`);
+  return value;
+}
+
+function integer(value: unknown, what: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value)) throw new BundleFormatError(`${what} must be an integer.`);
   return value;
 }
 

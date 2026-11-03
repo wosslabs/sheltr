@@ -43,8 +43,11 @@ void main() {
   });
 
   test('parses a signed manifest', () {
-    expect(manifest.formatVersion, 1);
-    expect(manifest.bundleVersion, '2026-11-02T22:33:03Z');
+    expect(manifest.formatVersion, 2);
+    expect(manifest.sequence, 1);
+    expect(manifest.bundleVersion, '2026-11-03T02:30:35Z');
+    expect(document.reviewedOn, '2026-10-05');
+    expect(document.expiresOn, '2027-11-02');
     expect(manifest.documents, hasLength(2));
     expect(document.id, '251b3d589b274399efbed685c3e6d68f');
     expect(document.title, 'Boil water');
@@ -108,11 +111,11 @@ void main() {
   test('rejects an unsupported format version before reading the rest', () {
     final message = messageOf(
       () => parseBundleManifest(
-        manifestText.replaceFirst('"formatVersion": 1', '"formatVersion": 2'),
+        manifestText.replaceFirst('"formatVersion": 2', '"formatVersion": 3'),
       ),
     );
-    expect(message, contains('Unsupported bundle formatVersion 2'));
-    expect(message, contains('reads formatVersion 1'));
+    expect(message, contains('Unsupported bundle formatVersion 3'));
+    expect(message, contains('reads formatVersion 2'));
     expect(message, contains('format'));
   });
 
@@ -120,7 +123,7 @@ void main() {
     expect(
       messageOf(
         () => parseBundleManifest(
-          manifestText.replaceFirst('"formatVersion": 1,', ''),
+          manifestText.replaceFirst('"formatVersion": 2,', ''),
         ),
       ),
       contains('(missing)'),
@@ -167,7 +170,8 @@ void main() {
   test('parses a null country and a null page number', () {
     final parsed = parseBundleManifest(
       jsonEncode({
-        'formatVersion': 1,
+        'formatVersion': 2,
+        'sequence': 1,
         'bundleVersion': '2026-10-05T12:00:00Z',
         'documents': [
           {
@@ -175,6 +179,8 @@ void main() {
             'title': 'Global storm page',
             'agency': 'Agency',
             'publishedDate': '2025-01-02',
+            'reviewedOn': '2026-11-02',
+            'expiresOn': '2027-11-02',
             'licence': 'CC-BY-4.0',
             'country': null,
             'hazards': <String>[],
@@ -193,7 +199,8 @@ void main() {
 
     final omitted = parseBundleManifest(
       jsonEncode({
-        'formatVersion': 1,
+        'formatVersion': 2,
+        'sequence': 1,
         'bundleVersion': '2026-10-05T12:00:00Z',
         'documents': [
           {
@@ -201,6 +208,8 @@ void main() {
             'title': 'Global storm page',
             'agency': 'Agency',
             'publishedDate': '2025-01-02',
+            'reviewedOn': '2026-11-02',
+            'expiresOn': '2027-11-02',
             'licence': 'CC-BY-4.0',
             'hazards': <String>[],
             'sourceUri': 'https://example.org/storm',

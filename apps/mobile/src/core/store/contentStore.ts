@@ -57,6 +57,12 @@ export class ContentStore implements StoreReader {
     return rows[0]?.bundle_version ?? null;
   }
 
+  /** Publication sequence of the installed bundle, or null when nothing is installed. */
+  async sequence(): Promise<number | null> {
+    const rows = await this.db.all<{ sequence: number }>('SELECT sequence FROM schema_version WHERE id = 1');
+    return rows[0]?.sequence ?? null;
+  }
+
   async document(id: string): Promise<StoredDocument | null> {
     const rows = await this.db.all<DocumentRow>('SELECT * FROM documents WHERE id = ?', [id]);
     if (rows.length === 0) return null;
@@ -176,9 +182,10 @@ async function insertContent(
       ]);
     }
   }
-  await tx.run('INSERT INTO schema_version(id, bundle_version, format_version) VALUES (1, ?, ?)', [
+  await tx.run('INSERT INTO schema_version(id, bundle_version, format_version, sequence) VALUES (1, ?, ?, ?)', [
     manifest.bundleVersion,
     manifest.formatVersion,
+    manifest.sequence,
   ]);
 }
 

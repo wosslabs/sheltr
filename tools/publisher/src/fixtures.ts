@@ -58,7 +58,7 @@ heat\theal\tfalse
 
 /**
  * Writes the shared contract into [outDir]: retrieval rules, word cases, English string keys, the bundle
- * format note, and the eight signed fixture directories.
+ * format note, and the signed fixture directories.
  *
  * buildBundle can only read a signing key from a file. The key is generated in memory, written as PKCS#8 PEM
  * under the system temp directory (outside the repository), and deleted before this returns. Fixture
@@ -91,7 +91,13 @@ async function writeFixtureBundles(fixturesDir: string, now: () => Date): Promis
     });
 
     const unchangedDir = join(fixturesDir, 'valid-unchanged-doc');
-    const unchanged = await buildSample(unchangedDir, keyPath, () => new Date(base.getTime() + 1000), [BOIL, EVACUATE_CHANGED]);
+    const unchanged = await buildSample(
+      unchangedDir,
+      keyPath,
+      () => new Date(base.getTime() + 1000),
+      [BOIL, EVACUATE_CHANGED],
+      join(signedDir, 'bundle.json'),
+    );
     finish(unchangedDir, publicHex, {
       prior: 'valid-signed',
       result: 'updated',
@@ -122,7 +128,7 @@ async function writeFixtureBundles(fixturesDir: string, now: () => Date): Promis
     // Otherwise this fixture would be rejectedSignature and the format error would never be reached.
     deriveCopy(signedDir, join(fixturesDir, 'unsupported-format'), (dir) => {
       const manifestPath = join(dir, 'bundle.json');
-      editFile(manifestPath, '"formatVersion": 1', '"formatVersion": 2');
+      editFile(manifestPath, '"formatVersion": 2', '"formatVersion": 3');
       writeFileSync(join(dir, 'bundle.json.sig'), sign(privateKey, readFileSync(manifestPath)));
     }, { prior: 'empty', result: 'failed', reasonContains: 'format', documentsDownloaded: null });
 
@@ -134,16 +140,52 @@ async function writeFixtureBundles(fixturesDir: string, now: () => Date): Promis
       reasonContains: 'https',
       documentsDownloaded: null,
     });
+
+    // A signed bundle whose sequence is lower than valid-signed. The app refuses it; expiry is not involved.
+    deriveCopy(signedDir, join(fixturesDir, 'downgrade-older-sequence'), (dir) => {
+      const manifestPath = join(dir, 'bundle.json');
+      editFile(manifestPath, '"sequence": 1', '"sequence": 0');
+      writeFileSync(join(dir, 'bundle.json.sig'), sign(privateKey, readFileSync(manifestPath)));
+    }, { prior: 'valid-signed', result: 'failed', reasonContains: 'older', documentsDownloaded: null });
+
+    // Same sequence as valid-signed, but a different bundleVersion, so it is not the installed publication.
+    deriveCopy(signedDir, join(fixturesDir, 'same-sequence'), (dir) => {
+      const manifestPath = join(dir, 'bundle.json');
+      const version = readManifest(dir).bundleVersion;
+      const bumped = new Date(Date.parse(version) + 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+      editFile(manifestPath, `"bundleVersion": "${version}"`, `"bundleVersion": "${bumped}"`);
+      writeFileSync(join(dir, 'bundle.json.sig'), sign(privateKey, readFileSync(manifestPath)));
+    }, { prior: 'valid-signed', result: 'failed', reasonContains: 'older', documentsDownloaded: null });
+
+    // expiresOn is in the past. The publisher will not emit that, so the signed bytes are edited.
+    // The app still installs it: expiry is a warning, not a sync failure.
+    deriveCopy(signedDir, join(fixturesDir, 'expired-document'), (dir) => {
+      const manifestPath = join(dir, 'bundle.json');
+      const text = readFileSync(manifestPath, 'utf8');
+      const from = `"expiresOn": "${FIXTURE_EXPIRES_ON}"`;
+      if (!text.includes(from)) throw new Error(`expired-document has no ${from}`);
+      writeFileSync(manifestPath, text.replaceAll(from, '"expiresOn": "2020-01-01"'));
+      writeFileSync(join(dir, 'bundle.json.sig'), sign(privateKey, readFileSync(manifestPath)));
+    }, {
+      prior: 'empty',
+      result: 'updated',
+      reasonContains: null,
+      documentsDownloaded: readManifest(signedDir).documents.length,
+    });
   } finally {
     rmSync(keyDir, { recursive: true, force: true });
   }
 }
+
+const FIXTURE_REVIEWED_ON = '2026-10-05';
+const FIXTURE_EXPIRES_ON = '2027-11-02';
 
 async function buildSample(
   outputDir: string,
   keyPath: string,
   now: () => Date,
   documents: readonly SampleDocument[],
+  previousBundlePath: string | null = null,
 ): Promise<BundleManifest> {
   const bytes = new Map(documents.map((doc) => [doc.uri, new TextEncoder().encode(doc.text)]));
   const yaml = [
@@ -154,6 +196,9 @@ async function buildSample(
     source_agency: Example Agency
     hazards: [${doc.hazards}]
     published_date: 2024-03-15
+    reviewed_on: ${FIXTURE_REVIEWED_ON}
+    expires_on: ${FIXTURE_EXPIRES_ON}
+    reviewed_by: corpus maintainer
     license: CC-BY-4.0
     country: "NO"
     checksum: ${sha256Hex(bytes.get(doc.uri)!)}`),
@@ -174,6 +219,7 @@ async function buildSample(
     outputDir,
     keyPath,
     now,
+    previousBundlePath,
   );
   return result.manifest;
 }
@@ -248,7 +294,7 @@ function stringsTsv(): string {
 
 const BUNDLE_FORMAT_MD = `# Bundle format
 
-Version 1. The app reads exactly this version. Any other \`formatVersion\` is rejected before the rest of the file is used, with a message that names the format.
+Version 2. The app reads exactly this version. Any other \`formatVersion\` is rejected before the rest of the file is used, with a message that names the format.
 
 This is the corpus bundle from section 4 of \`docs/design/offline-mobile-app.md\`, with the field names and nullability in \`apps/mobile/src/core/bundle/format.ts\`.
 
@@ -266,9 +312,15 @@ JSON is UTF-8 with four-space indentation, explicit nulls, and no trailing newli
 
 ## bundle.json
 
-- \`formatVersion\` (number): \`1\`.
+- \`formatVersion\` (number): \`2\`.
+- \`sequence\` (integer): strictly increasing per publication. The first bundle is \`1\`. Each later bundle is one greater than the \`sequence\` in the previous \`bundle.json\`.
 - \`bundleVersion\` (string): UTC build time, ISO-8601 to the second, for example \`2026-10-05T12:00:00Z\`.
 - \`documents\` (array): one entry per document.
+- \`model\` (object, optional): omitted when the bundle has no model file. The publisher does not write it until a model is part of the publication. When present:
+  - \`file\` (string): bundle-relative path of the model file.
+  - \`sha256\` (string): lower-case hex SHA-256 of that file.
+  - \`byteSize\` (number): size in bytes.
+  - \`modelType\` (string): one of \`gemma4\`, \`gemmaIt\`, \`qwen\`, \`qwen3\`, \`general\`.
 
 Each document:
 
@@ -276,6 +328,8 @@ Each document:
 - \`title\` (string).
 - \`agency\` (string).
 - \`publishedDate\` (string): \`YYYY-MM-DD\`.
+- \`reviewedOn\` (string): \`YYYY-MM-DD\`. When the source was last reviewed.
+- \`expiresOn\` (string): \`YYYY-MM-DD\`. A document past this date still installs. Expiry is a warning, not a sync failure.
 - \`licence\` (string).
 - \`country\` (string or null): ISO 3166-1 alpha-2, or null for global guidance.
 - \`hazards\` (array of strings): disaster type names.
@@ -297,6 +351,8 @@ A document file whose SHA-256 is not the manifest \`fileChecksum\` is a format e
 ## Sync
 
 The app compares each document's \`fileChecksum\` with the installed copy. It downloads only documents whose file checksum changed, or that are new, and drops documents the manifest no longer lists. The new content replaces the old in one database transaction, which is rolled back unless every document and chunk is stored. A failed or interrupted sync leaves the previous content in place.
+
+A bundle whose \`sequence\` is lower than the installed sequence is rejected. A different bundle with the same \`sequence\` is rejected too. The failure reason contains \`older\`. The same publication already installed (the same \`sequence\` and the same \`bundleVersion\`) is up to date. A document past \`expiresOn\` still installs.
 `;
 
 const isDirectRun = process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;

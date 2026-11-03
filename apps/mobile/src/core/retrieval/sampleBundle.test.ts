@@ -12,7 +12,7 @@ const dir = path.join(__dirname, '..', '..', '..', 'assets', 'sample-bundle');
 const manifest = parseBundleManifest(fs.readFileSync(path.join(dir, 'bundle.json'), 'utf8'));
 
 describe('the shipped sample bundle', () => {
-  it('uses format version 1 and has the expected documents', () => {
+  it('uses the current format version and has the expected documents', () => {
     expect(manifest.formatVersion).toBe(BUNDLE_FORMAT_VERSION);
     expect(manifest.documents.map((d) => d.title).sort()).toEqual([
       'Prepare',

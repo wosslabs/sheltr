@@ -1,5 +1,5 @@
 import type { BundleDocument, BundleManifest, DocumentFile } from '../bundle/format';
-import { parseBundleManifest, parseDocumentFileBytes, verifyDocumentFile } from '../bundle/parser';
+import { BundleFormatError, parseBundleManifest, parseDocumentFileBytes, verifyDocumentFile } from '../bundle/parser';
 import { utf8Decode } from '../bytes';
 import { verifySignature } from '../signing';
 import type { ContentStore } from '../store/contentStore';
@@ -13,7 +13,8 @@ import type { SyncResult } from './result';
  *  1. fetch bundle.json and bundle.json.sig;
  *  2. verify the Ed25519 signature over the exact manifest bytes; a bad signature ends the sync before anything
  *     else is read from the manifest or the store is touched;
- *  3. parse the manifest (formatVersion 1 only); the installed bundleVersion means upToDate;
+ *  3. parse the manifest (formatVersion 2 only); a sequence that does not exceed the installed one fails;
+ *     the same sequence and bundleVersion means upToDate;
  *  4. download only the documents whose fileChecksum differs from the stored one (or that are new), and check each
  *     download's SHA-256 against the signed manifest; documents the manifest no longer lists are dropped by the
  *     install, which builds the new content from the manifest alone;
@@ -43,7 +44,18 @@ export class SyncEngine {
     if (!verifySignature(publicKey, manifestBytes, signature)) return { kind: 'rejectedSignature' };
 
     const manifest = parseBundleManifest(utf8Decode(manifestBytes));
-    if (manifest.bundleVersion === (await store.bundleVersion())) {
+    const installedSequence = await store.sequence();
+    const installedVersion = await store.bundleVersion();
+    if (installedSequence !== null && manifest.sequence <= installedSequence) {
+      if (manifest.sequence === installedSequence && manifest.bundleVersion === installedVersion) {
+        await store.recordSync(this.nowEpochSeconds());
+        return { kind: 'upToDate', bundleVersion: manifest.bundleVersion };
+      }
+      throw new BundleFormatError(
+        `Refusing bundle sequence ${manifest.sequence}; it is older than or equal to the installed sequence ${installedSequence}.`,
+      );
+    }
+    if (manifest.bundleVersion === installedVersion) {
       await store.recordSync(this.nowEpochSeconds());
       return { kind: 'upToDate', bundleVersion: manifest.bundleVersion };
     }

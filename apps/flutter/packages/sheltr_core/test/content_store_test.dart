@@ -398,6 +398,7 @@ _BuiltBundle _bundle(String version, List<_BuiltDocument> documents) {
   return _BuiltBundle(
     BundleManifest(
       formatVersion: bundleFormatVersion,
+      sequence: 1,
       bundleVersion: version,
       documents: [for (final document in documents) document.entry],
     ),
@@ -456,6 +457,8 @@ _BuiltDocument _doc(
       title: title,
       agency: 'Example Agency',
       publishedDate: '2024-03-15',
+      reviewedOn: '2026-11-02',
+      expiresOn: '2027-11-02',
       licence: 'CC-BY-4.0',
       country: country,
       hazards: hazards,

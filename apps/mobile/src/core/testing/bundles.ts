@@ -26,7 +26,8 @@ export function doc(
     chunks: chunks.map(([content, pageNumber], i) => ({ id: `${id}-${i}`, content, pageNumber })),
   };
   const entry: BundleDocument = {
-    id, title, agency: 'Example Agency', publishedDate: '2024-03-15', licence: 'CC-BY-4.0', country, hazards,
+    id, title, agency: 'Example Agency', publishedDate: '2024-03-15',
+    reviewedOn: '2026-11-02', expiresOn: '2027-11-02', licence: 'CC-BY-4.0', country, hazards,
     sourceUri: `https://example.org/${id}`, sourceType: 'pdf', checksum: '0'.repeat(64), fileChecksum: '1'.repeat(64),
     chunks: file.chunks.map((c) => ({ id: c.id, checksum: '2'.repeat(64) })),
   };
@@ -41,7 +42,7 @@ export interface FakeBundle {
 export function bundle(version: string, ...docs: ReturnType<typeof doc>[]): FakeBundle {
   const byId = new Map(docs.map((d) => [d.entry.id, d.file]));
   return {
-    manifest: { formatVersion: BUNDLE_FORMAT_VERSION, bundleVersion: version, documents: docs.map((d) => d.entry) },
+    manifest: { formatVersion: BUNDLE_FORMAT_VERSION, sequence: 1, bundleVersion: version, documents: docs.map((d) => d.entry) },
     source: (document) => byId.get(document.id)!,
   };
 }
@@ -72,13 +73,21 @@ export class TestBundle {
   readonly manifestBytes: Uint8Array;
   readonly signature: Uint8Array;
 
-  constructor(readonly version: string, documents: Record<string, string>, signer: Signer, formatVersion = BUNDLE_FORMAT_VERSION) {
+  constructor(
+    readonly version: string,
+    documents: Record<string, string>,
+    signer: Signer,
+    formatVersion = BUNDLE_FORMAT_VERSION,
+    sequence = 1,
+  ) {
     this.files = new Map(Object.entries(documents).map(([id, text]) => [id, documentBytes(id, text)]));
     this.manifest = {
       formatVersion,
+      sequence,
       bundleVersion: version,
       documents: Object.entries(documents).map(([id, text]): BundleDocument => ({
-        id, title: `Title ${id}`, agency: 'Example Agency', publishedDate: '2026-01-01', licence: 'CC-BY-4.0',
+        id, title: `Title ${id}`, agency: 'Example Agency', publishedDate: '2026-01-01',
+        reviewedOn: '2026-11-02', expiresOn: '2027-11-02', licence: 'CC-BY-4.0',
         country: 'NO', hazards: ['FLOOD'], sourceUri: `https://example.org/${id}.pdf`, sourceType: 'pdf',
         checksum: sha256Hex(enc(`source ${id} ${text}`)),
         fileChecksum: sha256Hex(this.files.get(id)!),

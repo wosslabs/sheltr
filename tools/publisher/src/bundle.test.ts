@@ -27,6 +27,9 @@ documents:
     source_agency: Example Agency
     hazards: [FLOOD]
     published_date: 2024-03-15
+    reviewed_on: 2026-01-01
+    expires_on: 2027-11-02
+    reviewed_by: corpus maintainer
     license: CC-BY-4.0
     country: "NO"
     checksum: ${pdfChecksum}
@@ -36,6 +39,9 @@ documents:
     source_agency: Example Agency
     hazards: [WINTER_STORM, FLOOD]
     published_date: 2025-01-02
+    reviewed_on: 2026-01-01
+    expires_on: 2027-11-02
+    reviewed_by: corpus maintainer
     license: OGL
     checksum: ${htmlChecksum}
 ${extra}`;
@@ -168,6 +174,45 @@ describe('buildBundle', () => {
     writeFileSync(out(), 'in the way');
     await assert.rejects(buildBundle(manifest, connectors(), policy, out(), keyPath), /Output already exists/);
     assert.equal(readFileSync(out(), 'utf8'), 'in the way');
+  });
+
+  it('refusesExpiredEntry', async () => {
+    const expired = parseManifest(`
+documents:
+  - source_uri: ${PDF_URI}
+    title: Flood guide
+    source_agency: Example Agency
+    hazards: [FLOOD]
+    published_date: 2024-03-15
+    license: CC-BY-4.0
+    country: "NO"
+    checksum: ${sha256Hex(pdfBytes)}
+    reviewed_on: 2020-01-01
+    expires_on: 2020-01-02
+    reviewed_by: corpus maintainer
+`);
+    await assert.rejects(
+      () => buildBundle(expired, connectors(), policy, out(), keyPath, fixedNow),
+      /expires_on '2020-01-02'.*already past/,
+    );
+    assert.ok(!existsSync(out()));
+  });
+
+  it('sequenceMustExceedPreviousPublished', async () => {
+    const first = await buildBundle(manifest, connectors(), policy, out(), keyPath, fixedNow);
+    assert.equal(first.manifest.sequence, 1);
+
+    const second = await buildBundle(
+      manifest, connectors(), policy, join(scratch.dir, 'bundle-next'), keyPath, fixedNow, join(out(), 'bundle.json'),
+    );
+    assert.ok(second.manifest.sequence > first.manifest.sequence);
+
+    const maxed = join(scratch.dir, 'max-sequence.json');
+    writeFileSync(maxed, `${JSON.stringify({ sequence: Number.MAX_SAFE_INTEGER })}\n`);
+    await assert.rejects(
+      () => buildBundle(manifest, connectors(), policy, join(scratch.dir, 'bundle-max'), keyPath, fixedNow, maxed),
+      /must exceed the previous published sequence/,
+    );
   });
 
   it('gives the same document ids across builds', async () => {

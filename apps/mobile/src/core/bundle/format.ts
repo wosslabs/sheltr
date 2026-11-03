@@ -9,7 +9,7 @@
  */
 
 /** Version of the bundle layout. This app reads only this version. */
-export const BUNDLE_FORMAT_VERSION = 1;
+export const BUNDLE_FORMAT_VERSION = 2;
 
 export const BUNDLE_MANIFEST_FILE = 'bundle.json';
 export const BUNDLE_SIGNATURE_FILE = 'bundle.json.sig';
@@ -17,6 +17,8 @@ export const BUNDLE_DOCUMENTS_DIR = 'documents';
 
 export interface BundleManifest {
   readonly formatVersion: number;
+  /** Strictly increasing publication counter. A sequence that does not exceed the installed one is rejected. */
+  readonly sequence: number;
   /** UTC build time, ISO-8601 to the second, for example 2026-10-05T12:00:00Z. */
   readonly bundleVersion: string;
   readonly documents: readonly BundleDocument[];
@@ -29,6 +31,10 @@ export interface BundleDocument {
   readonly agency: string;
   /** ISO date, YYYY-MM-DD. */
   readonly publishedDate: string;
+  /** ISO date, YYYY-MM-DD. */
+  readonly reviewedOn: string;
+  /** ISO date, YYYY-MM-DD. Past this date the document is stale; sync still installs it. */
+  readonly expiresOn: string;
   readonly licence: string;
   /** ISO 3166-1 alpha-2 code, or null for global guidance. */
   readonly country: string | null;

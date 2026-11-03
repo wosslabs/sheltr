@@ -26,7 +26,10 @@ const messageOf = (fn: () => unknown): string => {
 
 describe('bundle parser', () => {
   it('parses a manifest written by the publisher', () => {
-    expect(manifest.formatVersion).toBe(1);
+    expect(manifest.formatVersion).toBe(2);
+    expect(manifest.sequence).toBe(1);
+    expect(document.reviewedOn).toBe('2026-11-02');
+    expect(document.expiresOn).toBe('2027-11-02');
     expect(manifest.bundleVersion).toBe('2026-10-05T12:00:00Z');
     expect(manifest.documents).toHaveLength(1);
     expect(document).toMatchObject({
@@ -59,13 +62,13 @@ describe('bundle parser', () => {
   });
 
   it('rejects an unsupported format version with a clear message', () => {
-    const message = messageOf(() => parseBundleManifest(PUBLISHER_BUNDLE_JSON.replace('"formatVersion": 1', '"formatVersion": 2')));
-    expect(message).toContain('Unsupported bundle formatVersion 2');
-    expect(message).toContain('reads formatVersion 1');
+    const message = messageOf(() => parseBundleManifest(PUBLISHER_BUNDLE_JSON.replace('"formatVersion": 2', '"formatVersion": 3')));
+    expect(message).toContain('Unsupported bundle formatVersion 3');
+    expect(message).toContain('reads formatVersion 2');
   });
 
   it('rejects a missing format version', () => {
-    expect(messageOf(() => parseBundleManifest(PUBLISHER_BUNDLE_JSON.replace('"formatVersion": 1,', '')))).toContain('(missing)');
+    expect(messageOf(() => parseBundleManifest(PUBLISHER_BUNDLE_JSON.replace('"formatVersion": 2,', '')))).toContain('(missing)');
   });
 
   it('rejects blank ids', () => {
@@ -89,9 +92,10 @@ describe('bundle parser', () => {
   it('parses a null country and a null page number', () => {
     const parsed = parseBundleManifest(
       JSON.stringify({
-        formatVersion: 1, bundleVersion: '2026-10-05T12:00:00Z',
+        formatVersion: 2, sequence: 1, bundleVersion: '2026-10-05T12:00:00Z',
         documents: [{
-          id: 'abc', title: 'Global storm page', agency: 'Agency', publishedDate: '2025-01-02', licence: 'CC-BY-4.0',
+          id: 'abc', title: 'Global storm page', agency: 'Agency', publishedDate: '2025-01-02',
+          reviewedOn: '2026-11-02', expiresOn: '2027-11-02', licence: 'CC-BY-4.0',
           country: null, hazards: [], sourceUri: 'https://example.org/storm', sourceType: 'html', checksum: '00',
           fileChecksum: '00', chunks: [{ id: 'abc-0', checksum: '00' }],
         }],

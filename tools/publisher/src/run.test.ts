@@ -12,7 +12,7 @@ import { collector, makePdf, scratchDir } from './testHelpers.ts';
 describe('parsePublish', () => {
   it('parses a full valid command', () =>
     assert.deepEqual(parsePublish(['publish', '--manifest', 'm.yaml', '--out', 'o', '--key', 'k.pem', '--public-key', 'p.pem']),
-      { manifest: 'm.yaml', out: 'o', key: 'k.pem', publicKey: 'p.pem' }));
+      { manifest: 'm.yaml', out: 'o', key: 'k.pem', publicKey: 'p.pem', previous: null }));
   it('treats the public key as optional', () =>
     assert.equal(parsePublish(['publish', '--manifest', 'm', '--out', 'o', '--key', 'k']).publicKey, null));
   it('rejects missing arguments', () => {
@@ -56,6 +56,9 @@ describe('runPublisher', () => {
     source_agency: Example Agency
     hazards: [FLOOD]
     published_date: 2024-03-15
+    reviewed_on: 2026-01-01
+    expires_on: 2027-11-02
+    reviewed_by: corpus maintainer
     license: CC-BY-4.0
     checksum: ${checksum}
 `);

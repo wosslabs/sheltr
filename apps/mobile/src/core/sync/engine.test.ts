@@ -1,4 +1,4 @@
-import { BundleManifest } from '../bundle/format';
+import { BUNDLE_FORMAT_VERSION, type BundleManifest } from '../bundle/format';
 import { PUBLISHER_DOCUMENT_ID, PUBLISHER_DOCUMENT_JSON, SIGNED_BUNDLE_JSON, SIGNED_BUNDLE_PUBLIC_KEY_HEX, SIGNED_BUNDLE_SIGNATURE_HEX } from '../testing/fixtures';
 import { hexToBytes } from '../bytes';
 import { Signer, TestBundle, documentBytes, openStore } from '../testing/bundles';
@@ -20,7 +20,7 @@ const V2 = new TestBundle('2026-10-05T12:00:00Z', {
   'doc-a': 'Fill sandbags before the river rises.',
   'doc-b': 'Never run a generator indoors.',
   'doc-d': 'Move to high ground when the siren sounds.',
-}, signer);
+}, signer, BUNDLE_FORMAT_VERSION, 2);
 
 /** A mock bundle host: serves bytes by path, records requests, and can break a path mid-transfer. */
 class MockHost {
@@ -62,7 +62,7 @@ async function setup() {
 }
 
 describe('SyncEngine with a bundle written by the publisher', () => {
-  it('installs it into an empty store', async () => {
+  it('rejects the format 1 publisher fixture now that the app reads format 2', async () => {
     const t = await setup();
     t.host.served.set('bundle.json', enc(SIGNED_BUNDLE_JSON));
     t.host.served.set('bundle.json.sig', hexToBytes(SIGNED_BUNDLE_SIGNATURE_HEX));
@@ -70,11 +70,9 @@ describe('SyncEngine with a bundle written by the publisher', () => {
 
     const result = await t.sync(BASE_URL, hexToBytes(SIGNED_BUNDLE_PUBLIC_KEY_HEX));
 
-    expect(result).toEqual({ kind: 'updated', bundleVersion: '2026-10-05T12:00:00Z', documentsDownloaded: 1 });
-    expect(await t.store.bundleVersion()).toBe('2026-10-05T12:00:00Z');
-    expect((await t.store.document(PUBLISHER_DOCUMENT_ID))?.title).toBe('Flood guide');
-    expect(await t.store.chunks(PUBLISHER_DOCUMENT_ID)).toHaveLength(2);
-    expect(await t.store.lastSyncEpochSeconds()).toBe(1_000);
+    expect(result.kind).toBe('failed');
+    expect(result.kind === 'failed' && result.reason).toContain('formatVersion 1');
+    expect(await t.store.bundleVersion()).toBeNull();
   });
 
   it('rejects a tampered manifest', async () => {
@@ -202,7 +200,7 @@ describe('SyncEngine with generated bundles', () => {
 
   it('fails for an unsupported format version', async () => {
     const t = await setup();
-    const v = new TestBundle('2026-10-09T00:00:00Z', { 'doc-a': 'x' }, signer, 2);
+    const v = new TestBundle('2026-10-09T00:00:00Z', { 'doc-a': 'x' }, signer, BUNDLE_FORMAT_VERSION + 1);
     t.host.served.set('bundle.json', v.manifestBytes);
     t.host.served.set('bundle.json.sig', v.signature);
 

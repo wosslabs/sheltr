@@ -184,7 +184,7 @@ describe('ContentStore', () => {
   it('gives a document without hazards an empty list', async () => {
     const { store } = await openStore();
     const { entry, file } = doc('doc-x', 'No hazards', null, [['Keep a kit.', null]], []);
-    await store.install({ formatVersion: BUNDLE_FORMAT_VERSION, bundleVersion: '2026-10-06T00:00:00Z', documents: [entry] }, () => file);
+    await store.install({ formatVersion: BUNDLE_FORMAT_VERSION, sequence: 1, bundleVersion: '2026-10-06T00:00:00Z', documents: [entry] }, () => file);
     expect((await store.document('doc-x'))?.hazards).toEqual([]);
   });
 

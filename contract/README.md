@@ -8,7 +8,7 @@ The private key is never written. Each fixture directory holds `public-key.hex`,
 
 ## Files
 
-- `bundle-format.md` — bundle layout version 1.
+- `bundle-format.md` — bundle layout version 2.
 - `retrieval-rules.json` — relevance threshold, term coverage, boosts, pool size, stopwords, synonyms, hazard terms, and the twelve disaster types.
 - `retrieval-cases.tsv` — question cases. The Expo evaluation test reads this file.
 - `word-cases.tsv` — columns `left`, `right`, `match` (`true` or `false`).
@@ -31,7 +31,10 @@ When `prior` is `valid-signed`, install that fixture first, then sync the fixtur
 | `wrong-key` | Signed by a different key from the one in `public-key.hex`. |
 | `bad-file-checksum` | A document file changed after signing. The manifest signature still verifies. The file hash does not match `fileChecksum`. |
 | `missing-document` | A document listed in the manifest has no file. The manifest signature still verifies. |
-| `unsupported-format` | `formatVersion` is not 1. The edited manifest was signed again, so the signature verifies and the format check is what fails. |
+| `unsupported-format` | `formatVersion` is not 2. The edited manifest was signed again, so the signature verifies and the format check is what fails. |
 | `plain-http-url` | A normal signed bundle. Serve every other fixture from an `https` base URL. Serve this one from the URL in `fixtures/plain-http-url/base-url.txt` (`http://example.org/bundle`). The app refuses that URL before it reads the bundle. |
+| `downgrade-older-sequence` | `sequence` is lower than `valid-signed`. Install `valid-signed` first. The sync fails and the reason contains `older`. |
+| `same-sequence` | `sequence` equals `valid-signed`, and `bundleVersion` does not. Install `valid-signed` first. The sync fails and the reason contains `older`. |
+| `expired-document` | A signed bundle whose `expiresOn` is in the past. Expiry is a warning, not a sync failure, so the app installs it. `prior` is `empty` and `result` is `updated`. |
 
 `rejectedSignature` carries no reason on the current sync result, so those fixtures use `null` for `reasonContains`.

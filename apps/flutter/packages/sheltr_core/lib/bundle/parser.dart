@@ -16,7 +16,8 @@ class BundleFormatError implements Exception {
 
 /// Parses bundle.json. Rejects any formatVersion other than
 /// [bundleFormatVersion] before the rest of the file is read, and rejects
-/// blank ids.
+/// blank ids. Format 2 also requires [BundleManifest.sequence] and each
+/// document's review dates.
 BundleManifest parseBundleManifest(String text) {
   final root = _parseObject(text, 'bundle.json');
   if (root['formatVersion'] != bundleFormatVersion) {
@@ -33,6 +34,7 @@ BundleManifest parseBundleManifest(String text) {
   }
   return BundleManifest(
     formatVersion: bundleFormatVersion,
+    sequence: _integer(root['sequence'], 'sequence'),
     bundleVersion: _string(root['bundleVersion'], 'bundleVersion'),
     documents: List<BundleDocument>.unmodifiable(parsed),
   );
@@ -59,6 +61,8 @@ BundleDocument _parseBundleDocument(Map<String, dynamic> raw) {
     title: _string(raw['title'], 'title'),
     agency: _string(raw['agency'], 'agency'),
     publishedDate: _string(raw['publishedDate'], 'publishedDate'),
+    reviewedOn: _string(raw['reviewedOn'], 'reviewedOn'),
+    expiresOn: _string(raw['expiresOn'], 'expiresOn'),
     licence: _string(raw['licence'], 'licence'),
     country: _nullableString(raw['country'], 'country'),
     hazards: List<String>.unmodifiable(
@@ -157,6 +161,13 @@ Map<String, dynamic> _object(Object? value, String what) {
 List<dynamic> _array(Object? value, String what) {
   if (value is! List) {
     throw BundleFormatError('$what must be an array.');
+  }
+  return value;
+}
+
+int _integer(Object? value, String what) {
+  if (value is! int) {
+    throw BundleFormatError('$what must be an integer.');
   }
   return value;
 }

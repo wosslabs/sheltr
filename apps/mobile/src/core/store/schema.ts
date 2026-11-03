@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
   id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
   bundle_version TEXT NOT NULL,
   format_version INTEGER NOT NULL,
+  sequence INTEGER NOT NULL,
   last_sync_epoch_seconds INTEGER
 );
 

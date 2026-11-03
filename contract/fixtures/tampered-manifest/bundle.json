@@ -1,12 +1,15 @@
 {
-    "formatVersion": 1,
-    "bundleVersion": "2026-11-02T22:33:03Z",
+    "formatVersion": 2,
+    "sequence": 1,
+    "bundleVersion": "2026-11-03T02:30:35Z",
     "documents": [
         {
             "id": "251b3d589b274399efbed685c3e6d68f",
             "title": "Boil wat3r",
             "agency": "Example Agency",
             "publishedDate": "2024-03-15",
+            "reviewedOn": "2026-10-05",
+            "expiresOn": "2027-11-02",
             "licence": "CC-BY-4.0",
             "country": "NO",
             "hazards": [
@@ -28,6 +31,8 @@
             "title": "Evacuate",
             "agency": "Example Agency",
             "publishedDate": "2024-03-15",
+            "reviewedOn": "2026-10-05",
+            "expiresOn": "2027-11-02",
             "licence": "CC-BY-4.0",
             "country": "NO",
             "hazards": [

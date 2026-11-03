@@ -12,11 +12,12 @@ import { hostAllowlistPolicy, hostOf, type SourcePolicy } from './policy.ts';
 import { keyInsideRepository } from './repoGuard.ts';
 import { loadPublicKey, verify } from './signing.ts';
 
-export const USAGE = `usage: publisher publish --manifest <file> --out <dir> --key <path> [--public-key <path>]
+export const USAGE = `usage: publisher publish --manifest <file> --out <dir> --key <path> [--public-key <path>] [--previous <bundle.json>]
   --manifest    approved corpus manifest (YAML)
   --out         directory for the bundle; must not exist yet
   --key         Ed25519 private key (PKCS#8, DER or PEM); must be outside the repository
-  --public-key  Ed25519 public key (X.509, DER or PEM); the built bundle is verified with it`;
+  --public-key  Ed25519 public key (X.509, DER or PEM); the built bundle is verified with it
+  --previous    previous bundle.json; the new sequence is one greater than its sequence`;
 
 export const EXIT_OK = 0;
 export const EXIT_FAILURE = 1;
@@ -85,7 +86,8 @@ export async function runPublisher(
   const policy = hostAllowlistPolicy(manifest.documents.flatMap((d) => hostOf(d.sourceUri) ?? []));
   let result;
   try {
-    result = await buildBundle(manifest, connectorsFor(policy), policy, resolve(cwd, command.out), keyPath);
+    const previous = command.previous === null ? null : resolve(cwd, command.previous);
+    result = await buildBundle(manifest, connectorsFor(policy), policy, resolve(cwd, command.out), keyPath, () => new Date(), previous);
   } catch (e) {
     if (e instanceof BundleBuildError) for (const f of e.failures) err.println(`FAILED ${f.sourceUri}: ${f.reason}`);
     err.println(`publisher: build failed: ${messageOf(e)}`);

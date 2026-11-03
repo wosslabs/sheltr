@@ -151,6 +151,15 @@ class ContentStore {
     return rows.first['bundle_version'] as String;
   }
 
+  /// Publication sequence of the installed bundle, or null when nothing is installed.
+  int? sequence() {
+    final rows = _db.all('SELECT sequence FROM schema_version WHERE id = 1');
+    if (rows.isEmpty) {
+      return null;
+    }
+    return rows.first['sequence'] as int;
+  }
+
   StoredDocument? document(String id) {
     final rows = _db.all('SELECT * FROM documents WHERE id = ?', [id]);
     if (rows.isEmpty) {
@@ -442,6 +451,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
   id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
   bundle_version TEXT NOT NULL,
   format_version INTEGER NOT NULL,
+  sequence INTEGER NOT NULL,
   last_sync_epoch_seconds INTEGER
 );
 
@@ -502,8 +512,8 @@ void _insertContent(
     }
   }
   database.run(
-    'INSERT INTO schema_version(id, bundle_version, format_version) VALUES (1, ?, ?)',
-    [manifest.bundleVersion, manifest.formatVersion],
+    'INSERT INTO schema_version(id, bundle_version, format_version, sequence) VALUES (1, ?, ?, ?)',
+    [manifest.bundleVersion, manifest.formatVersion, manifest.sequence],
   );
 }
 

@@ -4,6 +4,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { BUNDLE_FORMAT_VERSION } from './bundle.ts';
 import { generateFixtures } from './fixtures.ts';
 import { sha256Hex } from './sha256.ts';
 import { verify } from './signing.ts';
@@ -18,6 +19,9 @@ const FIXTURES = [
   'missing-document',
   'unsupported-format',
   'plain-http-url',
+  'downgrade-older-sequence',
+  'same-sequence',
+  'expired-document',
 ] as const;
 
 const EXPECTED: Record<(typeof FIXTURES)[number], { prior: string; result: string; reasonContains: string | null }> = {
@@ -29,6 +33,9 @@ const EXPECTED: Record<(typeof FIXTURES)[number], { prior: string; result: strin
   'missing-document': { prior: 'empty', result: 'failed', reasonContains: null },
   'unsupported-format': { prior: 'empty', result: 'failed', reasonContains: 'format' },
   'plain-http-url': { prior: 'empty', result: 'failed', reasonContains: 'https' },
+  'downgrade-older-sequence': { prior: 'valid-signed', result: 'failed', reasonContains: 'older' },
+  'same-sequence': { prior: 'valid-signed', result: 'failed', reasonContains: 'older' },
+  'expired-document': { prior: 'empty', result: 'updated', reasonContains: null },
 };
 
 const WORD_ROWS = [
@@ -105,7 +112,7 @@ function readBundle(dir: string): BundleFile {
 }
 
 function documentsDownloaded(name: (typeof FIXTURES)[number], fixturesDir: string): number | null {
-  if (name === 'valid-signed') return readBundle(join(fixturesDir, name)).documents.length;
+  if (name === 'valid-signed' || name === 'expired-document') return readBundle(join(fixturesDir, name)).documents.length;
   if (name === 'valid-unchanged-doc') {
     const installed = new Map(readBundle(join(fixturesDir, 'valid-signed')).documents.map((d) => [d.id, d.fileChecksum]));
     return readBundle(join(fixturesDir, name)).documents.filter((d) => installed.get(d.id) !== d.fileChecksum).length;
@@ -133,7 +140,7 @@ function containsPrivateKey(dir: string): string | null {
 }
 
 describe('fixtures', () => {
-  it('writes the eight fixture directories and expect.json rows', async () => {
+  it('writes the fixture directories and expect.json rows', async () => {
     const first = scratchDir();
     const second = scratchDir();
     try {
@@ -180,7 +187,7 @@ describe('fixtures', () => {
 
       const unsupported = join(fixturesDir, 'unsupported-format');
       assert.ok(bundleVerifies(unsupported));
-      assert.notEqual(readBundle(unsupported).formatVersion, 1);
+      assert.notEqual(readBundle(unsupported).formatVersion, BUNDLE_FORMAT_VERSION);
 
       assert.ok(bundleVerifies(join(fixturesDir, 'plain-http-url')));
       assert.equal(containsPrivateKey(first.dir), null);
@@ -200,6 +207,13 @@ describe('fixtures', () => {
       assert.match(format, /Ed25519/);
       assert.match(format, /fileChecksum/);
       assert.match(format, /bundle\.json\.sig/);
+      assert.match(format, /sequence/);
+      assert.match(format, /reviewedOn/);
+      assert.match(format, /expiresOn/);
+      assert.match(format, /gemma4/);
+      assert.match(format, /gemmaIt/);
+      assert.match(format, /qwen3/);
+      assert.match(format, /general/);
     } finally {
       first.cleanup();
       second.cleanup();

@@ -14,7 +14,8 @@ import 'result.dart';
 /// 2. Verify the Ed25519 signature over the exact manifest bytes. A bad
 ///    signature ends the sync before the manifest is parsed or the store is
 ///    touched.
-/// 3. Parse the manifest (formatVersion 1 only). The installed bundleVersion
+/// 3. Parse the manifest (formatVersion 2 only). A sequence that does not
+///    exceed the installed one fails. The same sequence and bundleVersion
 ///    means up to date.
 /// 4. Download only the documents whose fileChecksum differs from the stored
 ///    one, and check each download's SHA-256 against the signed manifest.
@@ -68,7 +69,19 @@ class SyncEngine {
     }
 
     final manifest = parseBundleManifest(utf8.decode(manifestBytes));
-    if (manifest.bundleVersion == store.bundleVersion()) {
+    final installedSequence = store.sequence();
+    final installedVersion = store.bundleVersion();
+    if (installedSequence != null && manifest.sequence <= installedSequence) {
+      if (manifest.sequence == installedSequence &&
+          manifest.bundleVersion == installedVersion) {
+        store.recordSync(_nowEpochSeconds());
+        return SyncUpToDate(bundleVersion: manifest.bundleVersion);
+      }
+      throw BundleFormatError(
+        'Refusing bundle sequence ${manifest.sequence}; it is older than or equal to the installed sequence $installedSequence.',
+      );
+    }
+    if (manifest.bundleVersion == installedVersion) {
       store.recordSync(_nowEpochSeconds());
       return SyncUpToDate(bundleVersion: manifest.bundleVersion);
     }
