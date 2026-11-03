@@ -32,7 +32,7 @@ void main() {
     );
     const baseUrl = 'https://example.org/bundle';
     final storeDirectory = Directory.systemTemp.createTempSync('sheltr-sync-');
-    final store = ContentStore.open(storeDirectory);
+    final store = ContentStore.open(storeDirectory.path);
     try {
       var now = 1000;
       final engine = SyncEngine(
@@ -146,7 +146,7 @@ void main() {
 
   test('model body stream is not drained after the byte cap', () async {
     final directory = Directory.systemTemp.createTempSync('sheltr-sync-');
-    final store = ContentStore.open(directory);
+    final store = ContentStore.open(directory.path);
     var pulls = 0;
     var drained = false;
     var bufferedCalls = 0;
@@ -231,7 +231,7 @@ void main() {
 
     const baseUrl = 'https://example.org/bundle';
     final storeDirectory = Directory.systemTemp.createTempSync('sheltr-sync-');
-    final store = ContentStore.open(storeDirectory);
+    final store = ContentStore.open(storeDirectory.path);
     try {
       final engine = SyncEngine(
         clientFor: (url) => FetchSyncClient(
@@ -300,7 +300,7 @@ Future<void> _expectFixture(String name) async {
   );
 
   final storeDirectory = Directory.systemTemp.createTempSync('sheltr-sync-');
-  final store = ContentStore.open(storeDirectory);
+  final store = ContentStore.open(storeDirectory.path);
   try {
     if (prior != 'empty') {
       _installFixture(store, prior);

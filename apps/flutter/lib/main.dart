@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:sheltr_core/sheltr_core.dart';
 
+import 'app_store_web.dart'
+    if (dart.library.io) 'app_store_io.dart'
+    if (dart.library.js_interop) 'app_store_web.dart';
 import 'l10n/strings.dart';
 import 'scope.dart';
 import 'screens/about.dart';
@@ -12,13 +14,14 @@ import 'screens/answer.dart';
 import 'screens/home.dart';
 import 'screens/search.dart';
 import 'screens/settings.dart';
-import 'sync/scheduler.dart';
+import 'sync/schedule_web.dart'
+    if (dart.library.io) 'sync/scheduler.dart'
+    if (dart.library.js_interop) 'sync/schedule_web.dart';
 import 'trusted_keys.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final directory = await getApplicationSupportDirectory();
-  final store = ContentStore.open(directory);
+  final store = await openAppStore();
   runApp(SheltrApp(store: store, trustedKeys: compiledTrustedKeys));
 }
 

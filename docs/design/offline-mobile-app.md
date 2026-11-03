@@ -17,6 +17,19 @@ Out of scope for v1: live hazard alerts, user accounts, analytics, advertising, 
 
 Flutter with Dart: one codebase for Android and iPhone. `packages/sheltr_core` holds the corpus, search, citations, sync and settings, with no Flutter imports. The screens are in `apps/flutter/lib`. The publisher stays TypeScript (Node). ADR-0016 recorded the earlier Expo choice and is superseded for the app.
 
+Chrome (`flutter run -d chrome`, or `flutter build web`) is a UI test target only. It installs the sample bundle in memory, using `apps/flutter/web/sqlite3.wasm` from the sqlite3.dart 3.8.0 release. `SHELTR_WEB_STALE=true` installs that sample with an expiry in the past. It is not a shipping platform. Android and iOS remain the app.
+
+### Decisions in force
+
+These are the decisions from the ADRs, stated for the current tree. The ADR files stay the record.
+
+- The project is Apache License 2.0 (ADR-0009). That licence covers Sheltr's code. Document text keeps the licence in the manifest.
+- No server runs in production. The phone's only network call is fetching the signed bundle over HTTPS (ADR-0015).
+- The publisher is the TypeScript command in `tools/publisher`. It fetches approved sources, checks the checksum, extracts text, drops images and mark-only lines, chunks, and signs with Ed25519. The private key stays outside the repository.
+- Search is SQLite FTS5 keyword ranking with citations. The app refuses when no passage passes the relevance check. It does not invent guidance.
+- The on-device model may only restate cited passages. It stays off until `docs/model-eval.md` records a pass on both phones.
+- The phone app is Flutter in `apps/flutter`, not the Expo app ADR-0016 chose. That Expo tree has been removed.
+
 Cost: Google Play one-time $25; Apple Developer Program $99 per year (required for iPhone distribution). Both apps are free to download and use.
 
 ## 3. Architecture

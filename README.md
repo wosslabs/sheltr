@@ -27,7 +27,7 @@ Built:
 Not done:
 
 - **Bundle hosting and the first published bundle**: the guide is in `docs/publishing.md`, but nothing is hosted, and both approved corpus entries currently fail to fetch (the UK site moved, the IFRC mirror answers 403). They need a maintainer to re-approve the sources.
-- **Phone runs**: search, and a forced stale bundle, on one Android phone and one iPhone. Those runs are on `docs/release-checklist.md`. They are not done. iOS background refresh is checked on the iPhone run and may be late.
+- **Phone runs**: search, and a forced stale bundle, on one Android phone and one iPhone. Those runs are on `docs/release-checklist.md`. They are not done. Chrome covered the same two checks on 2026-11-03 and is the stand-in until the phones. iOS background refresh is checked on the iPhone run and may be late.
 - **On-device model**: the procedure is `docs/model-eval.md`. No device run is recorded, and `AppSettings.modelEnabled` stays false. Turning the flag on is a separate commit after that file shows a pass on both phones.
 - **Corpus beyond two documents**: needs sources with a licence that allows storing and quoting them.
 - **Store listings**: drafts are in `docs/store`; accounts, screenshots, and the data-safety answers on `docs/release-checklist.md` are the maintainer's.
@@ -36,7 +36,7 @@ Search is evaluated on the sample bundle: 0 of 20 off-topic questions answered, 
 
 ## Repository layout
 
-- `apps/flutter`: the Flutter app (Android and iOS). `packages/sheltr_core` is the framework-free library, `lib` the screens.
+- `apps/flutter`: the phone app (Android and iOS). The directory is `apps` because this repository also holds the publisher, the contract, and the corpus. There is one app. `packages/sheltr_core` is the framework-free library, `lib` the screens. Chrome is a UI test target (`flutter run -d chrome`); it is not a third app.
 - `tools/publisher`: the command-line publisher (Node and TypeScript). This is the only TypeScript in the repository. It builds the signed bundle. It is not the phone app.
 - `contract/`: signed fixtures and `check-coverage.mjs`.
 - `corpus/manifest.yaml`: the approved corpus. `corpus/sample-bundle` is the offline sample the tests read.

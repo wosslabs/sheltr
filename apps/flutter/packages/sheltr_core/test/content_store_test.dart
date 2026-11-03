@@ -10,7 +10,7 @@ import 'package:test/test.dart';
 void main() {
   test('installThrowsOnSecondDocumentLeavesOldContent', () {
     withDirectory((dir) {
-      final store = ContentStore.open(dir);
+      final store = ContentStore.open(dir.path);
       try {
         final first = _v1();
         store.install(first.manifest, first.source);
@@ -54,7 +54,7 @@ void main() {
   test('driverThrowMidwayLeavesOldContent', () {
     withDirectory((dir) {
       final store = ContentStore.open(
-        dir,
+        dir.path,
         driver: ThrowOnDocumentDriver(const SqliteDriver(), 'doc-c'),
       );
       try {
@@ -91,7 +91,7 @@ void main() {
         store.close();
       }
 
-      final reopened = ContentStore.open(dir);
+      final reopened = ContentStore.open(dir.path);
       try {
         expect(reopened.bundleVersion(), '2026-10-01T00:00:00Z');
         expect(_ids(reopened.search('sandbags')), ['doc-a-1']);
@@ -105,7 +105,7 @@ void main() {
 
   test('leftoverStagingFileIsDeletedOnOpen', () {
     withDirectory((dir) {
-      final store = ContentStore.open(dir);
+      final store = ContentStore.open(dir.path);
       try {
         final first = _v1();
         store.install(first.manifest, first.source);
@@ -119,7 +119,7 @@ void main() {
       File('${dir.path}/content.db.staging-wal').writeAsStringSync('wal');
       File('${dir.path}/content.db.staging-shm').writeAsStringSync('shm');
 
-      final reopened = ContentStore.open(dir);
+      final reopened = ContentStore.open(dir.path);
       try {
         expectNoStaging(dir);
         expect(
@@ -172,7 +172,7 @@ void main() {
     }
 
     withDirectory((dir) {
-      final store = ContentStore.open(dir);
+      final store = ContentStore.open(dir.path);
       try {
         final first = _v1();
         store.install(first.manifest, first.source);
@@ -188,7 +188,7 @@ void main() {
 
   test('searchBuildsTheMatchFromTokens', () {
     withDirectory((dir) {
-      final store = ContentStore.open(dir);
+      final store = ContentStore.open(dir.path);
       try {
         final first = _v1();
         store.install(first.manifest, first.source);
@@ -219,7 +219,7 @@ void main() {
 
   test('chunkCountMismatchLeavesOldContent', () {
     withDirectory((dir) {
-      final store = ContentStore.open(dir);
+      final store = ContentStore.open(dir.path);
       try {
         final first = _v1();
         store.install(first.manifest, first.source);
@@ -254,7 +254,7 @@ void main() {
 
   test('installKeepsSettingsRows', () {
     withDirectory((dir) {
-      final store = ContentStore.open(dir);
+      final store = ContentStore.open(dir.path);
       try {
         final first = _v1();
         store.install(first.manifest, first.source);
@@ -285,7 +285,7 @@ void main() {
 
   test('recordSyncRequiresInstalledContent', () {
     withDirectory((dir) {
-      final store = ContentStore.open(dir);
+      final store = ContentStore.open(dir.path);
       try {
         expect(store.lastSyncEpochSeconds(), isNull);
         expect(
@@ -353,7 +353,7 @@ void main() {
       );
       db.close();
 
-      final store = ContentStore.open(dir);
+      final store = ContentStore.open(dir.path);
       try {
         final document = store.document('doc-a');
         expect(document?.title, 'Flood guide');
@@ -368,7 +368,7 @@ void main() {
 
   test('modelStreamReplacesFileWhenHashMatches', () async {
     final directory = Directory.systemTemp.createTempSync('sheltr-store-');
-    final store = ContentStore.open(directory);
+    final store = ContentStore.open(directory.path);
     try {
       final previous = [4, 4, 4, 4];
       expect(
@@ -414,7 +414,7 @@ void main() {
 
   test('modelMismatchDeletesStagingAndKeepsPreviousFile', () async {
     final directory = Directory.systemTemp.createTempSync('sheltr-store-');
-    final store = ContentStore.open(directory);
+    final store = ContentStore.open(directory.path);
     try {
       final good = [1, 2, 3, 4];
       expect(
@@ -460,7 +460,7 @@ void main() {
 
   test('oversizedModelStreamStopsAndKeepsPreviousFile', () async {
     final directory = Directory.systemTemp.createTempSync('sheltr-store-');
-    final store = ContentStore.open(directory);
+    final store = ContentStore.open(directory.path);
     try {
       final good = [8, 8, 8, 8];
       expect(
@@ -501,7 +501,7 @@ void main() {
 
   test('modelStreamErrorDeletesStagingAndKeepsPreviousFile', () async {
     final directory = Directory.systemTemp.createTempSync('sheltr-store-');
-    final store = ContentStore.open(directory);
+    final store = ContentStore.open(directory.path);
     try {
       final good = [1, 2, 3, 4];
       expect(

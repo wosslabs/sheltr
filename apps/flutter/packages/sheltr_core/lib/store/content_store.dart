@@ -1,11 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:cryptography/dart.dart';
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqlite3/common.dart';
 
 import '../bundle/format.dart';
+import 'native_sqlite_web.dart'
+    if (dart.library.io) 'native_sqlite_io.dart'
+    if (dart.library.js_interop) 'native_sqlite_web.dart';
+import 'store_files.dart';
+import 'store_files_web.dart'
+    if (dart.library.io) 'store_files_io.dart'
+    if (dart.library.js_interop) 'store_files_web.dart';
 
 /// A content update that did not become the active database.
 class StoreUpdateError implements Exception {
@@ -139,7 +145,7 @@ class SqliteDriver implements SqlDriver {
   const SqliteDriver();
 
   @override
-  SqlDatabase open(String path) => _SqliteDatabase(sqlite3.open(path));
+  SqlDatabase open(String path) => BundledSqlDatabase(openBundled(path));
 }
 
 /// One complete bundle in `content.db`.
@@ -149,17 +155,25 @@ class SqliteDriver implements SqlDriver {
 /// file is not modified until that rename. Any throw before the rename deletes
 /// the staging file and leaves the previous bundle in place.
 class ContentStore {
-  ContentStore._(this._directory, this._driver, this._db);
+  ContentStore._(this._root, this._files, this._driver, this._db);
 
-  /// Opens [directory]/`content.db`, creating the schema if needed.
+  /// Opens [directoryPath]/`content.db`, creating the schema if needed.
   ///
   /// A leftover `content.db.staging` from an interrupted install is deleted
   /// first, along with its `-journal`, `-wal`, and `-shm` sidecars.
-  factory ContentStore.open(Directory directory, {SqlDriver? driver}) {
+  ///
+  /// [files] and [driver] have defaults on the phone. The web UI test passes
+  /// an in-memory filesystem and a wasm driver that share that filesystem.
+  factory ContentStore.open(
+    String directoryPath, {
+    StoreFiles? files,
+    SqlDriver? driver,
+  }) {
+    final resolvedFiles = files ?? defaultStoreFiles();
     final resolved = driver ?? const SqliteDriver();
-    _deleteStaging(directory);
-    _deleteModelStaging(directory);
-    final db = resolved.open(_path(directory, _contentFile));
+    _deleteStaging(directoryPath, resolvedFiles);
+    _deleteModelStaging(directoryPath, resolvedFiles);
+    final db = resolved.open(_path(directoryPath, _contentFile));
     try {
       db.exec(_schemaSql);
       _ensureReviewColumns(db);
@@ -167,17 +181,18 @@ class ContentStore {
       db.close();
       rethrow;
     }
-    return ContentStore._(directory, resolved, db);
+    return ContentStore._(directoryPath, resolvedFiles, resolved, db);
   }
 
-  final Directory _directory;
+  final String _root;
+  final StoreFiles _files;
   final SqlDriver _driver;
   SqlDatabase _db;
   var _closed = false;
 
-  String get _contentPath => _path(_directory, _contentFile);
+  String get _contentPath => _path(_root, _contentFile);
 
-  String get _stagingPath => _path(_directory, _stagingFile);
+  String get _stagingPath => _path(_root, _stagingFile);
 
   void close() {
     if (_closed) {
@@ -319,14 +334,14 @@ class ContentStore {
 
   /// The verified model file, or null when this store has none.
   InstalledModel? installedModel() {
-    final file = File(_path(_directory, _modelFile));
-    final meta = File(_path(_directory, _modelMetaFile));
-    if (!file.existsSync() || !meta.existsSync()) {
+    final file = _path(_root, _modelFile);
+    final meta = _path(_root, _modelMetaFile);
+    if (!_files.exists(file) || !_files.exists(meta)) {
       return null;
     }
     final Object? decoded;
     try {
-      decoded = jsonDecode(meta.readAsStringSync());
+      decoded = jsonDecode(_files.readString(meta));
     } on FormatException {
       return null;
     }
@@ -341,11 +356,11 @@ class ContentStore {
     }
     // A torn write can leave new bytes beside an old record, or the reverse.
     // The length is checked before the record is trusted.
-    if (file.lengthSync() != byteSize) {
+    if (_files.length(file) != byteSize) {
       return null;
     }
     return InstalledModel(
-      path: file.path,
+      path: file,
       sha256: sha256,
       byteSize: byteSize,
       modelType: modelType,
@@ -367,15 +382,16 @@ class ContentStore {
     Stream<List<int>> chunks,
     BundleModel model,
   ) async {
-    final staging = File(_path(_directory, _modelStagingFile));
-    final target = File(_path(_directory, _modelFile));
-    final metaStaging = File(_path(_directory, _modelMetaStagingFile));
-    final metaTarget = File(_path(_directory, _modelMetaFile));
-    _deleteModelStaging(_directory);
+    final staging = _path(_root, _modelStagingFile);
+    final target = _path(_root, _modelFile);
+    final metaStaging = _path(_root, _modelMetaStagingFile);
+    final metaTarget = _path(_root, _modelMetaFile);
+    _deleteModelStaging(_root, _files);
     final hash = _Sha256Sink();
-    IOSink? sink;
+    StreamSink<List<int>>? sink;
     try {
-      sink = staging.openWrite();
+      final output = _files.openWrite(staging);
+      sink = output;
       var written = 0;
       var tooBig = false;
       final incoming = StreamIterator<List<int>>(chunks);
@@ -389,7 +405,7 @@ class ContentStore {
             tooBig = true;
             break;
           }
-          sink.add(chunk);
+          output.add(chunk);
           hash.add(chunk);
           written += chunk.length;
         }
@@ -400,29 +416,29 @@ class ContentStore {
           // The cap decision or the stream error is the one to report.
         }
       }
-      await sink.close();
+      await output.close();
       sink = null;
       if (tooBig ||
           written != model.byteSize ||
-          staging.lengthSync() != model.byteSize ||
+          _files.length(staging) != model.byteSize ||
           hash.closeHex() != model.sha256) {
-        _deleteModelStaging(_directory);
+        _deleteModelStaging(_root, _files);
         return false;
       }
-      metaStaging.writeAsStringSync(
+      _files.writeString(
+        metaStaging,
         jsonEncode({
           'file': model.file,
           'sha256': model.sha256,
           'byteSize': model.byteSize,
           'modelType': model.modelType,
         }),
-        flush: true,
       );
-      if (metaTarget.existsSync()) {
-        metaTarget.deleteSync();
+      if (_files.exists(metaTarget)) {
+        _files.delete(metaTarget);
       }
-      staging.renameSync(target.path);
-      metaStaging.renameSync(metaTarget.path);
+      _files.rename(staging, target);
+      _files.rename(metaStaging, metaTarget);
       return true;
     } on Object {
       if (sink != null) {
@@ -432,7 +448,7 @@ class ContentStore {
           // The original failure is the one to report.
         }
       }
-      _deleteModelStaging(_directory);
+      _deleteModelStaging(_root, _files);
       rethrow;
     }
   }
@@ -477,7 +493,7 @@ class ContentStore {
     // Settings live in the same file and are not part of the bundle. Copy
     // them into the staging database or the rename would drop them.
     final settings = _db.all('SELECT key, value FROM settings ORDER BY key');
-    _deleteStaging(_directory);
+    _deleteStaging(_root, _files);
 
     SqlDatabase? staging;
     var renamed = false;
@@ -504,17 +520,17 @@ class ContentStore {
       staging = null;
       _db.close();
       activeClosed = true;
-      File(_stagingPath).renameSync(_contentPath);
+      _files.rename(_stagingPath, _contentPath);
       renamed = true;
       _db = _openContent();
       activeClosed = false;
       // The rename moves only the database file. Drop a journal or wal that
       // SQLite left beside the staging name.
-      _deleteStaging(_directory);
+      _deleteStaging(_root, _files);
     } catch (_) {
       _closeQuietly(staging);
       if (!renamed) {
-        _deleteStaging(_directory);
+        _deleteStaging(_root, _files);
       }
       if (activeClosed) {
         try {
@@ -536,10 +552,10 @@ class ContentStore {
   }
 }
 
-class _SqliteDatabase implements SqlDatabase {
-  _SqliteDatabase(this._db);
+class BundledSqlDatabase implements SqlDatabase {
+  BundledSqlDatabase(this._db);
 
-  final Database _db;
+  final CommonDatabase _db;
   var _closed = false;
 
   @override
@@ -602,7 +618,8 @@ const _stagingFiles = [
   '$_stagingFile-shm',
 ];
 
-String _path(Directory directory, String name) => '${directory.path}/$name';
+String _path(String root, String name) =>
+    root.endsWith('/') ? '$root$name' : '$root/$name';
 
 /// SHA-256 over chunks. The chunks are not retained.
 class _Sha256Sink {
@@ -626,21 +643,15 @@ String _hex(List<int> bytes) {
   return hex.toString();
 }
 
-void _deleteStaging(Directory directory) {
+void _deleteStaging(String root, StoreFiles files) {
   for (final name in _stagingFiles) {
-    final file = File(_path(directory, name));
-    if (file.existsSync()) {
-      file.deleteSync();
-    }
+    files.delete(_path(root, name));
   }
 }
 
-void _deleteModelStaging(Directory directory) {
+void _deleteModelStaging(String root, StoreFiles files) {
   for (final name in [_modelStagingFile, _modelMetaStagingFile]) {
-    final file = File(_path(directory, name));
-    if (file.existsSync()) {
-      file.deleteSync();
-    }
+    files.delete(_path(root, name));
   }
 }
 

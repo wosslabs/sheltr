@@ -116,7 +116,7 @@ void main() {
 ContentStore _openStore() {
   final directory = Directory.systemTemp.createTempSync('sheltr-keys-');
   addTearDown(() => directory.deleteSync(recursive: true));
-  return ContentStore.open(directory);
+  return ContentStore.open(directory.path);
 }
 
 Future<SyncResult> _sync(

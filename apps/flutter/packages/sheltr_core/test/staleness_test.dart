@@ -187,7 +187,7 @@ void main() {
       ],
     );
     final temp = Directory.systemTemp.createTempSync('sheltr-stale-');
-    final store = ContentStore.open(temp);
+    final store = ContentStore.open(temp.path);
     try {
       store.install(manifest, (document) {
         return parseDocumentFileBytes(

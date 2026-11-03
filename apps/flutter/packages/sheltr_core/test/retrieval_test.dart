@@ -110,7 +110,7 @@ void main() {
     setUpAll(() {
       rules = Rules.parse(copyRetrievalRules());
       temp = Directory.systemTemp.createTempSync('sheltr-retrieval-');
-      store = ContentStore.open(temp);
+      store = ContentStore.open(temp.path);
       installSample(store);
       retriever = Retriever(store, rules: rules);
     });
@@ -437,7 +437,7 @@ void installSample(ContentStore store) {
 
 void withStore(void Function(ContentStore store) body) {
   final directory = Directory.systemTemp.createTempSync('sheltr-retrieval-');
-  final store = ContentStore.open(directory);
+  final store = ContentStore.open(directory.path);
   try {
     body(store);
   } finally {

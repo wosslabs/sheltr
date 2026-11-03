@@ -20,7 +20,7 @@ void main() {
     final good = Uint8List.fromList(const [1, 2, 3, 4, 5]);
     final bad = Uint8List.fromList(const [9, 8, 7, 6, 5]);
     final directory = Directory.systemTemp.createTempSync('sheltr-model-');
-    final store = ContentStore.open(directory);
+    final store = ContentStore.open(directory.path);
     try {
       final first = await _signedBundle(
         sequence: 1,
@@ -59,7 +59,7 @@ void main() {
     const version = '2026-11-05T00:00:00Z';
     final content = await _signedBundle(sequence: 4, bundleVersion: version);
     final contentDir = Directory.systemTemp.createTempSync('sheltr-model-');
-    final contentStore = ContentStore.open(contentDir);
+    final contentStore = ContentStore.open(contentDir.path);
     late SyncResult contentResult;
     try {
       contentResult = await SyncEngine(clientFor: content.clientFor)
@@ -79,7 +79,7 @@ void main() {
     final directory = Directory.systemTemp.createTempSync('sheltr-model-');
     final modelFile = File('${directory.path}/$_modelFileName');
     modelFile.writeAsBytesSync(previous);
-    final store = ContentStore.open(directory);
+    final store = ContentStore.open(directory.path);
     try {
       final result = await SyncEngine(clientFor: failed.clientFor)
           .run(_baseUrl, failed.publicKey, store);
@@ -108,7 +108,7 @@ void main() {
     const failedVersion = '2026-11-06T01:00:00Z';
     final directory = Directory.systemTemp.createTempSync('sheltr-model-');
     final modelFile = File('${directory.path}/$_modelFileName');
-    final store = ContentStore.open(directory);
+    final store = ContentStore.open(directory.path);
     try {
       final first = await _signedBundle(
         sequence: 6,
@@ -184,7 +184,7 @@ void main() {
     const version = '2026-11-07T00:00:00Z';
     final directory = Directory.systemTemp.createTempSync('sheltr-model-');
     final modelFile = File('${directory.path}/$_modelFileName');
-    final store = ContentStore.open(directory);
+    final store = ContentStore.open(directory.path);
     try {
       final first = await _signedBundle(
         sequence: 8,

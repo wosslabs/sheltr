@@ -682,7 +682,7 @@ RetrievalResult _fixturePassage(ContentStore store, String needle) {
 Future<ContentStore> _openFixture(String name, {DateTime? syncedAt}) async {
   final temp = Directory.systemTemp.createTempSync('sheltr-app-');
   addTearDown(() => temp.deleteSync(recursive: true));
-  final store = ContentStore.open(temp);
+  final store = ContentStore.open(temp.path);
   addTearDown(store.close);
   final bundleDir = _fixtureDirectory(name);
   final manifest = parseBundleManifest(
@@ -719,7 +719,7 @@ Directory _fixtureDirectory(String name) {
 Future<ContentStore> _openSampleStore({bool install = true}) async {
   final temp = Directory.systemTemp.createTempSync('sheltr-app-');
   addTearDown(() => temp.deleteSync(recursive: true));
-  final store = ContentStore.open(temp);
+  final store = ContentStore.open(temp.path);
   addTearDown(store.close);
   if (!install) {
     return store;

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Merged to local `main` on 2026-11-03. Not pushed.** On that date the Expo app (`apps/mobile`) was removed. The steps below are the record of the port. They still name `apps/mobile` as the source that was copied. The publisher stays TypeScript.
+**On `main` as of 2026-11-03.** On that date the Expo app (`apps/mobile`) was removed. Chrome is the UI test until the native phone runs. The steps below are the record of the port. They still name `apps/mobile` as the source that was copied. The publisher stays TypeScript.
 
 **Goal:** Replace the Expo app with one Flutter app, written in Dart, that passes one shared contract on Android and iOS, then add cited on-device summaries through Google LiteRT-LM.
 

@@ -30,7 +30,7 @@ void sheltrSyncDispatcher() {
     }
     WidgetsFlutterBinding.ensureInitialized();
     final directory = await getApplicationSupportDirectory();
-    final store = ContentStore.open(directory);
+    final store = ContentStore.open(directory.path);
     try {
       final result = await runPublishedSync(
         baseUrl: compiledBundleBaseUrl,
