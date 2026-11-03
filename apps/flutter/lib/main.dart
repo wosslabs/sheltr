@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:path_provider/path_provider.dart';
@@ -10,6 +12,7 @@ import 'screens/answer.dart';
 import 'screens/home.dart';
 import 'screens/search.dart';
 import 'screens/settings.dart';
+import 'sync/scheduler.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,11 +45,17 @@ class SheltrApp extends StatefulWidget {
 class _SheltrAppState extends State<SheltrApp> {
   final _strings = const AppStrings();
   late AppSettings _settings;
+  DateTime? _lastSync;
 
   @override
   void initState() {
     super.initState();
     _settings = widget.settings;
+    final epoch = widget.store?.lastSyncEpochSeconds();
+    _lastSync = epoch == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(epoch * 1000, isUtc: true);
+    unawaited(scheduleSyncOnLaunch(settings: _settings, lastSync: _lastSync));
   }
 
   @override
@@ -57,7 +66,13 @@ class _SheltrAppState extends State<SheltrApp> {
 
   void _updateSettings(AppSettings next) {
     assertValidSettings(next);
+    final scheduleChanged =
+        next.syncFrequency != _settings.syncFrequency ||
+        next.allowMobileData != _settings.allowMobileData;
     setState(() => _settings = next);
+    if (scheduleChanged) {
+      unawaited(scheduleSyncOnLaunch(settings: next, lastSync: _lastSync));
+    }
   }
 
   @override
