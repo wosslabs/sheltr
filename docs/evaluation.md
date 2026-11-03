@@ -30,3 +30,7 @@ The evaluation found a real defect before this release: with the first version, 
 - Two documents only. Results will change with a larger corpus, so re-run it before every corpus change.
 - English only. The stopword list and word matching assume English documents.
 - Keyword search does not understand meaning. A question worded very differently from the text is refused. An on-device model is only worth adding if this evaluation, extended with real questions, shows the refusal rate is too high.
+
+## On-device model
+
+A later device run of one LiteRT-LM file is described in [`docs/model-eval.md`](model-eval.md). The settings default stays off. That page records the procedure and an empty result table. No device run is recorded there yet.
