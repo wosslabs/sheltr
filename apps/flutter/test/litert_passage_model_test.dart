@@ -102,6 +102,129 @@ void main() {
     }
   });
 
+  test('failedModelDownloadRetriesWhenLaterSyncIsUpToDate', () async {
+    final previous = Uint8List.fromList(const [4, 4, 4, 4]);
+    final next = Uint8List.fromList(const [1, 2, 3, 4, 5]);
+    const failedVersion = '2026-11-06T01:00:00Z';
+    final directory = Directory.systemTemp.createTempSync('sheltr-model-');
+    final modelFile = File('${directory.path}/$_modelFileName');
+    final store = ContentStore.open(directory);
+    try {
+      final first = await _signedBundle(
+        sequence: 6,
+        bundleVersion: '2026-11-06T00:00:00Z',
+        model: _modelSpec(previous),
+        modelBytes: previous,
+      );
+      final installed = await SyncEngine(clientFor: first.clientFor)
+          .run(_baseUrl, first.publicKey, store);
+      expect(installed, isA<SyncUpdated>());
+      expect(modelFile.readAsBytesSync(), previous);
+
+      final failed = await _signedBundle(
+        sequence: 7,
+        bundleVersion: failedVersion,
+        model: _modelSpec(next),
+        modelStatus: 404,
+      );
+      final update = await SyncEngine(clientFor: failed.clientFor)
+          .run(_baseUrl, failed.publicKey, store);
+      expect(update, isA<SyncUpdated>());
+      expect((update as SyncUpdated).bundleVersion, failedVersion);
+      expect(modelFile.readAsBytesSync(), previous);
+      expect(store.installedModel()?.sha256, sha256Hex(previous));
+      final documents = store.documents().length;
+
+      failed.requested.clear();
+      final retry = await SyncEngine(clientFor: failed.clientFor)
+          .run(_baseUrl, failed.publicKey, store);
+      expect(retry, isA<SyncUpToDate>());
+      expect((retry as SyncUpToDate).bundleVersion, failedVersion);
+      expect(store.bundleVersion(), failedVersion);
+      expect(store.sequence(), 7);
+      expect(store.documents().length, documents);
+      expect(modelFile.readAsBytesSync(), previous);
+      expect(store.installedModel()?.sha256, sha256Hex(previous));
+      expect(store.installedModel()?.byteSize, previous.length);
+      expect(
+        failed.requested.where((url) => url.endsWith('/$_modelRelative')),
+        isNotEmpty,
+      );
+      expect(File('${modelFile.path}.staging').existsSync(), isFalse);
+
+      final recovered = await _signedBundle(
+        sequence: 7,
+        bundleVersion: failedVersion,
+        model: _modelSpec(next),
+        modelBytes: next,
+      );
+      final done = await SyncEngine(clientFor: recovered.clientFor)
+          .run(_baseUrl, recovered.publicKey, store);
+      expect(done, isA<SyncUpToDate>());
+      expect(modelFile.readAsBytesSync(), next);
+      expect(store.installedModel()?.sha256, sha256Hex(next));
+
+      recovered.requested.clear();
+      final skipped = await SyncEngine(clientFor: recovered.clientFor)
+          .run(_baseUrl, recovered.publicKey, store);
+      expect(skipped, isA<SyncUpToDate>());
+      expect(
+        recovered.requested.where((url) => url.endsWith('/$_modelRelative')),
+        isEmpty,
+      );
+      expect(modelFile.readAsBytesSync(), next);
+    } finally {
+      store.close();
+      directory.deleteSync(recursive: true);
+    }
+  });
+
+  test('upToDateSyncRetriesWhenSignedByteSizeDiffers', () async {
+    final good = Uint8List.fromList(const [1, 2, 3, 4]);
+    const version = '2026-11-07T00:00:00Z';
+    final directory = Directory.systemTemp.createTempSync('sheltr-model-');
+    final modelFile = File('${directory.path}/$_modelFileName');
+    final store = ContentStore.open(directory);
+    try {
+      final first = await _signedBundle(
+        sequence: 8,
+        bundleVersion: version,
+        model: _modelSpec(good),
+        modelBytes: good,
+      );
+      final installed = await SyncEngine(clientFor: first.clientFor)
+          .run(_baseUrl, first.publicKey, store);
+      expect(installed, isA<SyncUpdated>());
+      expect(modelFile.readAsBytesSync(), good);
+
+      final spec = _modelSpec(good);
+      spec['byteSize'] = good.length - 1;
+      final again = await _signedBundle(
+        sequence: 8,
+        bundleVersion: version,
+        model: spec,
+        modelBytes: good,
+      );
+      final result = await SyncEngine(clientFor: again.clientFor)
+          .run(_baseUrl, again.publicKey, store);
+      expect(result, isA<SyncUpToDate>());
+      expect((result as SyncUpToDate).bundleVersion, version);
+      expect(store.sequence(), 8);
+      expect(store.bundleVersion(), version);
+      expect(
+        again.requested.where((url) => url.endsWith('/$_modelRelative')),
+        isNotEmpty,
+      );
+      expect(modelFile.readAsBytesSync(), good);
+      expect(store.installedModel()?.byteSize, good.length);
+      expect(store.installedModel()?.sha256, sha256Hex(good));
+      expect(File('${modelFile.path}.staging').existsSync(), isFalse);
+    } finally {
+      store.close();
+      directory.deleteSync(recursive: true);
+    }
+  });
+
   test('unknownModelTypeStaysOff', () async {
     final fake = _FakeEngine();
     final model = LitertPassageModel(

@@ -1,11 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:cryptography/dart.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 import '../bundle/format.dart';
-import '../bundle/sha256.dart';
 
 /// A content update that did not become the active database.
 class StoreUpdateError implements Exception {
@@ -339,6 +339,11 @@ class ContentStore {
     if (sha256 is! String || byteSize is! int || modelType is! String) {
       return null;
     }
+    // A torn write can leave new bytes beside an old record, or the reverse.
+    // The length is checked before the record is trusted.
+    if (file.lengthSync() != byteSize) {
+      return null;
+    }
     return InstalledModel(
       path: file.path,
       sha256: sha256,
@@ -347,24 +352,53 @@ class ContentStore {
     );
   }
 
-  /// Replaces the verified model file by renaming a staging file.
+  /// Streams [chunks] onto the model staging file.
   ///
-  /// Refuses bytes that are not [model]'s length and SHA-256, and leaves the
-  /// previous file in place. The rename is the moment the new file becomes
-  /// the verified one.
-  void commitVerifiedModel(Uint8List bytes, BundleModel model) {
-    if (bytes.length != model.byteSize || sha256Hex(bytes) != model.sha256) {
-      throw StateError(
-        'refusing to store a model file that failed verification',
-      );
-    }
+  /// The SHA-256 runs as each chunk is written. Writing stops when the next
+  /// chunk would pass [model.byteSize], and that chunk is not written. The
+  /// staging file is renamed into place only when its length and digest match
+  /// [model]. A mismatch deletes the staging file and leaves the previous
+  /// verified model in place.
+  ///
+  /// The previous sidecar is removed before the new bytes are renamed into
+  /// place. A crash between that rename and the sidecar rename then has no
+  /// old sha256 to pair with the new file.
+  Future<bool> commitModelStream(
+    Stream<List<int>> chunks,
+    BundleModel model,
+  ) async {
     final staging = File(_path(_directory, _modelStagingFile));
     final target = File(_path(_directory, _modelFile));
     final metaStaging = File(_path(_directory, _modelMetaStagingFile));
     final metaTarget = File(_path(_directory, _modelMetaFile));
     _deleteModelStaging(_directory);
+    final hash = _Sha256Sink();
+    IOSink? sink;
     try {
-      staging.writeAsBytesSync(bytes, flush: true);
+      sink = staging.openWrite();
+      var written = 0;
+      var tooBig = false;
+      await for (final chunk in chunks) {
+        if (chunk.isEmpty) {
+          continue;
+        }
+        if (written + chunk.length > model.byteSize) {
+          tooBig = true;
+          break;
+        }
+        sink.add(chunk);
+        hash.add(chunk);
+        written += chunk.length;
+      }
+      await sink.close();
+      sink = null;
+      if (tooBig ||
+          written != model.byteSize ||
+          staging.lengthSync() != model.byteSize ||
+          hash.closeHex() != model.sha256) {
+        _deleteModelStaging(_directory);
+        return false;
+      }
       metaStaging.writeAsStringSync(
         jsonEncode({
           'file': model.file,
@@ -374,9 +408,20 @@ class ContentStore {
         }),
         flush: true,
       );
+      if (metaTarget.existsSync()) {
+        metaTarget.deleteSync();
+      }
       staging.renameSync(target.path);
       metaStaging.renameSync(metaTarget.path);
+      return true;
     } on Object {
+      if (sink != null) {
+        try {
+          await sink.close();
+        } on Object {
+          // The original failure is the one to report.
+        }
+      }
       _deleteModelStaging(_directory);
       rethrow;
     }
@@ -548,6 +593,28 @@ const _stagingFiles = [
 ];
 
 String _path(Directory directory, String name) => '${directory.path}/$name';
+
+/// SHA-256 over chunks. The chunks are not retained.
+class _Sha256Sink {
+  final DartHashSink _sink = const DartSha256().newHashSink();
+
+  void add(List<int> chunk) {
+    _sink.add(chunk);
+  }
+
+  String closeHex() {
+    _sink.close();
+    return _hex(_sink.hashSync().bytes);
+  }
+}
+
+String _hex(List<int> bytes) {
+  final hex = StringBuffer();
+  for (final byte in bytes) {
+    hex.write(byte.toRadixString(16).padLeft(2, '0'));
+  }
+  return hex.toString();
+}
 
 void _deleteStaging(Directory directory) {
   for (final name in _stagingFiles) {

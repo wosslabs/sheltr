@@ -3,7 +3,6 @@ import 'dart:typed_data';
 
 import '../bundle/format.dart';
 import '../bundle/parser.dart';
-import '../bundle/sha256.dart';
 import '../signing/trusted_keys.dart';
 import '../signing/verifier.dart';
 import '../store/content_store.dart';
@@ -23,16 +22,19 @@ import 'result.dart';
 ///    one, and check each download's SHA-256 against the signed manifest.
 /// 5. Install through [ContentStore.install], which replaces the content
 ///    atomically or leaves it unchanged.
-/// 6. When the manifest names a model, download that file, check its length
-///    and SHA-256, and rename a staging file over the previous model. A model
-///    download or checksum failure keeps the content result from step 5 and
-///    leaves any previous verified model file in place.
+/// 6. When the manifest names a model, stream that file to a staging file
+///    with a running SHA-256. Writing stops if the next chunk would pass the
+///    signed byteSize. The length and the hash are checked, then the staging
+///    file is renamed into place. A mismatch deletes the staging file. A
+///    model failure keeps the content result and leaves any previous verified
+///    model file in place. An up-to-date sync retries the download when the
+///    signed sha256 or byteSize differs from the installed model.
 ///
-/// Every download finishes and is verified before the store is changed, so a
-/// failure at any step returns [SyncFailed] with the old content active.
-/// A model failure is the exception: the content install is already committed.
-/// Downloaded files are held in memory until the install. The engine does not
-/// schedule, wait, or retry.
+/// Document downloads finish and are verified before the store is changed, so
+/// a failure at those steps returns [SyncFailed] with the old content active.
+/// A model failure is the exception: the content result is already decided.
+/// Document files are held in memory until the install. The model file is
+/// streamed to disk. The engine does not schedule or wait.
 class SyncEngine {
   SyncEngine({
     SyncClient Function(String baseUrl)? clientFor,
@@ -98,7 +100,14 @@ class SyncEngine {
       if (manifest.sequence == installedSequence &&
           manifest.bundleVersion == installedVersion) {
         store.recordSync(_nowEpochSeconds());
-        return SyncUpToDate(bundleVersion: manifest.bundleVersion);
+        final result = SyncUpToDate(bundleVersion: manifest.bundleVersion);
+        await _installOptionalModel(
+          client,
+          manifest,
+          store,
+          onlyWhenModelDiffers: true,
+        );
+        return result;
       }
       throw BundleFormatError(
         'Refusing bundle sequence ${manifest.sequence}; it is older than or equal to the installed sequence $installedSequence.',
@@ -106,7 +115,14 @@ class SyncEngine {
     }
     if (manifest.bundleVersion == installedVersion) {
       store.recordSync(_nowEpochSeconds());
-      return SyncUpToDate(bundleVersion: manifest.bundleVersion);
+      final result = SyncUpToDate(bundleVersion: manifest.bundleVersion);
+      await _installOptionalModel(
+        client,
+        manifest,
+        store,
+        onlyWhenModelDiffers: true,
+      );
+      return result;
     }
 
     final downloaded = await _downloadChanged(client, manifest, store);
@@ -119,36 +135,51 @@ class SyncEngine {
       bundleVersion: manifest.bundleVersion,
       documentsDownloaded: downloaded.length,
     );
-    await _installOptionalModel(client, manifest, store);
+    await _installOptionalModel(
+      client,
+      manifest,
+      store,
+      onlyWhenModelDiffers: false,
+    );
     return result;
   }
 }
 
-/// Downloads [manifest.model] after the content install. Failures are swallowed
-/// so the content [SyncResult] stays the one the install already produced.
+/// Downloads [manifest.model] after the content result is decided.
+///
+/// Failures are swallowed so that result stays unchanged. When
+/// [onlyWhenModelDiffers] is set, a file whose sha256 and byteSize already
+/// match the signed model is left in place. An up-to-date sync uses that so a
+/// download that failed during install is retried only while the signed file
+/// still differs.
 Future<void> _installOptionalModel(
   SyncClient client,
   BundleManifest manifest,
-  ContentStore store,
-) async {
+  ContentStore store, {
+  required bool onlyWhenModelDiffers,
+}) async {
   final model = manifest.model;
   if (model == null) {
     return;
   }
+  if (onlyWhenModelDiffers && !_signedModelDiffers(store, model)) {
+    return;
+  }
   try {
-    final bytes = await client.fetchBundleFile(model.file);
-    if (!_modelBytesMatch(model, bytes)) {
-      return;
-    }
-    store.commitVerifiedModel(bytes, model);
+    await store.commitModelStream(client.fetchBundleFile(model.file), model);
   } on Object {
-    // The content install is already the active bundle. Keep it, and keep
-    // the previous verified model file.
+    // The content result is already decided. Keep it, and keep the previous
+    // verified model file.
   }
 }
 
-bool _modelBytesMatch(BundleModel model, Uint8List bytes) {
-  return bytes.length == model.byteSize && sha256Hex(bytes) == model.sha256;
+bool _signedModelDiffers(ContentStore store, BundleModel model) {
+  final installed = store.installedModel();
+  if (installed == null) {
+    return true;
+  }
+  return installed.sha256 != model.sha256 ||
+      installed.byteSize != model.byteSize;
 }
 
 /// The single public key when no list is compiled in. Otherwise the public key

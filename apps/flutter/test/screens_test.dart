@@ -3,8 +3,10 @@ import 'dart:ui' show CheckedState, Tristate;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sheltr/main.dart';
+import 'package:sheltr/model/litert_passage_model.dart';
 import 'package:sheltr_core/sheltr_core.dart';
 
 void main() {
@@ -555,6 +557,37 @@ void main() {
     );
     expect(find.text('Example Agency'), findsOneWidget);
   });
+
+  testWidgets('engineThrowDoesNotChangeContentResultOrShowLead', (
+    tester,
+  ) async {
+    final retrieval = _boilWater();
+    final passage = retrieval.passages.single.chunk.content;
+    final engine = _InstallThrowingEngine();
+    final model = LitertPassageModel(
+      verifiedPath: '/tmp/verified-model',
+      modelType: 'gemma4',
+      engine: engine,
+    );
+    await _pump(
+      tester,
+      route: '/answer',
+      answer: retrieval,
+      model: model,
+      settings: AppSettings.defaults.copyWith(modelEnabled: true),
+    );
+
+    expect(engine.initializeCount, 1);
+    expect(engine.installCount, 1);
+    expect(retrieval.kind, 'passages');
+    expect(retrieval.passages, hasLength(1));
+    expect(retrieval.passages.single.chunk.content, passage);
+    expect(find.text(passage), findsOneWidget);
+    expect(find.text('Boil water before drinking.'), findsNothing);
+    expect(find.text('engine failed'), findsNothing);
+    expect(find.text('Example Agency'), findsOneWidget);
+    expect(AppSettings.defaults.modelEnabled, isFalse);
+  });
 }
 
 const _hazards = [
@@ -765,6 +798,34 @@ class _ThrowingModel implements PassageModel {
   Future<String> rewrite(String question, List<CitedPassage> passages) async {
     calls += 1;
     throw StateError('model failed');
+  }
+}
+
+class _InstallThrowingEngine implements LitertEngine {
+  var initializeCount = 0;
+  var installCount = 0;
+
+  @override
+  Future<void> initialize() async {
+    initializeCount += 1;
+  }
+
+  @override
+  Future<void> installFromFile({
+    required ModelType modelType,
+    required ModelFileType fileType,
+    required String path,
+  }) async {
+    installCount += 1;
+    throw StateError('engine failed');
+  }
+
+  @override
+  Future<LitertLoadedModel> openModel({
+    required int maxTokens,
+    required PreferredBackend backend,
+  }) async {
+    throw StateError('engine failed');
   }
 }
 

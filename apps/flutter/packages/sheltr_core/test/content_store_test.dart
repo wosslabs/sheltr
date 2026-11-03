@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:sheltr_core/bundle/format.dart';
+import 'package:sheltr_core/bundle/sha256.dart';
 import 'package:sheltr_core/store/content_store.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
@@ -363,6 +365,192 @@ void main() {
       }
     });
   });
+
+  test('modelStreamReplacesFileWhenHashMatches', () async {
+    final directory = Directory.systemTemp.createTempSync('sheltr-store-');
+    final store = ContentStore.open(directory);
+    try {
+      final previous = [4, 4, 4, 4];
+      expect(
+        await store.commitModelStream(
+          Stream<List<int>>.fromIterable([previous]),
+          _bytesModel(previous),
+        ),
+        isTrue,
+      );
+      final next = [1, 2, 3, 4, 5];
+      expect(
+        await store.commitModelStream(
+          Stream<List<int>>.fromIterable([next.sublist(0, 2), next.sublist(2)]),
+          _bytesModel(next),
+        ),
+        isTrue,
+      );
+      final file = File('${directory.path}/verified-model');
+      expect(file.readAsBytesSync(), next);
+      final installed = store.installedModel();
+      expect(installed?.sha256, sha256Hex(Uint8List.fromList(next)));
+      expect(installed?.byteSize, next.length);
+      expect(installed?.modelType, 'gemma4');
+      expect(File('${file.path}.staging').existsSync(), isFalse);
+      expect(
+        File('${directory.path}/model.json.staging').existsSync(),
+        isFalse,
+      );
+
+      file.writeAsBytesSync([...next, 9]);
+      expect(store.installedModel(), isNull);
+      file.writeAsBytesSync(next.sublist(0, next.length - 1));
+      expect(store.installedModel(), isNull);
+      file.writeAsBytesSync(next);
+      File('${directory.path}/model.json').deleteSync();
+      expect(store.installedModel(), isNull);
+      expect(file.readAsBytesSync(), next);
+    } finally {
+      store.close();
+      directory.deleteSync(recursive: true);
+    }
+  });
+
+  test('modelMismatchDeletesStagingAndKeepsPreviousFile', () async {
+    final directory = Directory.systemTemp.createTempSync('sheltr-store-');
+    final store = ContentStore.open(directory);
+    try {
+      final good = [1, 2, 3, 4];
+      expect(
+        await store.commitModelStream(
+          Stream<List<int>>.fromIterable([good]),
+          _bytesModel(good),
+        ),
+        isTrue,
+      );
+      final bad = [9, 8, 7, 6];
+      expect(
+        await store.commitModelStream(
+          Stream<List<int>>.fromIterable([bad]),
+          _bytesModel(good),
+        ),
+        isFalse,
+      );
+      expect(
+        await store.commitModelStream(
+          Stream<List<int>>.fromIterable([
+            [1, 2],
+          ]),
+          _bytesModel(good),
+        ),
+        isFalse,
+      );
+      final file = File('${directory.path}/verified-model');
+      expect(file.readAsBytesSync(), good);
+      expect(
+        store.installedModel()?.sha256,
+        sha256Hex(Uint8List.fromList(good)),
+      );
+      expect(File('${file.path}.staging').existsSync(), isFalse);
+      expect(
+        File('${directory.path}/model.json.staging').existsSync(),
+        isFalse,
+      );
+    } finally {
+      store.close();
+      directory.deleteSync(recursive: true);
+    }
+  });
+
+  test('oversizedModelStreamStopsAndKeepsPreviousFile', () async {
+    final directory = Directory.systemTemp.createTempSync('sheltr-store-');
+    final store = ContentStore.open(directory);
+    try {
+      final good = [8, 8, 8, 8];
+      expect(
+        await store.commitModelStream(
+          Stream<List<int>>.fromIterable([good]),
+          _bytesModel(good),
+        ),
+        isTrue,
+      );
+      var reads = 0;
+      Stream<List<int>> source() async* {
+        reads += 1;
+        yield [1, 2, 3, 4];
+        reads += 1;
+        yield [5, 6];
+        reads += 1;
+        yield [7];
+      }
+
+      expect(
+        await store.commitModelStream(source(), _bytesModel(good)),
+        isFalse,
+      );
+      expect(reads, 2);
+      final file = File('${directory.path}/verified-model');
+      expect(file.readAsBytesSync(), good);
+      expect(
+        store.installedModel()?.sha256,
+        sha256Hex(Uint8List.fromList(good)),
+      );
+      expect(store.installedModel()?.byteSize, good.length);
+      expect(File('${file.path}.staging').existsSync(), isFalse);
+    } finally {
+      store.close();
+      directory.deleteSync(recursive: true);
+    }
+  });
+
+  test('modelStreamErrorDeletesStagingAndKeepsPreviousFile', () async {
+    final directory = Directory.systemTemp.createTempSync('sheltr-store-');
+    final store = ContentStore.open(directory);
+    try {
+      final good = [1, 2, 3, 4];
+      expect(
+        await store.commitModelStream(
+          Stream<List<int>>.fromIterable([good]),
+          _bytesModel(good),
+        ),
+        isTrue,
+      );
+      Stream<List<int>> source() async* {
+        yield [1, 2];
+        throw StateError('connection reset');
+      }
+
+      await expectLater(
+        store.commitModelStream(source(), _bytesModel(good)),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'connection reset',
+          ),
+        ),
+      );
+      final file = File('${directory.path}/verified-model');
+      expect(file.readAsBytesSync(), good);
+      expect(
+        store.installedModel()?.sha256,
+        sha256Hex(Uint8List.fromList(good)),
+      );
+      expect(File('${file.path}.staging').existsSync(), isFalse);
+      expect(
+        File('${directory.path}/model.json.staging').existsSync(),
+        isFalse,
+      );
+    } finally {
+      store.close();
+      directory.deleteSync(recursive: true);
+    }
+  });
+}
+
+BundleModel _bytesModel(List<int> bytes) {
+  return BundleModel(
+    file: 'models/passage.bin',
+    sha256: sha256Hex(Uint8List.fromList(bytes)),
+    byteSize: bytes.length,
+    modelType: 'gemma4',
+  );
 }
 
 void withDirectory(void Function(Directory directory) body) {

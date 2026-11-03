@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import '../bundle/format.dart';
@@ -17,9 +18,10 @@ abstract interface class SyncClient {
 
   /// A bundle-relative file, such as the optional model.
   ///
-  /// [relativePath] is appended to the base URL. A path that could leave that
-  /// directory is refused.
-  Future<Uint8List> fetchBundleFile(String relativePath);
+  /// The body arrives in chunks. The caller writes those chunks onward and
+  /// does not assemble them into one list. [relativePath] is appended to the
+  /// base URL. A path that could leave that directory is refused.
+  Stream<List<int>> fetchBundleFile(String relativePath);
 }
 
 /// Thrown for a base URL that is not https, or a response that is not a success.
@@ -102,13 +104,22 @@ class FetchSyncClient implements SyncClient {
   }
 
   @override
-  Future<Uint8List> fetchBundleFile(String relativePath) {
+  Stream<List<int>> fetchBundleFile(String relativePath) async* {
     if (!_safeBundlePath(relativePath)) {
-      return Future<Uint8List>.error(
-        SyncHttpError('refusing bundle path: $relativePath'),
-      );
+      throw SyncHttpError('refusing bundle path: $relativePath');
     }
-    return _fetchBytes(relativePath);
+    final response = await _fetch('$_base/$relativePath');
+    if (!response.ok) {
+      throw SyncHttpError('GET $relativePath returned ${response.status}');
+    }
+    final bytes = response.bytes;
+    const chunkSize = 65536;
+    for (var offset = 0; offset < bytes.length; offset += chunkSize) {
+      final end = offset + chunkSize < bytes.length
+          ? offset + chunkSize
+          : bytes.length;
+      yield bytes.sublist(offset, end);
+    }
   }
 
   Future<Uint8List> _fetchBytes(String path) async {
