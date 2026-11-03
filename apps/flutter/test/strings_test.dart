@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sheltr/l10n/catalogs.dart';
 
 void main() {
   test('every contract key and placeholder is in each locale', () {
@@ -42,6 +43,18 @@ void main() {
           );
         }
       }
+    }
+  });
+
+  test('catalogs match the arb files', () {
+    expect(catalogs.keys.toSet(), {'en', 'es', 'fr'});
+    for (final locale in ['en', 'es', 'fr']) {
+      final arb = _catalog('lib/l10n/app_$locale.arb');
+      final strings = <String, String>{
+        for (final entry in arb.entries)
+          if (entry.value is String) entry.key: entry.value as String,
+      };
+      expect(catalogs[locale], strings, reason: locale);
     }
   });
 }

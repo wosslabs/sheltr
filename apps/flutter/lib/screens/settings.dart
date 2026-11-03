@@ -224,8 +224,10 @@ class _Toggle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
+      enabled: true,
       label: label,
       toggled: value,
+      onTap: () => onChanged(!value),
       excludeSemantics: true,
       child: SwitchListTile(
         contentPadding: EdgeInsets.zero,

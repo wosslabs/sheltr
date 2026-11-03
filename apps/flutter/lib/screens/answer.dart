@@ -6,7 +6,13 @@ import '../scope.dart';
 
 /// Passages that answer the question, each with its source, or Sheltr's refusal.
 class AnswerScreen extends StatefulWidget {
-  const AnswerScreen({super.key});
+  const AnswerScreen({super.key, this.query = '', this.hazard});
+
+  /// Question from search. Empty when a test opens this route directly.
+  final String query;
+
+  /// Disaster type from the hazard chip, or null.
+  final String? hazard;
 
   @override
   State<AnswerScreen> createState() => _AnswerScreenState();
@@ -36,13 +42,32 @@ class _AnswerScreenState extends State<AnswerScreen> {
     }
   }
 
+  /// A question is answered from the open store. Tests that open this route
+  /// with no question may still inject [SheltrScope.answer].
+  RetrievalResult _result(SheltrScope scope) {
+    final query = widget.query.trim();
+    if (query.isEmpty) {
+      return scope.answer ?? const RetrievalResult.refuse();
+    }
+    final store = scope.store;
+    if (store == null) {
+      return const RetrievalResult.refuse();
+    }
+    final hazard = widget.hazard;
+    return Retriever(store).retrieve(
+      RetrievalQuery(
+        text: query,
+        country: scope.settings.country,
+        activeHazards: hazard == null ? const <String>{} : {hazard},
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final scope = SheltrScope.of(context);
-    final result = scope.answer;
-    if (result == null ||
-        result.kind != 'passages' ||
-        result.passages.isEmpty) {
+    final result = _result(scope);
+    if (result.kind != 'passages' || result.passages.isEmpty) {
       return const _Refusal();
     }
     final spoken = result.passages
@@ -83,23 +108,28 @@ class _Citation extends StatelessWidget {
     final scope = SheltrScope.of(context);
     final page = passage.page;
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              scope.t('answer_source_label'),
-              style: Theme.of(context).textTheme.labelLarge,
-            ),
-            Text(passage.title),
-            Text(passage.agency),
-            Text(
-              scope.t('answer_source_published', {'p1': passage.publishedDate}),
-            ),
-            if (page != null) Text(scope.t('answer_source_page', {'p1': page})),
-            TextButton(onPressed: () {}, child: Text(passage.sourceLink)),
-          ],
+      child: SelectionArea(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                scope.t('answer_source_label'),
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              Text(passage.title),
+              Text(passage.agency),
+              Text(
+                scope.t('answer_source_published', {
+                  'p1': passage.publishedDate,
+                }),
+              ),
+              if (page != null)
+                Text(scope.t('answer_source_page', {'p1': page})),
+              Text(passage.sourceLink),
+            ],
+          ),
         ),
       ),
     );

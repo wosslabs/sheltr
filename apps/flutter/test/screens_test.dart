@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui' show CheckedState, Tristate;
 
 import 'package:flutter/material.dart';
@@ -138,6 +139,56 @@ void main() {
     }
   });
 
+  testWidgets('textFieldKeepsItsValueAndSetTextAction', (tester) async {
+    final handle = tester.ensureSemantics();
+    try {
+      await _pump(tester, route: '/search');
+      await tester.showKeyboard(find.byType(TextField));
+      await tester.enterText(find.byType(TextField), 'flood');
+      await tester.pump();
+      final fields = _semanticControls(tester)
+          .where((node) => node.flagsCollection.isTextField);
+      expect(fields, isNotEmpty);
+      final data = fields.single.getSemanticsData();
+      expect(data.value, 'flood');
+      expect(data.label.trim(), isNotEmpty);
+      expect(data.hasAction(SemanticsAction.setText), isTrue);
+    } finally {
+      handle.dispose();
+    }
+  });
+
+  testWidgets('enabledButtonOrSwitchHasATapAction', (tester) async {
+    final handle = tester.ensureSemantics();
+    try {
+      for (final route in ['/', '/search', '/answer', '/settings', '/about']) {
+        await _pump(
+          tester,
+          route: route,
+          answer: route == '/answer' ? _passages() : null,
+        );
+        for (final node in _semanticControls(tester)) {
+          final flags = node.flagsCollection;
+          final isSwitch = flags.isToggled != Tristate.none;
+          if (!flags.isButton && !isSwitch) {
+            continue;
+          }
+          if (node.label.trim().isEmpty ||
+              flags.isEnabled == Tristate.isFalse) {
+            continue;
+          }
+          expect(
+            node.getSemanticsData().hasAction(SemanticsAction.tap),
+            isTrue,
+            reason: '$route "${node.label}"',
+          );
+        }
+      }
+    } finally {
+      handle.dispose();
+    }
+  });
+
   testWidgets('answerShowsAgencyTitleDatePageAndLink', (tester) async {
     await _pump(tester, route: '/answer', answer: _passages());
 
@@ -147,6 +198,8 @@ void main() {
     expect(find.text('Page 4'), findsOneWidget);
     expect(find.text('https://example.gov/flood'), findsOneWidget);
     expect(find.text('Move to higher ground.'), findsOneWidget);
+    expect(find.byType(TextButton), findsNothing);
+    expect(find.byType(SelectionArea), findsOneWidget);
   });
 
   testWidgets('refusalShowsOwnText', (tester) async {
@@ -209,6 +262,78 @@ void main() {
       handle.dispose();
     }
   });
+
+  testWidgets('systemBackPopsTheAppNavigator', (tester) async {
+    await _pump(tester);
+    await tester.tap(find.text('Earthquake'));
+    await tester.pumpAndSettle();
+    expect(find.text('Hazard: Earthquake'), findsOneWidget);
+
+    expect(await tester.binding.handlePopRoute(), isTrue);
+    await tester.pumpAndSettle();
+    expect(find.text('Prepare for a disaster'), findsOneWidget);
+    expect(find.text('Hazard: Earthquake'), findsNothing);
+  });
+
+  testWidgets('switchTogglesOnce', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 2000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pump(tester, route: '/settings');
+    final toggle = find.byType(Switch).first;
+    expect(tester.widget<Switch>(toggle).value, isFalse);
+    await tester.tap(toggle);
+    await tester.pump();
+    expect(tester.widget<Switch>(toggle).value, isTrue);
+  });
+
+  testWidgets('searchAnswersFromTheOpenStore', (tester) async {
+    final store = await _openSampleStore();
+    await _pump(
+      tester,
+      route: '/search',
+      store: store,
+      answer: const RetrievalResult.refuse(),
+    );
+    await _search(tester, 'what should I do during an earthquake');
+
+    expect(find.text("We can't answer that yet"), findsNothing);
+    await tester.scrollUntilVisible(_textFolded('cover your head'), 400);
+    expect(_textFolded('cover your head'), findsWidgets);
+    expect(
+      find.textContaining('International Federation of Red Cross'),
+      findsWidgets,
+    );
+  });
+
+  testWidgets('emptyStoreRefuses', (tester) async {
+    final store = await _openSampleStore(install: false);
+    await _pump(tester, route: '/search', store: store, answer: _passages());
+    await _search(tester, 'what should I do during an earthquake');
+
+    expect(find.text("We can't answer that yet"), findsOneWidget);
+    expect(find.text('Move to higher ground.'), findsNothing);
+    expect(_textFolded('cover your head'), findsNothing);
+  });
+
+  testWidgets('failedRelevanceCheckRefuses', (tester) async {
+    final store = await _openSampleStore();
+    await _pump(tester, route: '/search', store: store);
+    await _search(tester, 'how do I');
+
+    expect(find.text("We can't answer that yet"), findsOneWidget);
+    expect(_textFolded('cover your head'), findsNothing);
+  });
+}
+
+Finder _textFolded(String needle) {
+  final lower = needle.toLowerCase();
+  return find.byWidgetPredicate((widget) {
+    if (widget is! Text) {
+      return false;
+    }
+    final data = widget.data ?? widget.textSpan?.toPlainText();
+    return data != null && data.toLowerCase().contains(lower);
+  });
 }
 
 Future<void> _pump(
@@ -217,15 +342,48 @@ Future<void> _pump(
   String route = '/',
   List<Locale>? locales,
   RetrievalResult? answer,
+  ContentStore? store,
 }) async {
   if (locales != null) {
     tester.platformDispatcher.localesTestValue = locales;
     addTearDown(tester.platformDispatcher.clearLocalesTestValue);
   }
   await tester.pumpWidget(
-    SheltrApp(settings: settings, initialRoute: route, answer: answer),
+    SheltrApp(
+      settings: settings,
+      initialRoute: route,
+      answer: answer,
+      store: store,
+    ),
   );
   await tester.pumpAndSettle();
+}
+
+Future<void> _search(WidgetTester tester, String text) async {
+  await tester.enterText(find.byType(TextField), text);
+  await tester.pump();
+  await tester.tap(find.widgetWithText(FilledButton, 'Search'));
+  await tester.pumpAndSettle();
+}
+
+Future<ContentStore> _openSampleStore({bool install = true}) async {
+  final temp = Directory.systemTemp.createTempSync('sheltr-app-');
+  addTearDown(() => temp.deleteSync(recursive: true));
+  final store = ContentStore.open(temp);
+  addTearDown(store.close);
+  if (!install) {
+    return store;
+  }
+  final bundleDir = Directory('../mobile/assets/sample-bundle');
+  final manifest = parseBundleManifest(
+    File('${bundleDir.path}/bundle.json').readAsStringSync(),
+  );
+  store.install(manifest, (document) {
+    return parseDocumentFileBytes(
+      File('${bundleDir.path}/documents/${document.id}.json').readAsBytesSync(),
+    );
+  });
+  return store;
 }
 
 Finder _controls() {

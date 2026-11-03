@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:sheltr_core/sheltr_core.dart';
 
 import 'l10n/strings.dart';
@@ -10,8 +11,11 @@ import 'screens/home.dart';
 import 'screens/search.dart';
 import 'screens/settings.dart';
 
-void main() {
-  runApp(const SheltrApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final directory = await getApplicationSupportDirectory();
+  final store = ContentStore.open(directory);
+  runApp(SheltrApp(store: store));
 }
 
 /// Sheltr: offline disaster guidance.
@@ -22,12 +26,14 @@ class SheltrApp extends StatefulWidget {
     this.initialRoute = '/',
     this.answer,
     this.documents = const [],
+    this.store,
   });
 
   final AppSettings settings;
   final String initialRoute;
   final RetrievalResult? answer;
   final List<StoredDocument> documents;
+  final ContentStore? store;
 
   @override
   State<SheltrApp> createState() => _SheltrAppState();
@@ -61,6 +67,7 @@ class _SheltrAppState extends State<SheltrApp> {
       WidgetsBinding.instance.platformDispatcher.locales,
     );
     return MaterialApp(
+      key: ValueKey(widget.initialRoute),
       title: _strings.t(languageCode, 'app_name'),
       locale: Locale(languageCode),
       supportedLocales: const [Locale('en'), Locale('es'), Locale('fr')],
@@ -71,35 +78,38 @@ class _SheltrAppState extends State<SheltrApp> {
       ],
       theme: sheltrTheme(_settings, Brightness.light),
       darkTheme: sheltrTheme(_settings, Brightness.dark),
+      // Above the app navigator, so Android back pops these routes.
       builder: (context, child) {
-        return MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(_settings.textScale)),
-          child: child ?? const SizedBox.shrink(),
+        return SheltrScope(
+          strings: _strings,
+          settings: _settings,
+          languageCode: languageCode,
+          answer: widget.answer,
+          documents: widget.documents,
+          store: widget.store,
+          updateSettings: _updateSettings,
+          child: MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(_settings.textScale)),
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
-      home: SheltrScope(
-        strings: _strings,
-        settings: _settings,
-        languageCode: languageCode,
-        answer: widget.answer,
-        documents: widget.documents,
-        updateSettings: _updateSettings,
-        child: Navigator(
-          key: ValueKey(widget.initialRoute),
-          initialRoute: widget.initialRoute,
-          onGenerateRoute: (settings) {
-            final name = settings.name ?? '/';
-            return MaterialPageRoute<void>(
-              settings: settings,
-              builder: (context) =>
-                  _Page(route: name, arguments: settings.arguments),
-            );
-          },
-        ),
-      ),
+      initialRoute: widget.initialRoute,
+      onGenerateRoute: _onGenerateRoute,
+      onGenerateInitialRoutes: (initialRoute) {
+        return [_onGenerateRoute(RouteSettings(name: initialRoute))];
+      },
     );
   }
+}
+
+Route<void> _onGenerateRoute(RouteSettings settings) {
+  final name = settings.name ?? '/';
+  return MaterialPageRoute<void>(
+    settings: settings,
+    builder: (context) => _Page(route: name, arguments: settings.arguments),
+  );
 }
 
 class _Page extends StatelessWidget {
@@ -155,7 +165,10 @@ class _Page extends StatelessWidget {
           initialHazard: _argument('hazard'),
         );
       case '/answer':
-        return const AnswerScreen();
+        return AnswerScreen(
+          query: _argument('text') ?? '',
+          hazard: _argument('hazard'),
+        );
       case '/settings':
         return const SettingsScreen();
       case '/about':

@@ -11,6 +11,7 @@ class SheltrScope extends InheritedWidget {
     required this.languageCode,
     required this.answer,
     required this.documents,
+    required this.store,
     required this.updateSettings,
     required super.child,
     super.key,
@@ -21,6 +22,9 @@ class SheltrScope extends InheritedWidget {
   final String languageCode;
   final RetrievalResult? answer;
   final List<StoredDocument> documents;
+
+  /// Open content database. Search reads it through [Retriever].
+  final ContentStore? store;
   final ValueChanged<AppSettings> updateSettings;
 
   String t(String key, [Map<String, Object?> values = const {}]) {
@@ -39,6 +43,7 @@ class SheltrScope extends InheritedWidget {
         oldWidget.languageCode != languageCode ||
         oldWidget.answer != answer ||
         oldWidget.documents != documents ||
+        oldWidget.store != store ||
         oldWidget.strings != strings;
   }
 }
@@ -102,7 +107,9 @@ class SheltrIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
+      enabled: true,
       label: label,
+      onTap: onPressed,
       excludeSemantics: true,
       child: IconButton(tooltip: label, onPressed: onPressed, icon: Icon(icon)),
     );
@@ -127,24 +134,18 @@ class SheltrTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      container: true,
-      textField: true,
-      label: label,
-      child: ExcludeSemantics(
-        child: TextField(
-          controller: controller,
-          onChanged: onChanged,
-          onSubmitted: onSubmitted,
-          textInputAction: TextInputAction.search,
-          decoration: InputDecoration(
-            hintText: hint ?? label,
-            border: const OutlineInputBorder(),
-            constraints: const BoxConstraints(
-              minHeight: minTouchTarget,
-              minWidth: minTouchTarget,
-            ),
-          ),
+    return TextField(
+      controller: controller,
+      onChanged: onChanged,
+      onSubmitted: onSubmitted,
+      textInputAction: TextInputAction.search,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        border: const OutlineInputBorder(),
+        constraints: const BoxConstraints(
+          minHeight: minTouchTarget,
+          minWidth: minTouchTarget,
         ),
       ),
     );
