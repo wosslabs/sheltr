@@ -223,22 +223,8 @@ void main() {
   testWidgets('homeShowsTwelveHazards', (tester) async {
     await _pump(tester);
 
-    const hazards = [
-      'Earthquake',
-      'Flood',
-      'Tropical Cyclone',
-      'Tornado',
-      'Tsunami',
-      'Wildfire',
-      'Extreme Heat',
-      'Winter Storm',
-      'Landslide',
-      'Glacial Lake Flood',
-      'Volcano',
-      'Drought',
-    ];
-    expect(hazards, hasLength(12));
-    for (final hazard in hazards) {
+    expect(_hazards, hasLength(12));
+    for (final hazard in _hazards) {
       expect(find.text(hazard), findsOneWidget);
     }
     expect(find.text('Prepare for a disaster'), findsOneWidget);
@@ -265,14 +251,15 @@ void main() {
 
   testWidgets('systemBackPopsTheAppNavigator', (tester) async {
     await _pump(tester);
-    await tester.tap(find.text('Earthquake'));
+    await tester.enterText(find.byType(TextField), 'earthquake');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
     await tester.pumpAndSettle();
-    expect(find.text('Hazard: Earthquake'), findsOneWidget);
+    expect(find.text('Search'), findsWidgets);
 
     expect(await tester.binding.handlePopRoute(), isTrue);
     await tester.pumpAndSettle();
     expect(find.text('Prepare for a disaster'), findsOneWidget);
-    expect(find.text('Hazard: Earthquake'), findsNothing);
+    expect(find.text('Search'), findsNothing);
   });
 
   testWidgets('switchTogglesOnce', (tester) async {
@@ -447,8 +434,20 @@ void main() {
   });
 
   testWidgets('cardsValidRendersTheStepAndItsSource', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final store = await _openFixture('cards-valid');
     await _pump(tester, store: store);
+
+    expect(find.text('Earthquake'), findsOneWidget);
+    expect(find.text('Flood'), findsOneWidget);
+    expect(
+      find.text('Boil water for one minute before drinking.'),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('Flood'));
+    await tester.pumpAndSettle();
 
     expect(
       find.text('Boil water for one minute before drinking.'),
@@ -460,9 +459,84 @@ void main() {
     expect(find.text('https://example.org/boil-water.html'), findsOneWidget);
     expect(find.text('Read answer aloud'), findsOneWidget);
     expect(find.textContaining('Page'), findsNothing);
-    expect(find.text('Earthquake'), findsNothing);
+    expect(find.text('Earthquake'), findsOneWidget);
+    expect(find.text(_expiredWarning), findsNothing);
+
+    await tester.tap(find.text('Earthquake'));
+    await tester.pumpAndSettle();
+    expect(find.text('Earthquake'), findsOneWidget);
+    expect(find.text('Flood'), findsOneWidget);
+    expect(
+      find.text('Boil water for one minute before drinking.'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('cardsUncitedStepShowsTheGridAndNoSteps', (tester) async {
+    final store = await _openFixture('cards-uncited-step');
+    await _pump(tester, store: store);
+
+    for (final hazard in _hazards) {
+      expect(find.text(hazard), findsOneWidget);
+    }
+    expect(
+      find.text('Boil water for one minute before drinking.'),
+      findsNothing,
+    );
+    expect(find.text('Read answer aloud'), findsNothing);
+
+    await tester.tap(find.text('Flood'));
+    await tester.pumpAndSettle();
+    expect(find.text('Prepare for a disaster'), findsOneWidget);
+    for (final hazard in _hazards) {
+      expect(find.text(hazard), findsOneWidget);
+    }
+    expect(
+      find.text('Boil water for one minute before drinking.'),
+      findsNothing,
+    );
+    expect(find.text('Read answer aloud'), findsNothing);
+  });
+
+  testWidgets('expiredCitedCardShowsTheExpiryWarningAndTheStep', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final now = DateTime.utc(2027, 11, 3);
+    final store = await _openFixture('cards-valid', syncedAt: now);
+    await _pump(tester, store: store, now: () => now);
+
+    expect(find.text('Flood'), findsOneWidget);
+    expect(find.text(_expiredWarning), findsNothing);
+
+    await tester.tap(find.text('Flood'));
+    await tester.pumpAndSettle();
+
+    expect(find.text(_expiredWarning), findsOneWidget);
+    expect(
+      find.text('Boil water for one minute before drinking.'),
+      findsOneWidget,
+    );
+    expect(find.text('Earthquake'), findsOneWidget);
+    expect(find.text('Example Agency'), findsOneWidget);
   });
 }
+
+const _hazards = [
+  'Earthquake',
+  'Flood',
+  'Tropical Cyclone',
+  'Tornado',
+  'Tsunami',
+  'Wildfire',
+  'Extreme Heat',
+  'Winter Storm',
+  'Landslide',
+  'Glacial Lake Flood',
+  'Volcano',
+  'Drought',
+];
 
 const _expiredWarning = 'This document is past its expiry date.';
 

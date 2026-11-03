@@ -4,7 +4,7 @@ import 'package:sheltr_core/sheltr_core.dart';
 
 import '../scope.dart';
 
-/// Home: cited cards for a hazard, or the twelve-hazard grid when there are none.
+/// Home: the twelve-hazard grid, and the chosen hazard's cited steps.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -16,6 +16,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _controller = TextEditingController();
   FlutterTts? _speech;
   var _speechUnavailable = false;
+  String? _hazard;
 
   @override
   void dispose() {
@@ -49,7 +50,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final scope = SheltrScope.of(context);
-    final steps = _citedSteps(scope.store);
+    final hazard = _hazard;
+    final steps = [
+      for (final step in _citedSteps(scope.store))
+        if (step.hazard == hazard) step,
+    ];
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -64,11 +69,15 @@ class _HomeScreenState extends State<HomeScreen> {
           controller: _controller,
           onSubmitted: _openSearch,
         ),
-        const SizedBox(height: 16),
-        if (steps.isEmpty)
-          _HazardGrid(scope: scope)
-        else
+        if (steps.isNotEmpty) ...[
+          const SizedBox(height: 16),
           ..._cardSections(context, scope, steps),
+        ],
+        const SizedBox(height: 16),
+        _HazardGrid(
+          scope: scope,
+          onChosen: (chosen) => setState(() => _hazard = chosen),
+        ),
       ],
     );
   }
@@ -91,10 +100,20 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
       for (final step in entry.value) {
+        final freshness = _stepFreshness(scope, step.document);
+        final warningKey = stalenessWarningKey(freshness);
         children.add(const SizedBox(height: 12));
         children.add(
           Text(step.title, style: Theme.of(context).textTheme.titleMedium),
         );
+        if (freshness.clockUnsure) {
+          children.add(const SizedBox(height: 8));
+          children.add(Text(scope.t('answer_clock_unsure')));
+        }
+        if (warningKey != null) {
+          children.add(const SizedBox(height: 8));
+          children.add(Text(scope.t(warningKey)));
+        }
         children.add(const SizedBox(height: 8));
         children.add(
           Text(step.text, style: Theme.of(context).textTheme.titleMedium),
@@ -122,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
 /// Steps whose text is a verbatim substring of the cited chunk.
 ///
 /// A card the publisher would have refused, or a chunk that is not installed,
-/// is left out. When nothing remains, the home screen keeps the hazard grid.
+/// is left out. A stale document is still listed; the screen warns beside it.
 List<_CitedStep> _citedSteps(ContentStore? store) {
   if (store == null) return const [];
   final shown = <_CitedStep>[];
@@ -156,6 +175,16 @@ List<_CitedStep> _citedSteps(ContentStore? store) {
   return shown;
 }
 
+/// The same check the answer screen uses for a cited document.
+Freshness _stepFreshness(SheltrScope scope, StoredDocument document) {
+  return assessFreshness(
+    now: scope.now(),
+    bundleVersion: scope.store?.bundleVersion(),
+    lastSyncEpochSeconds: scope.store?.lastSyncEpochSeconds(),
+    expiresOn: [document.expiresOn],
+  );
+}
+
 class _CitedStep {
   const _CitedStep({
     required this.hazard,
@@ -173,9 +202,10 @@ class _CitedStep {
 }
 
 class _HazardGrid extends StatelessWidget {
-  const _HazardGrid({required this.scope});
+  const _HazardGrid({required this.scope, required this.onChosen});
 
   final SheltrScope scope;
+  final ValueChanged<String> onChosen;
 
   @override
   Widget build(BuildContext context) {
@@ -191,10 +221,7 @@ class _HazardGrid extends StatelessWidget {
               SizedBox(
                 width: width,
                 child: FilledButton.tonal(
-                  onPressed: () {
-                    Navigator.of(context)
-                        .pushNamed('/search', arguments: {'hazard': hazard});
-                  },
+                  onPressed: () => onChosen(hazard),
                   child: Text(
                     scope.t('hazard_${hazard.toLowerCase()}'),
                     textAlign: TextAlign.center,

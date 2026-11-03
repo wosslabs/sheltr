@@ -58,6 +58,25 @@ class SheltrScope extends InheritedWidget {
   }
 }
 
+/// Copy that is true for this freshness. Null when the guidance is fresh.
+///
+/// The answer screen and a cited card step use this same mapping.
+String? stalenessWarningKey(Freshness freshness) {
+  if (freshness.staleness == Staleness.expired) {
+    return 'answer_expired_warning';
+  }
+  switch (freshness.expiringSoonReason) {
+    case ExpiringSoonReason.documentDate:
+      return 'answer_expiring_soon_warning';
+    case ExpiringSoonReason.lastSync:
+      return 'answer_sync_old_warning';
+    case ExpiringSoonReason.both:
+      return 'answer_expiring_soon_and_sync_old_warning';
+    case null:
+      return null;
+  }
+}
+
 /// Touch targets are at least 48 logical pixels on both axes.
 const minTouchTarget = 48.0;
 

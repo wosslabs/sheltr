@@ -84,7 +84,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
       return const _Refusal();
     }
     final freshness = _freshness(scope, result);
-    final warningKey = _stalenessWarningKey(freshness);
+    final warningKey = stalenessWarningKey(freshness);
     final spoken = result.passages
         .map((passage) => passage.chunk.content)
         .join('\n\n');
@@ -118,23 +118,6 @@ class _AnswerScreenState extends State<AnswerScreen> {
         ],
       ],
     );
-  }
-}
-
-/// Copy that is true for this freshness. Null when the guidance is fresh.
-String? _stalenessWarningKey(Freshness freshness) {
-  if (freshness.staleness == Staleness.expired) {
-    return 'answer_expired_warning';
-  }
-  switch (freshness.expiringSoonReason) {
-    case ExpiringSoonReason.documentDate:
-      return 'answer_expiring_soon_warning';
-    case ExpiringSoonReason.lastSync:
-      return 'answer_sync_old_warning';
-    case ExpiringSoonReason.both:
-      return 'answer_expiring_soon_and_sync_old_warning';
-    case null:
-      return null;
   }
 }
 
