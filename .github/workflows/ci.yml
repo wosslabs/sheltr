@@ -31,6 +31,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
+  # Expo oracle. Stays until docs/release-checklist.md is done.
   mobile:
     name: mobile (Expo)
     runs-on: ubuntu-latest

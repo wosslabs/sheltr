@@ -359,6 +359,9 @@ void _installFixture(ContentStore store, String name) {
 }
 
 List<String> _fixtureNames() {
+  // The loop lists every contract/fixtures directory. These are reached only
+  // that way: downgrade-older-sequence, missing-document, plain-http-url,
+  // same-sequence, valid-unchanged-doc.
   final root = fixtureDirectory('valid-signed').parent;
   final names = [
     for (final entity in root.listSync())

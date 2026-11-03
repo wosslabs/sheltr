@@ -1,6 +1,6 @@
 # Store listing drafts
 
-Drafts for the maintainer to adapt. Creating the Google Play ($25, one-time) and Apple Developer ($99/year) accounts, screenshots and the review submissions are manual steps that need the maintainer's accounts. Do not submit before a signed bundle is published and hosted (`docs/publishing.md`) and the iOS app exists.
+Drafts for the maintainer to adapt. Creating the Google Play ($25, one-time) and Apple Developer ($99/year) accounts, screenshots and the review submissions are manual steps that need the maintainer's accounts. The app to ship is the Flutter app (`apps/flutter`). Do not submit before a signed bundle is published and hosted (`docs/publishing.md`) and `docs/release-checklist.md` is done, including the store data-safety answers. `apps/mobile` remains the Expo oracle until that checklist is done.
 
 ## Name
 

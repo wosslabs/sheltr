@@ -10,7 +10,7 @@ Include what you found, how to reproduce it, and the impact you expect. You will
 
 ## In scope
 
-- Bundle signature verification bypass (`apps/mobile/src/core/signing.ts`).
+- Bundle signature verification bypass (`apps/flutter/packages/sheltr_core/lib/signing/verifier.dart`). The Expo oracle's check (`apps/mobile/src/core/signing.ts`) stays in scope while `apps/mobile` remains.
 - Anything that makes the apps accept content not signed by the publisher key.
 - Publisher issues: fetching from hosts outside the manifest, reading a signing key from inside the repository, path traversal in the output directory.
 - Downgrade or rollback of bundle content, and insecure transport in sync.

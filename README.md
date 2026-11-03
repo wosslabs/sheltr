@@ -17,26 +17,29 @@ Early development. The core is built and tested; distribution is not.
 Built:
 
 - **Publisher** (`tools/publisher`, Node and TypeScript): manifest parsing, PDF and HTML extraction, text cleaning, chunking, bundle building, Ed25519 signing, the `publish` command, and a check that refuses a signing key inside the repository.
-- **Mobile app** (`apps/mobile`, Expo / React Native / TypeScript, Android and iOS from one codebase):
-  - A pure-TypeScript core (`src/core`): bundle parsing, signature verification, SQLite store with FTS5 and atomic replace, keyword retrieval with country and hazard boosts, citation selection and refusal, sync engine with retry policy, settings.
+- **App** (`apps/flutter`, Flutter / Dart, Android and iOS from one codebase):
+  - `packages/sheltr_core` has no Flutter imports: bundle parsing, signature verification, SQLite store with FTS5 and atomic replace, keyword retrieval with country and hazard boosts, citation selection and refusal, sync engine with retry policy, settings, and the passage rewriter.
   - Home, Search, Answer, Settings and About screens (with the privacy statement and the source licences), in English, Spanish and French, with text-size and high-contrast options and read-aloud.
-  - It installs an offline sample bundle (`apps/mobile/assets/sample-bundle`) on first run.
+  - `AppSettings.modelEnabled` stays false. See `docs/model-eval.md`.
+- **Expo oracle** (`apps/mobile`): stays until `docs/release-checklist.md` is done. It installs an offline sample bundle (`apps/mobile/assets/sample-bundle`) on first run. Flutter tests read that same bundle.
 - **Corpus**: two approved entries in `corpus/manifest.yaml`.
 
 Not done:
 
 - **Bundle hosting and the first published bundle**: the guide is in `docs/publishing.md`, but nothing is hosted, and both approved corpus entries currently fail to fetch (the UK site moved, the IFRC mirror answers 403). They need a maintainer to re-approve the sources.
-- **Running on an iPhone**: the app bundles for iOS in CI, but it has only been run on an Android emulator. An iOS simulator runtime (`xcodebuild -downloadPlatform iOS`) on a Mac is needed to try it.
-- **On-device model**: not started. Search is keyword only. Only worth adding if `docs/evaluation.md`, extended with real questions, shows too many refusals.
+- **Phone runs**: search, and a forced stale bundle, on one Android phone and one iPhone. Those runs are on `docs/release-checklist.md`. They are not done. iOS background refresh is checked on the iPhone run and may be late.
+- **On-device model**: the procedure is `docs/model-eval.md`. No device run is recorded, and `AppSettings.modelEnabled` stays false. Turning the flag on is a separate commit after that file shows a pass on both phones.
 - **Corpus beyond two documents**: needs sources with a licence that allows storing and quoting them.
-- **Store listings**: drafts are in `docs/store`; accounts and screenshots are the maintainer's.
+- **Store listings**: drafts are in `docs/store`; accounts, screenshots, and the data-safety answers on `docs/release-checklist.md` are the maintainer's.
 
 Search is evaluated on the sample bundle: 0 of 20 off-topic questions answered, 29 of 31 answerable questions answered (`docs/evaluation.md`).
 
 ## Repository layout
 
-- `apps/mobile`: the Expo app (Android and iOS). `src/core` is the framework-free library, `src/app` the screens, `assets/sample-bundle` the offline sample content.
+- `apps/flutter`: the Flutter app (Android and iOS). `packages/sheltr_core` is the framework-free library, `lib` the screens.
+- `apps/mobile`: the Expo oracle. It remains until `docs/release-checklist.md` is done. `assets/sample-bundle` is the offline sample content.
 - `tools/publisher`: the command-line publisher (Node and TypeScript).
+- `contract/`: signed fixtures and `check-coverage.mjs`.
 - `corpus/manifest.yaml`: the approved corpus.
 - `docs/adr`: architecture decision records (ADR-0015 is the current design).
 - `docs/design`: design documents. `docs/architecture`: diagrams.
@@ -76,15 +79,18 @@ openssl pkey -in ~/sheltr-keys/sheltr-publisher.key.pem -pubout -out ~/sheltr-ke
 
 ## Building and testing
 
-Everything is TypeScript. You need Node 24 and npm.
+You need Node 24 and npm for the publisher and the Expo oracle, and the Flutter SDK for the app. Flutter is not assumed to be on PATH.
 
 ```bash
 cd tools/publisher && npm ci && npm run typecheck && npm test           # publisher
-cd apps/mobile && npm ci --legacy-peer-deps && npm run typecheck && npm test   # app
-cd apps/mobile && npx expo start                                          # run the app (Expo Go or an emulator)
+cd apps/flutter/packages/sheltr_core && dart test                       # core
+cd apps/flutter && flutter test                                         # app
+node contract/check-coverage.mjs                                        # every fixture name is referenced
+cd apps/mobile && npm ci --legacy-peer-deps && npm run typecheck && npm test   # Expo oracle
+cd apps/mobile && npx expo start                                          # Expo oracle (Expo Go or an emulator)
 ```
 
-CI runs both on every pull request and also bundles the app for Android and iOS. See `apps/mobile/README.md`.
+CI runs the publisher, the Flutter tests and the coverage script, and the Expo oracle (including an Android and iOS bundle export) on every pull request. See `apps/mobile/README.md`. The Expo job stays until `docs/release-checklist.md` is done.
 
 ## Contributing and security
 

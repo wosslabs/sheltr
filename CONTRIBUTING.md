@@ -10,14 +10,17 @@ Thank you for helping. Sheltr is a free, non-profit, offline-first guide to disa
 
 ## Setup
 
-Requirements: Node 24 and npm. Everything in this repository is TypeScript.
+Requirements: Node 24 and npm, and the Flutter SDK. Flutter is not assumed to be on PATH. The app is Flutter (`apps/flutter`). `apps/mobile` is the Expo oracle until `docs/release-checklist.md` is done.
 
 ```bash
 (cd tools/publisher && npm ci && npm run typecheck && npm test)                  # publisher
-(cd apps/mobile && npm ci --legacy-peer-deps && npm run typecheck && npm test)   # app
+(cd apps/flutter/packages/sheltr_core && dart test)                              # core
+(cd apps/flutter && flutter test)                                                # app
+node contract/check-coverage.mjs                                                 # fixture names
+(cd apps/mobile && npm ci --legacy-peer-deps && npm run typecheck && npm test)   # Expo oracle
 ```
 
-The iOS targets are declared but not built or tested yet.
+Phone runs are on `docs/release-checklist.md` and are not done. The Expo `android/` and `ios/` directories are generated and not committed.
 
 ## Making a change
 
