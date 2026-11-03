@@ -9,7 +9,10 @@ class AboutScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scope = SheltrScope.of(context);
-    final documents = scope.documents;
+    final fromStore = scope.store?.documents();
+    final documents = fromStore != null && fromStore.isNotEmpty
+        ? fromStore
+        : scope.documents;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -53,6 +56,8 @@ class AboutScreen extends StatelessWidget {
                 'p3': document.country ?? 'GLOBAL',
               }),
             ),
+            Text(scope.t('about_source_reviewed', {'p1': document.reviewedOn})),
+            Text(scope.t('about_source_expires', {'p1': document.expiresOn})),
             Text(scope.t('about_source_licence', {'p1': document.licence})),
             Text(scope.t('about_source_link', {'p1': document.sourceUri})),
           ],

@@ -63,6 +63,19 @@ class _AnswerScreenState extends State<AnswerScreen> {
     );
   }
 
+  /// Expiry uses the injected clock and the cited documents. It does not
+  /// change what [Retriever.retrieve] returns.
+  Freshness _freshness(SheltrScope scope, RetrievalResult result) {
+    return assessFreshness(
+      now: scope.now(),
+      bundleVersion: scope.store?.bundleVersion(),
+      lastSyncEpochSeconds: scope.store?.lastSyncEpochSeconds(),
+      expiresOn: [
+        for (final passage in result.passages) passage.document.expiresOn,
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final scope = SheltrScope.of(context);
@@ -70,12 +83,21 @@ class _AnswerScreenState extends State<AnswerScreen> {
     if (result.kind != 'passages' || result.passages.isEmpty) {
       return const _Refusal();
     }
+    final freshness = _freshness(scope, result);
     final spoken = result.passages
         .map((passage) => passage.chunk.content)
         .join('\n\n');
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (freshness.clockUnsure) ...[
+          Text(scope.t('answer_clock_unsure')),
+          const SizedBox(height: 12),
+        ],
+        if (freshness.staleness != Staleness.fresh) ...[
+          Text(scope.t('answer_stale_warning')),
+          const SizedBox(height: 12),
+        ],
         FilledButton(
           onPressed: () => _readAloud(spoken),
           child: Text(scope.t('answer_read_aloud_description')),

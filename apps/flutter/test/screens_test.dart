@@ -323,7 +323,79 @@ void main() {
     expect(find.text("We can't answer that yet"), findsOneWidget);
     expect(_textFolded('cover your head'), findsNothing);
   });
+
+  testWidgets('answerShowsExpiredBanner', (tester) async {
+    final now = DateTime.utc(2026, 11, 4);
+    final store = await _openFixture('expired-document', syncedAt: now);
+    await _pump(
+      tester,
+      route: '/answer',
+      store: store,
+      now: () => now,
+      answer: _fixturePassage(store, 'boil water'),
+    );
+
+    expect(find.text(_staleWarning), findsOneWidget);
+    expect(find.text(_clockWarning), findsNothing);
+  });
+
+  testWidgets('answerShowsPassagesWhenExpired', (tester) async {
+    final now = DateTime.utc(2026, 11, 4);
+    final store = await _openFixture('expired-document', syncedAt: now);
+    await _pump(
+      tester,
+      route: '/answer',
+      store: store,
+      now: () => now,
+      answer: _fixturePassage(store, 'boil water'),
+    );
+
+    expect(find.text("We can't answer that yet"), findsNothing);
+    expect(
+      find.text('Boil water for one minute before drinking.'),
+      findsOneWidget,
+    );
+    expect(find.text('Example Agency'), findsOneWidget);
+  });
+
+  testWidgets('aboutListsReviewDateAndExpiry', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final store = await _openFixture('expired-document');
+    await _pump(tester, route: '/about', store: store);
+
+    expect(find.text('Boil water'), findsOneWidget);
+    expect(find.text('Evacuate'), findsOneWidget);
+    expect(find.text('Reviewed 2026-10-05'), findsNWidgets(2));
+    expect(find.text('Expires 2020-01-01'), findsNWidgets(2));
+  });
+
+  testWidgets('deviceDateBeforePublishShowsClockWarning', (tester) async {
+    // One second before expired-document's bundleVersion, 2026-11-03T02:30:35Z.
+    final now = DateTime.utc(2026, 11, 3, 2, 30, 34);
+    final store = await _openFixture('expired-document', syncedAt: now);
+    await _pump(
+      tester,
+      route: '/answer',
+      store: store,
+      now: () => now,
+      answer: _fixturePassage(store, 'boil water'),
+    );
+
+    expect(find.text(_clockWarning), findsOneWidget);
+    expect(find.text(_staleWarning), findsNothing);
+    expect(
+      find.text('Boil water for one minute before drinking.'),
+      findsOneWidget,
+    );
+  });
 }
+
+const _staleWarning =
+    'This document is past its review date, or the last sync is old.';
+
+const _clockWarning =
+    'The device date is earlier than when this content was published.';
 
 Finder _textFolded(String needle) {
   final lower = needle.toLowerCase();
@@ -343,6 +415,7 @@ Future<void> _pump(
   List<Locale>? locales,
   RetrievalResult? answer,
   ContentStore? store,
+  DateTime Function()? now,
 }) async {
   if (locales != null) {
     tester.platformDispatcher.localesTestValue = locales;
@@ -354,6 +427,7 @@ Future<void> _pump(
       initialRoute: route,
       answer: answer,
       store: store,
+      now: now ?? DateTime.now,
     ),
   );
   await tester.pumpAndSettle();
@@ -364,6 +438,58 @@ Future<void> _search(WidgetTester tester, String text) async {
   await tester.pump();
   await tester.tap(find.widgetWithText(FilledButton, 'Search'));
   await tester.pumpAndSettle();
+}
+
+RetrievalResult _fixturePassage(ContentStore store, String needle) {
+  final lower = needle.toLowerCase();
+  for (final document in store.documents()) {
+    for (final chunk in store.chunks(document.id)) {
+      if (!chunk.content.toLowerCase().contains(lower)) {
+        continue;
+      }
+      return RetrievalResult.passages([
+        Passage(chunk: chunk, document: document, score: 2, rankScore: 2),
+      ]);
+    }
+  }
+  throw StateError('no chunk contains $needle');
+}
+
+Future<ContentStore> _openFixture(String name, {DateTime? syncedAt}) async {
+  final temp = Directory.systemTemp.createTempSync('sheltr-app-');
+  addTearDown(() => temp.deleteSync(recursive: true));
+  final store = ContentStore.open(temp);
+  addTearDown(store.close);
+  final bundleDir = _fixtureDirectory(name);
+  final manifest = parseBundleManifest(
+    File('${bundleDir.path}/bundle.json').readAsStringSync(),
+  );
+  store.install(manifest, (document) {
+    return parseDocumentFileBytes(
+      File('${bundleDir.path}/documents/${document.id}.json').readAsBytesSync(),
+    );
+  });
+  if (syncedAt != null) {
+    store.recordSync(syncedAt.toUtc().millisecondsSinceEpoch ~/ 1000);
+  }
+  return store;
+}
+
+Directory _fixtureDirectory(String name) {
+  var dir = Directory.current;
+  while (true) {
+    final candidate = Directory('${dir.path}/contract/fixtures/$name');
+    if (candidate.existsSync()) {
+      return candidate;
+    }
+    final parent = dir.parent;
+    if (parent.path == dir.path) {
+      throw StateError(
+        'contract/fixtures/$name not found from ${Directory.current.path}',
+      );
+    }
+    dir = parent;
+  }
 }
 
 Future<ContentStore> _openSampleStore({bool install = true}) async {
@@ -434,6 +560,8 @@ RetrievalResult _passages() {
     title: 'Flood Guide',
     agency: 'FEMA',
     publishedDate: '2024-01-15',
+    reviewedOn: '2026-10-05',
+    expiresOn: '2099-01-01',
     licence: 'public-domain',
     country: 'US',
     hazards: ['FLOOD'],

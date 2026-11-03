@@ -6,12 +6,15 @@ about_disclaimer_title
 about_privacy	
 about_privacy_title	
 about_source_details	%{p1} %{p2} %{p3}
+about_source_expires	%{p1}
 about_source_licence	%{p1}
 about_source_link	%{p1}
+about_source_reviewed	%{p1}
 about_sources_empty	
 about_sources_intro	
 about_sources_title	
 about_title	
+answer_clock_unsure	
 answer_loading	
 answer_read_aloud_description	
 answer_read_aloud_unavailable	
@@ -20,6 +23,7 @@ answer_refusal_title
 answer_source_label	
 answer_source_page	%{p1}
 answer_source_published	%{p1}
+answer_stale_warning	
 app_name	
 back	
 error_start_body	

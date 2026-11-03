@@ -30,6 +30,7 @@ class SheltrApp extends StatefulWidget {
     this.answer,
     this.documents = const [],
     this.store,
+    this.now = _deviceNow,
   });
 
   final AppSettings settings;
@@ -37,6 +38,9 @@ class SheltrApp extends StatefulWidget {
   final RetrievalResult? answer;
   final List<StoredDocument> documents;
   final ContentStore? store;
+
+  /// Clock for review dates. Tests pass a fixed instant.
+  final DateTime Function() now;
 
   @override
   State<SheltrApp> createState() => _SheltrAppState();
@@ -102,6 +106,7 @@ class _SheltrAppState extends State<SheltrApp> {
           answer: widget.answer,
           documents: widget.documents,
           store: widget.store,
+          now: widget.now,
           updateSettings: _updateSettings,
           child: MediaQuery(
             data: MediaQuery.of(context)
@@ -118,6 +123,8 @@ class _SheltrAppState extends State<SheltrApp> {
     );
   }
 }
+
+DateTime _deviceNow() => DateTime.now();
 
 Route<void> _onGenerateRoute(RouteSettings settings) {
   final name = settings.name ?? '/';

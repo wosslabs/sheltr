@@ -20,6 +20,8 @@ class StoredDocument {
     required this.title,
     required this.agency,
     required this.publishedDate,
+    required this.reviewedOn,
+    required this.expiresOn,
     required this.licence,
     required this.country,
     required this.hazards,
@@ -33,6 +35,12 @@ class StoredDocument {
   final String title;
   final String agency;
   final String publishedDate;
+
+  /// ISO date, YYYY-MM-DD.
+  final String reviewedOn;
+
+  /// ISO date, YYYY-MM-DD. Past this date the document is stale.
+  final String expiresOn;
   final String licence;
   final String? country;
   final List<String> hazards;
@@ -117,6 +125,7 @@ class ContentStore {
     final db = resolved.open(_path(directory, _contentFile));
     try {
       db.exec(_schemaSql);
+      _ensureReviewColumns(db);
     } catch (error) {
       db.close();
       rethrow;
@@ -331,6 +340,7 @@ class ContentStore {
   SqlDatabase _openContent() {
     final db = _driver.open(_contentPath);
     db.exec(_schemaSql);
+    _ensureReviewColumns(db);
     return db;
   }
 }
@@ -391,6 +401,25 @@ void _deleteStaging(Directory directory) {
   }
 }
 
+/// Databases created before review dates existed gain the columns in place.
+/// New databases already have them from [_schemaSql].
+void _ensureReviewColumns(SqlDatabase database) {
+  final names = {
+    for (final row in database.all('PRAGMA table_info(documents)'))
+      row['name'] as String,
+  };
+  if (!names.contains('reviewed_on')) {
+    database.exec(
+      "ALTER TABLE documents ADD COLUMN reviewed_on TEXT NOT NULL DEFAULT ''",
+    );
+  }
+  if (!names.contains('expires_on')) {
+    database.exec(
+      "ALTER TABLE documents ADD COLUMN expires_on TEXT NOT NULL DEFAULT ''",
+    );
+  }
+}
+
 void _closeQuietly(SqlDatabase? database) {
   if (database == null) {
     return;
@@ -410,6 +439,8 @@ CREATE TABLE IF NOT EXISTS documents (
   title TEXT NOT NULL,
   agency TEXT NOT NULL,
   published_date TEXT NOT NULL,
+  reviewed_on TEXT NOT NULL,
+  expires_on TEXT NOT NULL,
   licence TEXT NOT NULL,
   country TEXT,
   source_uri TEXT NOT NULL,
@@ -478,14 +509,16 @@ void _insertContent(
   for (final document in manifest.documents) {
     database.run(
       'INSERT INTO documents('
-      'id, title, agency, published_date, licence, country, source_uri, '
-      'source_type, checksum, file_checksum'
-      ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'id, title, agency, published_date, reviewed_on, expires_on, licence, '
+      'country, source_uri, source_type, checksum, file_checksum'
+      ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         document.id,
         document.title,
         document.agency,
         document.publishedDate,
+        document.reviewedOn,
+        document.expiresOn,
         document.licence,
         document.country,
         document.sourceUri,
@@ -573,6 +606,8 @@ StoredDocument _document(Map<String, Object?> row, List<String> hazards) {
     title: row['title'] as String,
     agency: row['agency'] as String,
     publishedDate: row['published_date'] as String,
+    reviewedOn: row['reviewed_on'] as String,
+    expiresOn: row['expires_on'] as String,
     licence: row['licence'] as String,
     country: row['country'] as String?,
     hazards: hazards,

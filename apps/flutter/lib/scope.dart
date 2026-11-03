@@ -12,6 +12,7 @@ class SheltrScope extends InheritedWidget {
     required this.answer,
     required this.documents,
     required this.store,
+    required this.now,
     required this.updateSettings,
     required super.child,
     super.key,
@@ -25,6 +26,9 @@ class SheltrScope extends InheritedWidget {
 
   /// Open content database. Search reads it through [Retriever].
   final ContentStore? store;
+
+  /// Instant used for review dates and the published-bundle clock check.
+  final DateTime Function() now;
   final ValueChanged<AppSettings> updateSettings;
 
   String t(String key, [Map<String, Object?> values = const {}]) {
@@ -44,6 +48,7 @@ class SheltrScope extends InheritedWidget {
         oldWidget.answer != answer ||
         oldWidget.documents != documents ||
         oldWidget.store != store ||
+        oldWidget.now != now ||
         oldWidget.strings != strings;
   }
 }

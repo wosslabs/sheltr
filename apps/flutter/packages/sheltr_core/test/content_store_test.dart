@@ -313,6 +313,56 @@ void main() {
       }
     });
   });
+
+  test('opening a database from before review dates adds the columns', () {
+    withDirectory((dir) {
+      final db = sqlite3.open('${dir.path}/content.db');
+      db.execute('''
+        CREATE TABLE documents (
+          id TEXT NOT NULL PRIMARY KEY,
+          title TEXT NOT NULL,
+          agency TEXT NOT NULL,
+          published_date TEXT NOT NULL,
+          licence TEXT NOT NULL,
+          country TEXT,
+          source_uri TEXT NOT NULL,
+          source_type TEXT NOT NULL,
+          checksum TEXT NOT NULL,
+          file_checksum TEXT NOT NULL
+        );
+      ''');
+      db.execute(
+        'INSERT INTO documents('
+        'id, title, agency, published_date, licence, country, source_uri, '
+        'source_type, checksum, file_checksum'
+        ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          'doc-a',
+          'Flood guide',
+          'Example Agency',
+          '2024-03-15',
+          'CC-BY-4.0',
+          'NO',
+          'https://example.org/doc-a',
+          'html',
+          'abc',
+          'def',
+        ],
+      );
+      db.close();
+
+      final store = ContentStore.open(dir);
+      try {
+        final document = store.document('doc-a');
+        expect(document?.title, 'Flood guide');
+        expect(document?.reviewedOn, '');
+        expect(document?.expiresOn, '');
+        expect(store.search('flood'), isEmpty);
+      } finally {
+        store.close();
+      }
+    });
+  });
 }
 
 void withDirectory(void Function(Directory directory) body) {

@@ -464,6 +464,8 @@ Passage passage(String id, String title, {int? page}) {
       title: title,
       agency: 'Agency $id',
       publishedDate: '2024-01-01',
+      reviewedOn: '2026-10-05',
+      expiresOn: '2099-01-01',
       licence: 'CC-BY-4.0',
       country: null,
       hazards: const [],
