@@ -68,12 +68,15 @@ class RetrievalResult {
   final List<Passage> passages;
 }
 
-/// Keyword retrieval. Country and hazard boosts only reorder.
+/// Keyword retrieval with country scoping (ADR-0018).
 ///
 /// The store tokenises [RetrievalQuery.text] before it reaches SQLite. A
 /// passage answers when its unboosted score reaches [Rules.relevanceThreshold]
 /// and it contains at least [Rules.minTermCoverage] of the question's topical
-/// words. A boost cannot turn a refusal into an answer.
+/// words. Only those passages are returned, ordered by coverage then score.
+/// Country and hazard boosts only reorder; a boost cannot turn a refusal into
+/// an answer. A selected country keeps that country's passages, or global
+/// guidance when none of those pass; other countries are left out.
 class Retriever {
   Retriever(ContentStore store, {Rules? rules, double? threshold})
     : this._(store, rules ?? Rules.packaged(), threshold);
@@ -120,32 +123,73 @@ class Retriever {
   /// Passages for [query.country], or global guidance when that country has none.
   ///
   /// A document from a different country is left out. A null country keeps the
-  /// ranked list, which is how the tests search the whole sample.
+  /// whole sample. Only passages that clear the score and coverage gate are
+  /// returned, so a weak incidental hit cannot outrank a better match.
   List<Passage>? _forCountry(List<Passage> passages, RetrievalQuery query) {
     final country = query.country;
     final question = query.text;
-    if (country == null) {
-      if (!_isAnswerable(passages, question)) {
-        return null;
-      }
-      return passages;
-    }
     final limit = query.limit ?? 5;
-    final local = [
-      for (final passage in passages)
-        if (passage.document.country == country) passage,
-    ];
-    if (local.isNotEmpty && _isAnswerable(local, question)) {
-      return _cap(local, limit);
+    final List<Passage> scoped;
+    if (country == null) {
+      scoped = passages;
+    } else {
+      final local = [
+        for (final passage in passages)
+          if (passage.document.country == country) passage,
+      ];
+      if (local.isNotEmpty && _isAnswerable(local, question)) {
+        scoped = local;
+      } else {
+        scoped = [
+          for (final passage in passages)
+            if (passage.document.country == null) passage,
+        ];
+      }
     }
-    final global = [
-      for (final passage in passages)
-        if (passage.document.country == null) passage,
-    ];
-    if (_isAnswerable(global, question)) {
-      return _cap(global, limit);
+    final passing = _passing(scoped, question);
+    if (passing.isEmpty) {
+      return null;
     }
-    return null;
+    return _cap(_byCoverage(passing, question), limit);
+  }
+
+  /// Passages that clear the unboosted score and term-coverage gate.
+  List<Passage> _passing(List<Passage> passages, String questionText) {
+    final terms = contentTerms(questionText, _rules);
+    if (terms.isEmpty) {
+      return const <Passage>[];
+    }
+    return [
+      for (final passage in passages)
+        if (passage.score >= _threshold &&
+            _coverage(terms, passage.chunk.content) >= _rules.minTermCoverage)
+          passage,
+    ];
+  }
+
+  /// Higher term coverage first, then boost rank, then score; ties stay stable.
+  List<Passage> _byCoverage(List<Passage> passages, String questionText) {
+    final terms = contentTerms(questionText, _rules);
+    final indexed = <(Passage, int, double)>[
+      for (var i = 0; i < passages.length; i++)
+        (passages[i], i, _coverage(terms, passages[i].chunk.content)),
+    ];
+    indexed.sort((a, b) {
+      final byCoverage = b.$3.compareTo(a.$3);
+      if (byCoverage != 0) {
+        return byCoverage;
+      }
+      final byRank = b.$1.rankScore.compareTo(a.$1.rankScore);
+      if (byRank != 0) {
+        return byRank;
+      }
+      final byScore = b.$1.score.compareTo(a.$1.score);
+      if (byScore != 0) {
+        return byScore;
+      }
+      return a.$2.compareTo(b.$2);
+    });
+    return [for (final entry in indexed) entry.$1];
   }
 
   List<Passage> _cap(List<Passage> passages, int limit) {
@@ -257,12 +301,13 @@ class Retriever {
     final country = query.country;
     final activeHazards = query.activeHazards;
     final boosting = country != null || activeHazards.isNotEmpty;
-    // A larger pool lets a boosted passage that sits just below the cut move up.
-    // A selected country needs the wider pool so its own documents are not
-    // pushed out by another country's higher keyword score.
-    final pool = country != null
-        ? 40
-        : (boosting ? (limit * _rules.poolMultiplier).round() : limit);
+    // A larger pool lets a better-covering passage that sits below the cut move
+    // up after the coverage filter. A selected country needs at least 40 so its
+    // own documents are not pushed out by another country's higher keyword score.
+    var pool = (limit * _rules.poolMultiplier).round();
+    if (country != null && pool < 40) {
+      pool = 40;
+    }
     final hits = _store.search(
       removeStopwords(expandWithSynonyms(query.text, _rules), _rules),
       pool,

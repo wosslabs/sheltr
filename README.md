@@ -74,7 +74,7 @@ Not done:
 - **Corpus beyond the manifest**: New Zealand Get Ready, the Queensland severe-weather guide, Ready.gov, and the Canadian preparedness guide are cleared in `THIRD_PARTY_CONTENT.md` and are not in the manifest. Ready.gov and Canada.ca are quote-only.
 - **Store listings**: drafts are in `docs/store`; accounts, screenshots, and the data-safety answers on `docs/release-checklist.md` are the maintainer's.
 
-Search is evaluated on the sample bundle: 0 of 20 off-topic questions answered, 29 of 31 answerable questions answered (`docs/evaluation.md`).
+Search is evaluated on the sample bundle: 0 of 20 off-topic questions answered, 31 of 31 answerable questions answered (`docs/evaluation.md`).
 
 ## Repository layout
 

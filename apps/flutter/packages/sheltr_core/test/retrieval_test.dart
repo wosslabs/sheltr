@@ -244,10 +244,11 @@ void main() {
         RetrievalQuery(text: 'boil water', country: 'NO', limit: 3),
       );
       expect(byCountry.kind, 'passages');
-      expect(byCountry.passages.first.document.id, 'norway');
+      // ADR-0018: a selected country keeps only that country's passages when
+      // they clear the gate — not a boosted mix of every country.
       expect(
-        byCountry.passages.map((item) => item.document.id),
-        containsAll(['global', 'norway', 'sweden']),
+        byCountry.passages.map((item) => item.document.id).toSet(),
+        {'norway'},
       );
 
       final byHazard = retriever.retrieve(
@@ -263,11 +264,7 @@ void main() {
           limit: 3,
         ),
       );
-      expect(both.passages.first.document.id, 'norway');
-      expect(
-        both.passages.map((item) => item.document.id),
-        containsAll(['global', 'norway', 'sweden']),
-      );
+      expect(both.passages.map((item) => item.document.id).toSet(), {'norway'});
 
       final probe = Retriever(store, rules: rules, threshold: 0);
       final ranked = probe.retrieve(
