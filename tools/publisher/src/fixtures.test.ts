@@ -57,44 +57,10 @@ const WORD_ROWS = [
   'heat\theal\tfalse',
 ];
 
-/** The retrieval constants in sheltr_core and the hazard order in the Flutter home screen. */
-const RETRIEVAL_RULES = {
-  relevanceThreshold: 1,
-  minTermCoverage: 0.6,
-  countryBoost: 0.15,
-  hazardBoost: 0.15,
-  poolMultiplier: 5,
-  stopwords: [
-    'a', 'about', 'after', 'again', 'all', 'am', 'an', 'and', 'any', 'are', 'as', 'at', 'be', 'because', 'been',
-    'before', 'being', 'but', 'by', 'can', 'could', 'did', 'do', 'does', 'doing', 'done', 'during', 'for', 'from',
-    'get', 'got', 'had', 'has', 'have', 'having', 'he', 'her', 'here', 'him', 'his', 'how', 'i', 'if', 'in', 'into',
-    'is', 'it', 'its', 'just', 'keep', 'know', 'let', 'make', 'me', 'more', 'most', 'my', 'need', 'no', 'nor', 'not',
-    'now', 'of', 'off', 'on', 'once', 'only', 'or', 'other', 'our', 'out', 'over', 'own', 'same', 'she', 'should',
-    'so', 'some', 'such', 'take', 'than', 'that', 'the', 'their', 'them', 'then', 'there', 'these', 'they', 'this',
-    'those', 'through', 'to', 'too', 'under', 'until', 'up', 'use', 'very', 'was', 'we', 'were', 'what', 'when',
-    'where', 'which', 'while', 'who', 'want', 'whom', 'why', 'will', 'with', 'would', 'you', 'your',
-  ],
-  synonyms: {
-    quake: 'earthquake',
-    twister: 'tornado',
-    hurricane: 'cyclone',
-    typhoon: 'cyclone',
-    bushfire: 'wildfire',
-    forestfire: 'wildfire',
-    firestorm: 'wildfire',
-    blizzard: 'storm',
-    mudslide: 'landslide',
-    dryspell: 'drought',
-  },
-  hazardTerms: [
-    'earthquake', 'flood', 'tropical', 'cyclone', 'tornado', 'tsunami', 'wildfire', 'extreme', 'heat', 'winter',
-    'storm', 'landslide', 'glacial', 'lake', 'volcano', 'drought',
-  ],
-  disasterTypes: [
-    'EARTHQUAKE', 'FLOOD', 'TROPICAL_CYCLONE', 'TORNADO', 'TSUNAMI', 'WILDFIRE',
-    'EXTREME_HEAT', 'WINTER_STORM', 'LANDSLIDE', 'GLACIAL_LAKE_FLOOD', 'VOLCANO', 'DROUGHT',
-  ],
-};
+/** Same source as sheltr_core / fixtures.ts — keep one copy in contract/. */
+const RETRIEVAL_RULES = JSON.parse(
+  readFileSync(new URL('../../../contract/retrieval-rules.json', import.meta.url), 'utf8'),
+) as Record<string, unknown>;
 
 const ENGLISH_LOCALE = fileURLToPath(new URL('../../../apps/flutter/lib/l10n/app_en.arb', import.meta.url));
 const COMMITTED_FIXTURES = fileURLToPath(new URL('../../../contract/fixtures', import.meta.url));
