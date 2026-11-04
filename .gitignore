@@ -3,6 +3,9 @@ node_modules/
 build/
 dist/
 
+# Local publisher output under tools/publisher (canonical sample is corpus/sample-bundle/)
+tools/publisher/corpus/
+
 # On-device model weights
 *.litertlm
 

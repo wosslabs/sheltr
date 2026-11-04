@@ -8,3 +8,11 @@ updates:
     directory: /tools/publisher
     schedule:
       interval: weekly
+  - package-ecosystem: pub
+    directory: /apps/flutter
+    schedule:
+      interval: weekly
+  - package-ecosystem: pub
+    directory: /apps/flutter/packages/sheltr_core
+    schedule:
+      interval: weekly

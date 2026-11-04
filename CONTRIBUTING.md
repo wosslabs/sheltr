@@ -2,6 +2,8 @@
 
 Thank you for helping. Sheltr is a free, non-profit, offline-first guide to disaster preparedness. Because people may rely on it in an emergency, correctness and source fidelity matter more than speed.
 
+Please follow the [Code of Conduct](CODE_OF_CONDUCT.md). For bugs and questions see [SUPPORT.md](SUPPORT.md). Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+
 ## Ground rules
 
 - Answers come only from approved official documents, and every answer shows its source. Do not add content that is not in the approved corpus.

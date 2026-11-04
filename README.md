@@ -12,6 +12,46 @@ The approved corpus covers earthquake, flood, tropical cyclone, tornado, tsunami
 
 There is no account, no analytics and no server in production. Location, if used, stays on the device and is used only to choose a country.
 
+## How it works
+
+There is **no production server**. A maintainer builds an Ed25519-signed content
+bundle from approved official documents. Phones verify the signature, store
+chunks in SQLite FTS5, and answer offline with citations — or refuse when
+nothing in the corpus is relevant.
+
+```mermaid
+flowchart LR
+  subgraph Publish["Maintainer machine"]
+    M["Approved manifest"]
+    P["Publisher CLI<br/>fetch · checksum · chunk · sign"]
+    K["Ed25519 key<br/>outside the repo"]
+    M --> P
+    K --> P
+  end
+
+  SRC["Official sources<br/>allowlisted HTTPS"]
+  HOST["Static hosting<br/>bundle + signature"]
+
+  P -->|"fetch + verify"| SRC
+  P -->|"signed bundle"| HOST
+
+  subgraph Phone["Phone — works offline"]
+    V["Verify signature"]
+    DB["SQLite FTS5"]
+    R["Keyword retrieval<br/>+ citations / refuse"]
+    UI["Flutter UI<br/>Android · iOS"]
+    V --> DB --> R --> UI
+  end
+
+  HOST -->|"HTTPS sync only"| V
+```
+
+| Trust rule | What that means |
+|------------|-----------------|
+| Signed bundle only | Unsigned or bad-signature content is rejected; last good content stays |
+| Citations required | Answers name the agency, document, date, and link |
+| Refuse over invent | Off-topic or weak matches get no guidance |
+
 ## Status
 
 Early development. The core is built and tested; distribution is not.
@@ -93,7 +133,11 @@ CI runs the publisher, the Flutter tests and the coverage script on every pull r
 
 ## Contributing and security
 
-See `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md`. Report vulnerabilities privately as described in `SECURITY.md`.
+See `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and `SUPPORT.md`. Report vulnerabilities privately as described in `SECURITY.md`. Notable changes: `CHANGELOG.md`.
+
+## Author
+
+Built and maintained by [Tenzing Wangdi](https://www.linkedin.com/in/tenzing/) ([`wosslabs`](https://github.com/wosslabs)).
 
 ## Licence and attribution
 
@@ -108,3 +152,5 @@ See `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md`. Report vulnerabilities privately
 - Design: `docs/design/offline-mobile-app.md`
 - Decision: `docs/adr/0015-offline-mobile-publisher-no-server.md`
 - Diagram: `docs/architecture/mobile-design.md`
+- Publishing: `docs/publishing.md`
+- Support: `SUPPORT.md`
